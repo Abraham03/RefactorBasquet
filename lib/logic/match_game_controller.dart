@@ -1,0 +1,1693 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:drift/drift.dart' as drift;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/database/app_database.dart';
+import '../core/database/daos/matches_dao.dart';
+import '../core/di/dependency_injection.dart';
+import '../core/models/catalog_models.dart' as models;
+import '../core/service/api_service.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../core/constants/match_constants.dart';
+
+class ScoreEvent {
+  final int period;
+  final String teamId;
+  final String playerId;
+  final int dbPlayerId;
+  final String playerNumber;
+  final int points;
+  final int scoreAfter;
+  final String type;
+
+  const ScoreEvent({
+    required this.period,
+    required this.teamId,
+    required this.playerId,
+    this.dbPlayerId = 0,
+    required this.playerNumber,
+    required this.points,
+    required this.scoreAfter,
+    this.type = "POINT",
+  });
+}
+
+class PlayerStats {
+  final int dbId;
+  final String playerName;
+  final int points;
+  final int fouls;
+  final bool isOnCourt;
+  final bool isStarter;
+  final bool hasPlayed;
+  final String playerNumber;
+  final List<String> foulDetails;
+
+  const PlayerStats({
+    this.dbId = 0,
+    this.playerName = "",
+    this.points = 0,
+    this.fouls = 0,
+    this.isOnCourt = false,
+    this.isStarter = false,
+    this.hasPlayed = false,
+    this.playerNumber = "00",
+    this.foulDetails = const [],
+  });
+
+  PlayerStats copyWith({
+    int? dbId,
+    String? playerName,
+    int? points,
+    int? fouls,
+    bool? isOnCourt,
+    bool? isStarter,
+    bool? hasPlayed,
+    String? playerNumber,
+    List<String>? foulDetails,
+  }) {
+    return PlayerStats(
+      dbId: dbId ?? this.dbId,
+      playerName: playerName ?? this.playerName,
+      points: points ?? this.points,
+      fouls: fouls ?? this.fouls,
+      isOnCourt: isOnCourt ?? this.isOnCourt,
+      isStarter: isStarter ?? this.isStarter,
+      hasPlayed: hasPlayed ?? this.hasPlayed,
+      playerNumber: playerNumber ?? this.playerNumber,
+      foulDetails: foulDetails ?? this.foulDetails,
+    );
+  }
+}
+
+class MatchState {
+  final String matchId;
+  final String? fixtureId;
+  final int scoreA;
+  final int scoreB;
+  final Duration timeLeft;
+  final bool isRunning;
+  final int currentPeriod;
+  final String possession;
+  final Map<int, List<int>> periodScores;
+  final List<ScoreEvent> scoreLog;
+  final int? tournamentId;
+  final int? venueId;
+  final int? teamAId;
+  final int? teamBId;
+  final String mainReferee;
+  final String auxReferee;
+  final String scorekeeper;
+  final String forfeitStatus;
+  final String observaciones;
+
+  final List<String> teamAOnCourt;
+  final List<String> teamABench;
+  final List<String> teamBOnCourt;
+  final List<String> teamBBench;
+
+  final List<String> teamATimeouts1;
+  final List<String> teamATimeouts2;
+  final List<String> teamAOTTimeouts;
+
+  final List<String> teamBTimeouts1;
+  final List<String> teamBTimeouts2;
+  final List<String> teamBOTTimeouts;
+
+  final Map<String, PlayerStats> playerStats;
+
+  const MatchState({
+    this.matchId = '',
+    this.fixtureId,
+    this.scoreA = 0,
+    this.scoreB = 0,
+    this.timeLeft = const Duration(minutes: 10),
+    this.isRunning = false,
+    this.currentPeriod = 1,
+    this.possession = '',
+    this.periodScores = const {
+      1: [0, 0],
+    },
+    this.scoreLog = const [],
+    this.teamAOnCourt = const [],
+    this.teamABench = const [],
+    this.teamBOnCourt = const [],
+    this.teamBBench = const [],
+    this.playerStats = const {},
+    this.tournamentId,
+    this.venueId,
+    this.teamAId,
+    this.teamBId,
+    this.mainReferee = '',
+    this.auxReferee = '',
+    this.scorekeeper = '',
+    this.forfeitStatus = 'NONE',
+    this.observaciones = '',
+    this.teamATimeouts1 = const [],
+    this.teamATimeouts2 = const [],
+    this.teamAOTTimeouts = const [],
+    this.teamBTimeouts1 = const [],
+    this.teamBTimeouts2 = const [],
+    this.teamBOTTimeouts = const [],
+  });
+
+  MatchState copyWith({
+    String? matchId,
+    String? fixtureId,
+    int? scoreA,
+    int? scoreB,
+    Duration? timeLeft,
+    bool? isRunning,
+    int? currentPeriod,
+    String? possession,
+    Map<int, List<int>>? periodScores,
+    List<ScoreEvent>? scoreLog,
+    List<String>? teamAOnCourt,
+    List<String>? teamABench,
+    List<String>? teamBOnCourt,
+    List<String>? teamBBench,
+    Map<String, PlayerStats>? playerStats,
+    int? tournamentId,
+    int? venueId,
+    int? teamAId,
+    int? teamBId,
+    String? mainReferee,
+    String? auxReferee,
+    String? scorekeeper,
+    String? forfeitStatus,
+    String? observaciones,
+    List<String>? teamATimeouts1,
+    List<String>? teamATimeouts2,
+    List<String>? teamAOTTimeouts,
+    List<String>? teamBTimeouts1,
+    List<String>? teamBTimeouts2,
+    List<String>? teamBOTTimeouts,
+  }) {
+    return MatchState(
+      matchId: matchId ?? this.matchId,
+      fixtureId: fixtureId ?? this.fixtureId,
+      scoreA: scoreA ?? this.scoreA,
+      scoreB: scoreB ?? this.scoreB,
+      timeLeft: timeLeft ?? this.timeLeft,
+      isRunning: isRunning ?? this.isRunning,
+      currentPeriod: currentPeriod ?? this.currentPeriod,
+      possession: possession ?? this.possession,
+      periodScores: periodScores ?? this.periodScores,
+      scoreLog: scoreLog ?? this.scoreLog,
+      teamAOnCourt: teamAOnCourt ?? this.teamAOnCourt,
+      teamABench: teamABench ?? this.teamABench,
+      teamBOnCourt: teamBOnCourt ?? this.teamBOnCourt,
+      teamBBench: teamBBench ?? this.teamBBench,
+      playerStats: playerStats ?? this.playerStats,
+      tournamentId: tournamentId ?? this.tournamentId,
+      venueId: venueId ?? this.venueId,
+      teamAId: teamAId ?? this.teamAId,
+      teamBId: teamBId ?? this.teamBId,
+      mainReferee: mainReferee ?? this.mainReferee,
+      auxReferee: auxReferee ?? this.auxReferee,
+      scorekeeper: scorekeeper ?? this.scorekeeper,
+      forfeitStatus: forfeitStatus ?? this.forfeitStatus,
+      observaciones: observaciones ?? this.observaciones,
+      teamATimeouts1: teamATimeouts1 ?? this.teamATimeouts1,
+      teamATimeouts2: teamATimeouts2 ?? this.teamATimeouts2,
+      teamAOTTimeouts: teamAOTTimeouts ?? this.teamAOTTimeouts,
+      teamBTimeouts1: teamBTimeouts1 ?? this.teamBTimeouts1,
+      teamBTimeouts2: teamBTimeouts2 ?? this.teamBTimeouts2,
+      teamBOTTimeouts: teamBOTTimeouts ?? this.teamBOTTimeouts,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'scoreA': scoreA,
+      'scoreB': scoreB,
+      'timeLeft': timeLeft.inSeconds,
+      'isRunning': isRunning,
+      'currentPeriod': currentPeriod,
+      'possession': possession,
+      'teamATimeouts1': teamATimeouts1,
+      'teamATimeouts2': teamATimeouts2,
+      'teamAOTTimeouts': teamAOTTimeouts,
+      'teamBTimeouts1': teamBTimeouts1,
+      'teamBTimeouts2': teamBTimeouts2,
+      'teamBOTTimeouts': teamBOTTimeouts,
+      'forfeitStatus': forfeitStatus,
+      'observaciones': observaciones,
+    };
+  }
+
+  factory MatchState.fromJson(Map<String, dynamic> json) {
+    return MatchState(
+      scoreA: json['scoreA'] ?? 0,
+      scoreB: json['scoreB'] ?? 0,
+      timeLeft: Duration(seconds: json['timeLeft'] ?? 0),
+      isRunning: json['isRunning'] ?? false,
+      currentPeriod: json['currentPeriod'] ?? 1,
+      possession: json['possession'] ?? '',
+      teamATimeouts1: List<String>.from(json['teamATimeouts1'] ?? []),
+      teamATimeouts2: List<String>.from(json['teamATimeouts2'] ?? []),
+      teamAOTTimeouts: List<String>.from(json['teamAOTTimeouts'] ?? []),
+      teamBTimeouts1: List<String>.from(json['teamBTimeouts1'] ?? []),
+      teamBTimeouts2: List<String>.from(json['teamBTimeouts2'] ?? []),
+      teamBOTTimeouts: List<String>.from(json['teamBOTTimeouts'] ?? []),
+      forfeitStatus: json['forfeitStatus'] ?? 'NONE',
+      observaciones: json['observaciones'] ?? '',
+    );
+  }
+}
+
+class MatchGameController extends StateNotifier<MatchState> {
+  final MatchesDao _dao;
+  Timer? _timer;
+  final List<MatchState> _history = [];
+
+  MatchGameController(this._dao) : super(const MatchState());
+
+  int getTeamFouls(String teamId) {
+    return state.scoreLog.where((e) {
+      return e.teamId == teamId &&
+          e.period == state.currentPeriod &&
+          e.points == 0 &&
+          EventType.isPlayerFoul(e.type);
+    }).length;
+  }
+
+Future<void> restoreFromDatabase({
+  required String matchId,
+  String? fixtureId,
+  required List<models.Player> rosterA,
+  required List<models.Player> rosterB,
+  required Set<int> startersA, // <--- Estos son los que el usuario eligió originalmente
+  required Set<int> startersB,
+  required int tournamentId,
+  required int venueId,
+  required int teamAId,
+  required int teamBId,
+  required String mainReferee,
+  required String auxReferee,
+  required String scorekeeper,
+}) async {
+  
+  // 1. Inicializar usando los starters que vienen del widget (los que elegiste en la pantalla de selección)
+  // Si startersA viene vacío desde el calendario, entonces el problema está en el paso de datos del FixtureList.
+  initializeNewMatch(
+    matchId: matchId,
+    fixtureId: fixtureId,
+    rosterA: rosterA,
+    rosterB: rosterB,
+    startersA: startersA, 
+    startersB: startersB,
+    tournamentId: tournamentId,
+    venueId: venueId,
+    teamAId: teamAId,
+    teamBId: teamBId,
+    mainReferee: mainReferee,
+    auxReferee: auxReferee,
+    scorekeeper: scorekeeper,
+  );
+
+  // 1b. SEMBRAR JUGADORES QUE NO VIENEN EN EL ROSTER DE LA NUBE
+  //     (creados offline a mitad de partido). Están en matchRosters y en la tabla
+  //     local 'players', pero NO en rosterA/rosterB, así que initializeNewMatch
+  //     no los creó. Sin esto, un jugador offline que solo entró por cambio se pierde.
+  final seedRosters = await (_dao.db.select(_dao.db.matchRosters)
+        ..where((tbl) => tbl.matchId.equals(matchId))).get();
+
+  final seededStats = Map<String, PlayerStats>.from(state.playerStats);
+  final seededBenchA = List<String>.from(state.teamABench);
+  final seededBenchB = List<String>.from(state.teamBBench);
+
+  for (final r in seedRosters) {
+    if (seededStats.containsKey(r.playerId)) continue; // ya existe (titular o banca de nube)
+
+    final local = await (_dao.db.select(_dao.db.players)
+          ..where((p) => p.id.equals(r.playerId))).getSingleOrNull();
+
+    seededStats[r.playerId] = PlayerStats(
+      dbId: int.tryParse(r.playerId) ?? 0,
+      playerName: local?.name ?? "Jugador ${r.jerseyNumber}",
+      playerNumber: r.jerseyNumber.toString(),
+      isStarter: false,
+      isOnCourt: false,
+      hasPlayed: false,
+    );
+
+    if (r.teamSide == 'A') {
+      if (!seededBenchA.contains(r.playerId)) seededBenchA.add(r.playerId);
+    } else {
+      if (!seededBenchB.contains(r.playerId)) seededBenchB.add(r.playerId);
+    }
+  }
+
+  state = state.copyWith(
+    playerStats: seededStats,
+    teamABench: seededBenchA,
+    teamBBench: seededBenchB,
+  );
+
+  // 2. RECUPERAR CAPITANES Y MARCAR "HAS PLAYED"
+  final dbRosters = await (_dao.db.select(_dao.db.matchRosters)
+        ..where((tbl) => tbl.matchId.equals(matchId))).get();
+
+  Map<String, PlayerStats> statsWithCaptains = Map.from(state.playerStats);
+  for (var row in dbRosters) {
+    if (row.isCaptain) {
+      statsWithCaptains.forEach((name, pStat) {
+        if (pStat.dbId.toString() == row.playerId) {
+          statsWithCaptains[name] = pStat.copyWith(hasPlayed: true);
+        }
+      });
+    }
+  }
+  state = state.copyWith(playerStats: statsWithCaptains);
+
+  // 2b. RESTAURAR TITULARES desde la columna isStarter de matchRosters.
+  final starterStats = Map<String, PlayerStats>.from(state.playerStats);
+  final courtA = List<String>.from(state.teamAOnCourt);
+  final benchA = List<String>.from(state.teamABench);
+  final courtB = List<String>.from(state.teamBOnCourt);
+  final benchB = List<String>.from(state.teamBBench);
+
+  for (final r in dbRosters) {           // dbRosters ya se consultó en el paso 2
+    if (!r.isStarter) continue;
+    if (starterStats.containsKey(r.playerId)) {
+      starterStats[r.playerId] = starterStats[r.playerId]!
+          .copyWith(isStarter: true, isOnCourt: true, hasPlayed: true);
+    }
+    if (r.teamSide == 'A') {
+      benchA.remove(r.playerId);
+      if (!courtA.contains(r.playerId)) courtA.add(r.playerId);
+    } else {
+      benchB.remove(r.playerId);
+      if (!courtB.contains(r.playerId)) courtB.add(r.playerId);
+    }
+  }
+
+  state = state.copyWith(
+    playerStats: starterStats,
+    teamAOnCourt: courtA, teamABench: benchA,
+    teamBOnCourt: courtB, teamBBench: benchB,
+  );
+
+  // 3. PROCESAR EVENTOS (Aquí es donde los jugadores "suben" a cancha si hubo cambios o puntos)
+  final events = await (_dao.db.select(_dao.db.gameEvents)
+        ..where((tbl) => tbl.matchId.equals(matchId))
+        ..orderBy([(t) => drift.OrderingTerm.asc(t.createdAt)]))
+      .get();
+
+  // 4. Procesar eventos acumulativamente
+    for (var event in events) {
+
+      // --- REPLAY DE CAMBIOS (SUB): el ID vive en 'type', no en playerId ---
+      // Reconstruye cancha/banca y marca "entró a jugar" al jugador entrante.
+      if (event.type.startsWith('SUB_')) {
+        final m = RegExp(r'^SUB_([AB])_OUT_(.+?)_IN_(.+)$').firstMatch(event.type);
+        if (m != null) {
+          _applyRestoreSub(
+            teamId: m.group(1)!,
+            outId: m.group(2)!,
+            inId: m.group(3)!,
+            period: event.period,
+          );
+        }
+        continue;
+      }
+
+      // reconstruye las listas teamATimeouts1/2/OT (y B) y termina la
+      // iteración con 'continue' para que no caiga en la lógica de abajo.
+      if (EventType.isTimeout(event.type)) {
+        final toTeam = event.type.endsWith('_B') ? 'B' : 'A';
+        _applyRestoreTimeout(toTeam, event.period, event.clockTime);
+        continue;
+      }
+
+      // --- POSESIÓN: el último evento POSS_ define la flecha actual ---
+      if (event.type.startsWith('POSS_')) {
+        final p = event.type.substring(5); // 'A', 'B' o 'NONE'
+        state = state.copyWith(possession: p == 'NONE' ? '' : p);
+        continue;
+      }
+
+      String teamId = 'A';
+      String? pName;
+      String pNumber = "00";
+      int dbId = 0;
+      String pIdKey = event.playerId ?? "-1";
+
+      if (event.playerId != null && event.playerId != "-1") {
+        final pA = rosterA.where((p) => p.id.toString() == event.playerId).firstOrNull;
+        final pB = rosterB.where((p) => p.id.toString() == event.playerId).firstOrNull;
+        
+        if (pB != null) { teamId = 'B'; pName = pB.name; pNumber = pB.defaultNumber.toString(); dbId = pB.id; }
+        else if (pA != null) { teamId = 'A'; pName = pA.name; pNumber = pA.defaultNumber.toString(); dbId = pA.id; }
+        else {
+          // --- Buscar en SQLite para rescatar a los jugadores offline creados localmente ---
+          final localPlayer = await (_dao.db.select(_dao.db.players)..where((p) => p.id.equals(event.playerId!))).getSingleOrNull();
+          if (localPlayer != null) {
+            teamId = localPlayer.teamId == teamAId ? 'A' : 'B';
+            pName = localPlayer.name;
+            pNumber = localPlayer.defaultNumber.toString(); // <--- Aquí rescatamos el numero
+            dbId = int.tryParse(localPlayer.id) ?? 0;
+          }
+        }
+      } else if (event.type.endsWith('_B')) { 
+        teamId = 'B'; pIdKey = "Banca_$teamId";
+      } else if (event.type.endsWith('_C')) {
+        teamId = 'C'; pIdKey = "Coach_$teamId";
+      } else if (EventType.isTimeout(event.type)) {
+        pIdKey = "TIMEOUT_$teamId";
+      }
+
+      int pts = 0;
+      if (event.type == 'POINT_1') {pts = 1;}
+      else if (event.type == 'POINT_2') {pts = 2;}
+      else if (event.type == 'POINT_3') {pts = 3;}
+
+      int fls = (pts == 0 && EventType.isPlayerFoul(event.type)) ? 1 : 0;
+
+      _applyRestoreEvent(
+        teamId: teamId,
+        playerId: pIdKey, // Pasamos el ID exacto
+        playerName: pName ?? (EventType.isTimeout(event.type) ? "TIMEOUT" : "OTROS"),
+        points: pts,
+        fouls: fls,
+        type: event.type,
+        period: event.period,
+        pNumber: pNumber,
+        dbPlayerId: dbId,
+        clockTime: event.clockTime,
+      );
+    }
+
+    // 5. RESTAURAR RELOJ Y PERIODO desde el último evento registrado.
+  if (events.isNotEmpty) {
+    final last = events.last;
+    final parts = last.clockTime.split(':');
+    if (parts.length == 2) {
+      final mm = int.tryParse(parts[0].trim()) ?? 10;
+      final ss = int.tryParse(parts[1].trim()) ?? 0;
+      state = state.copyWith(
+        timeLeft: Duration(minutes: mm, seconds: ss),
+        currentPeriod: last.period,
+        isRunning: false,
+      );
+    }
+  }
+}
+
+// Reconstruye un tiempo muerto durante el restore, respetando los topes por
+// sección (2 en cuartos 1-2, 3 en cuartos 3-4, 3 en extras). El marcador del
+// minuto se deriva del reloj guardado del evento (clockTime, ej. "04:59" -> "4").
+// Nota: el "X" de quema automática en clutch no se reconstruye (depende del reloj
+// en vivo, no de un evento), por lo que es una aproximación fiel a lo registrado.
+void _applyRestoreTimeout(String teamId, int period, String clockTime) {
+  String minStr = clockTime.split(':').first.trim();
+  if (minStr.startsWith('0') && minStr.length > 1) minStr = minStr.substring(1);
+  if (minStr.isEmpty) minStr = "0";
+
+  if (period <= 2) {
+    final list = List<String>.from(teamId == 'A' ? state.teamATimeouts1 : state.teamBTimeouts1);
+    if (list.length < 2) list.add(minStr);
+    state = teamId == 'A'
+        ? state.copyWith(teamATimeouts1: list)
+        : state.copyWith(teamBTimeouts1: list);
+  } else if (period == 3 || period == 4) {
+    final list = List<String>.from(teamId == 'A' ? state.teamATimeouts2 : state.teamBTimeouts2);
+    if (list.length < 3) list.add(minStr);
+    state = teamId == 'A'
+        ? state.copyWith(teamATimeouts2: list)
+        : state.copyWith(teamBTimeouts2: list);
+  } else {
+    final list = List<String>.from(teamId == 'A' ? state.teamAOTTimeouts : state.teamBOTTimeouts);
+    if (list.length < 3) list.add(minStr);
+    state = teamId == 'A'
+        ? state.copyWith(teamAOTTimeouts: list)
+        : state.copyWith(teamBOTTimeouts: list);
+  }
+}
+
+// Método auxiliar necesario para el restore
+// Método auxiliar necesario para el restore
+void _applyRestoreEvent({
+  required String teamId,
+  required String playerId,
+  required String playerName,
+  required int points,
+  required int fouls,
+  required String type,
+  required int period,
+  required String pNumber,
+  required int dbPlayerId,
+  String clockTime = "0:00",
+}) {
+  // Ahora usamos playerId para la llave del mapa (como dicta el resto de la app)
+  final currentStats = state.playerStats[playerId] ?? PlayerStats(
+    dbId: dbPlayerId,
+    playerName: playerName,
+    playerNumber: pNumber,
+  );
+
+  final newPlayerStatsMap = Map<String, PlayerStats>.from(state.playerStats);
+
+  // Solo tocamos estadísticas en eventos REALES de punto o falta de un jugador.
+  // Coach (C_x), Banca (B_x) y TIMEOUT no son jugadores y no deben crear entradas.
+  // CLAVE POR ID (playerId), nunca por nombre: así coincide con cancha/banca y el PDF.
+  if (points > 0 || fouls > 0) {
+    List<String> newFoulDetails = List.from(currentStats.foulDetails);
+    if (fouls > 0) newFoulDetails.add(type);
+
+    newPlayerStatsMap[playerId] = currentStats.copyWith(
+      points: currentStats.points + points,
+      fouls: currentStats.fouls + fouls,
+      foulDetails: newFoulDetails,
+      hasPlayed: true,
+    );
+  }
+
+  int newScoreA = state.scoreA + (teamId == 'A' ? points : 0);
+  int newScoreB = state.scoreB + (teamId == 'B' ? points : 0);
+
+  final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
+  newScoreLog.add(ScoreEvent(
+    period: period, teamId: teamId,
+    playerId: playerId,
+    dbPlayerId: dbPlayerId,
+    playerNumber: pNumber, points: points, scoreAfter: teamId == 'A' ? newScoreA : newScoreB, type: type,
+  ));
+
+  final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
+  if (!newPeriodScores.containsKey(period)) {
+    newPeriodScores[period] = [0, 0];
+  }
+  newPeriodScores[period]![teamId == 'A' ? 0 : 1] += points;
+
+  state = state.copyWith(
+    playerStats: newPlayerStatsMap,
+    scoreA: newScoreA,
+    scoreB: newScoreB,
+    scoreLog: newScoreLog,
+    periodScores: newPeriodScores,
+    currentPeriod: period,
+  );
+}
+
+
+// Re-aplica un cambio durante el restore: mueve jugadores entre cancha/banca,
+// marca "entró a jugar" y reinyecta un evento 'SUB' limpio en el scoreLog
+// (mismo formato que usa la app en vivo, para que el undo siga funcionando).
+void _applyRestoreSub({
+  required String teamId,
+  required String outId,
+  required String inId,
+  required int period,
+}) {
+  final newStats = Map<String, PlayerStats>.from(state.playerStats);
+  if (newStats.containsKey(outId)) {
+    newStats[outId] = newStats[outId]!.copyWith(isOnCourt: false, hasPlayed: true);
+  }
+  if (newStats.containsKey(inId)) {
+    newStats[inId] = newStats[inId]!.copyWith(isOnCourt: true, hasPlayed: true);
+  }
+
+  final court = List<String>.from(teamId == 'A' ? state.teamAOnCourt : state.teamBOnCourt);
+  final bench = List<String>.from(teamId == 'A' ? state.teamABench : state.teamBBench);
+  court.remove(outId);
+  if (!bench.contains(outId)) bench.add(outId);
+  bench.remove(inId);
+  if (!court.contains(inId)) court.add(inId);
+
+  final newLog = List<ScoreEvent>.from(state.scoreLog)
+    ..add(ScoreEvent(
+      period: period,
+      teamId: teamId,
+      playerId: outId,    // quién salió
+      playerNumber: inId, // quién entró (mismo "hack" que la app en vivo)
+      points: 0,
+      scoreAfter: 0,
+      type: 'SUB',
+    ));
+
+  if (teamId == 'A') {
+    state = state.copyWith(
+      playerStats: newStats,
+      teamAOnCourt: court,
+      teamABench: bench,
+      scoreLog: newLog,
+    );
+  } else {
+    state = state.copyWith(
+      playerStats: newStats,
+      teamBOnCourt: court,
+      teamBBench: bench,
+      scoreLog: newLog,
+    );
+  }
+}
+
+  void setObservaciones(String text) {
+    state = state.copyWith(observaciones: text);
+    _saveToDatabase();
+  }
+
+  Future<bool> finalizeAndSync(
+    ApiService api,
+    Uint8List? signatureBytes,
+    Uint8List? pdfBytes,
+    String teamAName,
+    String teamBName,
+  ) async {
+    String? signatureBase64;
+    if (signatureBytes != null) {
+      signatureBase64 = base64Encode(signatureBytes);
+      await _dao.saveSignature(state.matchId, signatureBase64);
+    }
+
+    // RECUPERAR FIRMAS DE OFICIALES ---
+    final database = _dao.db;
+    final mainRefObj = await (database.select(database.officials)
+      ..where((t) => t.name.equals(state.mainReferee))
+      ..where((t) => t.role.equals('ARBITRO_PRINCIPAL')))
+      .get().then((list) => list.firstOrNull);
+
+    final auxRefObj = await (database.select(database.officials)
+      ..where((t) => t.name.equals(state.auxReferee))
+      ..where((t) => t.role.equals('ARBITRO_AUXILIAR')))
+      .get().then((list) => list.firstOrNull);
+
+    // ignore: unused_local_variable
+    Uint8List? mainRefSignature;
+    // ignore: unused_local_variable
+    Uint8List? auxRefSignature;
+
+    if (mainRefObj?.signatureData != null) {
+      mainRefSignature = base64Decode(mainRefObj!.signatureData!);
+    }
+    if (auxRefObj?.signatureData != null) {
+      auxRefSignature = base64Decode(auxRefObj!.signatureData!);
+    }
+    // --------------------------------------------
+
+    String? localPdfPath;
+    if (pdfBytes != null) {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File('${directory.path}/match_${state.matchId}.pdf');
+        await file.writeAsBytes(pdfBytes);
+        localPdfPath = file.path;
+
+        await (_dao.update(
+          _dao.db.matches,
+        )..where((tbl) => tbl.id.equals(state.matchId))).write(
+          MatchesCompanion(matchReportPath: drift.Value(localPdfPath)),
+        );
+      } catch (e) {
+        // Silencio en release
+      }
+    }
+
+    // --- CORRECCIÓN DE SEGURIDAD: DOBLE VERIFICACIÓN DEL FIXTURE ID ---
+    String? finalFixtureId = state.fixtureId;
+    
+    // Si el estado en RAM no lo tiene, lo buscamos en la BD directamente
+    if (finalFixtureId == null || finalFixtureId.isEmpty) {
+      final matchFromDb = await (_dao.db.select(_dao.db.matches)
+          ..where((m) => m.id.equals(state.matchId)))
+          .getSingleOrNull();
+      finalFixtureId = matchFromDb?.fixtureId;
+    }
+    //
+
+    final eventsList = state.scoreLog.map((e) {
+      final currentStats = state.playerStats[e.playerId];
+      final updatedNumber = currentStats?.playerNumber ?? e.playerNumber;
+      String? parsedPlayerId = (e.dbPlayerId <= 0)
+        ? null
+        : e.dbPlayerId.toString();
+
+      // OBTENEMOS EL NOMBRE REAL DEL JUGADOR
+      // Si currentStats existe, usamos su playerName (ej. "ABRAHAM CHVEZ")
+      // Si no existe (caso raro), caemos al e.playerId original.
+      final realPlayerName = currentStats != null && currentStats.playerName.isNotEmpty 
+          ? currentStats.playerName 
+          : e.playerId;
+
+      return {
+        "period": e.period,
+        "team_side": e.teamId,
+        "player_name": realPlayerName,
+        "player_id": parsedPlayerId,
+        "player_number": updatedNumber,
+        "points_scored": e.points,
+        "score_after": e.scoreAfter,
+        "type": e.type,
+      };
+    }).toList();
+
+    final rosterRows = await (_dao.db.select(
+      _dao.db.matchRosters,
+    )..where((r) => r.matchId.equals(state.matchId))).get();
+
+    final rostersList = rosterRows
+    .where((r) => (int.tryParse(r.playerId) ?? 0) > 0)
+    .map((r) {
+      final pStats = state.playerStats.values
+          .where((p) => p.dbId.toString() == r.playerId)
+          .firstOrNull;
+
+      bool hasPlayed = false;
+      if (pStats != null) {
+        if (pStats.isStarter ||
+            pStats.isOnCourt ||
+            pStats.points > 0 ||
+            pStats.fouls > 0) {
+          hasPlayed = true;
+        }
+      }
+
+      return {
+        "player_id": int.tryParse(r.playerId) ?? 0,
+        "team_side": r.teamSide,
+        "jersey_number": r.jerseyNumber,
+        "is_captain": r.isCaptain ? 1 : 0,
+        "played": hasPlayed ? 1 : 0,
+      };
+    }).toList();
+
+    final now = DateTime.now();
+    final formattedDate =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
+    final payload = {
+      "match_id": state.matchId,
+      "fixture_id": finalFixtureId,
+      "tournament_id": state.tournamentId,
+      "venue_id": state.venueId,
+      "team_a_id": state.teamAId,
+      "team_b_id": state.teamBId,
+      "team_a_name": teamAName,
+      "team_b_name": teamBName,
+      "score_a": state.scoreA,
+      "score_b": state.scoreB,
+      "current_period": state.currentPeriod,
+      "time_left":
+          "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}",
+      "main_referee": state.mainReferee,
+      "aux_referee": state.auxReferee,
+      "scorekeeper": state.scorekeeper,
+      "forfeit_status": state.forfeitStatus,
+      "observaciones": state.observaciones,
+      "match_date": formattedDate,
+      "signature_base64": signatureBase64,
+      "events": eventsList,
+      "rosters": rostersList,
+    };
+
+    try {
+      final success = await api.syncMatchDataMultipart(
+        matchData: payload,
+        pdfBytes: pdfBytes,
+      );
+      if (success) {
+        await _dao.markAsSynced(state.matchId);
+        //if (localPdfPath != null) File(localPdfPath).delete();
+      }
+      return success;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // función para el Default
+  void declareForfeit(String defaultingTeam) {
+    // defaultingTeam puede ser 'A', 'B' o 'BOTH'
+    int newScoreA = 0;
+    int newScoreB = 0;
+
+    if (defaultingTeam == 'A') {
+      newScoreB = 20; // Pierde A por default 0-20
+    } else if (defaultingTeam == 'B') {
+      newScoreA = 20; // Pierde B por default 20-0
+    }
+
+    state = state.copyWith(
+      scoreA: newScoreA,
+      scoreB: newScoreB,
+      forfeitStatus: defaultingTeam == 'A'
+          ? 'TEAM_A'
+          : (defaultingTeam == 'B' ? 'TEAM_B' : 'BOTH'),
+      timeLeft: const Duration(seconds: 0),
+    );
+
+    _pause();
+    _saveToDatabase();
+  }
+
+  void addTimeout(String teamId) {
+    _saveToHistory();
+
+    int minutesLeft = (state.timeLeft.inSeconds / 60).floor();
+    if (state.timeLeft.inSeconds % 60 > 0 && minutesLeft == 10) minutesLeft = 9;
+    if (minutesLeft == 0 && state.timeLeft.inSeconds > 0) {
+      minutesLeft = 1;
+    } else if (state.timeLeft.inSeconds == 0) {
+      minutesLeft = 0;
+    }
+
+    String minStr = minutesLeft.toString();
+    bool isClutchTime =
+        state.currentPeriod == 4 && state.timeLeft.inSeconds <= 120;
+
+    _processTimeoutWithRules(teamId, minStr, state.currentPeriod, isClutchTime);
+    _logEventToDb(null, 0, 0, EventType.timeoutFor(teamId));
+  }
+
+  void addTeamFoul(String teamId, String type) {
+    _saveToHistory();
+    String specialName = type == 'C' ? "Entrenador" : "Banca";
+
+    List<ScoreEvent> newScoreLog = List.from(state.scoreLog);
+    newScoreLog.add(
+      ScoreEvent(
+        period: state.currentPeriod,
+        teamId: teamId,
+        playerId: specialName,
+        dbPlayerId: 0,
+        playerNumber: "",
+        points: 0,
+        scoreAfter: (teamId == 'A' ? state.scoreA : state.scoreB),
+        type: type,
+      ),
+    );
+
+    state = state.copyWith(scoreLog: newScoreLog);
+    _saveToDatabase();
+    _logEventToDb(null, 0, 1, '${type}_$teamId');
+  }
+
+  void _processTimeoutWithRules(
+    String teamId,
+    String minStr,
+    int period,
+    bool isClutchTime,
+  ) {
+    List<String> currentList;
+
+    if (period <= 2) {
+      currentList = List.from(
+        teamId == 'A' ? state.teamATimeouts1 : state.teamBTimeouts1,
+      );
+      if (currentList.length < 2) {
+        currentList.add(minStr);
+        _updateTimeoutList(teamId, 1, currentList);
+      }
+    } else if (period == 3 || period == 4) {
+      currentList = List.from(
+        teamId == 'A' ? state.teamATimeouts2 : state.teamBTimeouts2,
+      );
+      if (isClutchTime && currentList.isEmpty) currentList.add("X");
+
+      if (currentList.length < 3) {
+        currentList.add(minStr);
+        _updateTimeoutList(teamId, 2, currentList);
+      }
+    } else {
+      currentList = List.from(
+        teamId == 'A' ? state.teamAOTTimeouts : state.teamBOTTimeouts,
+      );
+      int currentOtCount = period - 4;
+      if (currentList.length < currentOtCount && currentList.length < 3) {
+        currentList.add(minStr);
+        _updateTimeoutList(teamId, 3, currentList);
+      }
+    }
+  }
+
+  void _updateTimeoutList(String teamId, int section, List<String> newList) {
+    if (teamId == 'A') {
+      if (section == 1) {
+        state = state.copyWith(teamATimeouts1: newList);
+      } else if (section == 2) {
+        state = state.copyWith(teamATimeouts2: newList);
+      } else {
+        state = state.copyWith(teamAOTTimeouts: newList);
+      }
+    } else {
+      if (section == 1) {
+        state = state.copyWith(teamBTimeouts1: newList);
+      } else if (section == 2) {
+        state = state.copyWith(teamBTimeouts2: newList);
+      } else {
+        state = state.copyWith(teamBOTTimeouts: newList);
+      }
+    }
+    _saveToDatabase();
+  }
+
+  void _start() {
+    _timer?.cancel();
+    state = state.copyWith(isRunning: true);
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.timeLeft.inSeconds > 0) {
+        final newTime = state.timeLeft - const Duration(seconds: 1);
+        bool triggerAutoBurn =
+            state.currentPeriod == 4 && newTime.inSeconds == 120;
+
+        state = state.copyWith(timeLeft: newTime);
+        if (triggerAutoBurn) _applyAutoBurn();
+      } else {
+        _pause();
+      }
+    });
+  }
+
+  void _applyAutoBurn() {
+    bool changed = false;
+    List<String> listA = List.from(state.teamATimeouts2);
+    List<String> listB = List.from(state.teamBTimeouts2);
+
+    if (listA.isEmpty) {
+      listA.add("X");
+      changed = true;
+    }
+    if (listB.isEmpty) {
+      listB.add("X");
+      changed = true;
+    }
+
+    if (changed) {
+      _saveToHistory();
+      state = state.copyWith(teamATimeouts2: listA, teamBTimeouts2: listB);
+      _saveToDatabase();
+    }
+  }
+
+  void initializeNewMatch({
+    required String matchId,
+    String? fixtureId,
+    required List<models.Player> rosterA,
+    required List<models.Player> rosterB,
+    required Set<int> startersA,
+    required Set<int> startersB,
+    required int tournamentId,
+    required int venueId,
+    required int teamAId,
+    required int teamBId,
+    required String mainReferee,
+    required String auxReferee,
+    required String scorekeeper,
+  }) {
+    _timer?.cancel();
+    _timer = null;
+    _dao.updateMatchMetadata(
+      matchId,
+      fixtureId,
+      teamAId,
+      teamBId,
+      mainReferee,
+      auxReferee,
+      scorekeeper,
+    );
+    final Map<String, PlayerStats> initialStats = {};
+    final List<String> courtA = [];
+    final List<String> benchA = [];
+    final List<String> courtB = [];
+    final List<String> benchB = [];
+
+    // Para equipo A
+    for (var player in rosterA) {
+      final isStarter = startersA.contains(player.id);
+      // USAMOS player.id.toString() como LLAVE en lugar de player.name
+      initialStats[player.id.toString()] = PlayerStats(
+        dbId: player.id,
+        playerName: player.name,
+        isOnCourt: isStarter,
+        isStarter: isStarter,
+        hasPlayed: isStarter,
+        playerNumber: player.defaultNumber.toString(),
+      );
+      if (isStarter) {
+        courtA.add(player.id.toString()); // Guardamos ID, no nombre
+      } else {
+        benchA.add(player.id.toString());
+      }
+    }
+
+    for (var player in rosterB) {
+      final isStarter = startersB.contains(player.id);
+      initialStats[player.id.toString()] = PlayerStats(
+        dbId: player.id,
+        playerName: player.name,
+        isOnCourt: isStarter,
+        isStarter: isStarter,
+        hasPlayed: isStarter,
+        playerNumber: player.defaultNumber.toString(),
+      );
+      if (isStarter) {
+        courtB.add(player.id.toString());
+      } else {
+        benchB.add(player.id.toString());
+      }
+    }
+
+    state = state.copyWith(
+      matchId: matchId,
+      fixtureId: fixtureId,
+      playerStats: initialStats,
+      teamAOnCourt: courtA,
+      teamABench: benchA,
+      teamBOnCourt: courtB,
+      teamBBench: benchB,
+      scoreA: 0,
+      scoreB: 0,
+      currentPeriod: 1,
+      possession: '',
+      timeLeft: const Duration(minutes: 10),
+      scoreLog: [],
+      periodScores: {
+        1: [0, 0],
+      },
+      tournamentId: tournamentId,
+      venueId: venueId,
+      teamAId: teamAId,
+      teamBId: teamBId,
+      mainReferee: mainReferee,
+      auxReferee: auxReferee,
+      scorekeeper: scorekeeper,
+      teamATimeouts1: [],
+      teamATimeouts2: [],
+      teamAOTTimeouts: [],
+      teamBTimeouts1: [],
+      teamBTimeouts2: [],
+      teamBOTTimeouts: [],
+      forfeitStatus: 'NONE',         
+      observaciones: '',
+    );
+  }
+
+  void setPossession(String team) {
+    _saveToHistory();
+    final String newPossession = (state.possession == team) ? '' : team;
+    state = state.copyWith(possession: newPossession);
+    // Persistimos la posesión como evento, para poder restaurarla al reanudar.
+    _logEventToDb(null, 0, 0, newPossession.isEmpty ? EventType.possNone : EventType.possessionFor(newPossession));
+  }
+
+  void initMatch(String matchId) {}
+
+  void _saveToHistory() {
+    if (_history.length > 50) _history.removeAt(0);
+    _history.add(state);
+  }
+
+  void undo() {
+    if (_history.isNotEmpty) {
+      final previousState = _history.removeLast();
+      state = previousState.copyWith(
+        timeLeft: state.timeLeft,
+        isRunning: state.isRunning,
+      );
+      _saveToDatabase();
+    }
+  }
+
+  void setTime(Duration newTime) {
+    state = state.copyWith(timeLeft: newTime);
+  }
+
+  void adjustTime(int seconds) {
+    final newSeconds = state.timeLeft.inSeconds + seconds;
+    if (newSeconds < 0) return;
+    state = state.copyWith(timeLeft: Duration(seconds: newSeconds));
+  }
+
+  void nextPeriod() {
+    _saveToHistory();
+    int nextPeriodIdx = state.currentPeriod + 1;
+    Duration newDuration = (nextPeriodIdx > 4)
+        ? const Duration(minutes: 5)
+        : const Duration(minutes: 10);
+
+    final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
+    if (!newPeriodScores.containsKey(nextPeriodIdx)) {
+      newPeriodScores[nextPeriodIdx] = [0, 0];
+    }
+
+    state = state.copyWith(
+      currentPeriod: nextPeriodIdx,
+      timeLeft: newDuration,
+      isRunning: false,
+      periodScores: newPeriodScores,
+    );
+    _saveToDatabase();
+  }
+
+  void setPeriod(int period) {
+    _saveToHistory();
+    Duration newDuration = (period > 4)
+        ? const Duration(minutes: 5)
+        : const Duration(minutes: 10);
+
+    final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
+    if (!newPeriodScores.containsKey(period)) newPeriodScores[period] = [0, 0];
+
+    state = state.copyWith(
+      currentPeriod: period,
+      timeLeft: newDuration,
+      isRunning: false,
+      periodScores: newPeriodScores,
+    );
+    _saveToDatabase();
+  }
+
+  void toggleTimer() {
+    if (state.isRunning) {
+      _pause();
+    } else {
+      _start();
+    }
+  }
+
+  void _pause() {
+    _timer?.cancel();
+    _timer = null;
+    state = state.copyWith(isRunning: false);
+    _saveToDatabase();
+  }
+
+  void updateStats(
+  String teamId,
+  String playerId, {
+  int points = 0,
+  int fouls = 0,
+  String? foulType,
+}) {
+  // 1. Obtener las estadísticas actuales del jugador usando su ID único
+  final currentStats = state.playerStats[playerId];
+  if (currentStats == null) return;
+
+  // 2. VALIDACIÓN DE PERTENENCIA: 
+  // Verificamos que el jugador pertenezca al equipo solicitado, ya sea que esté en cancha o en banca.
+  final bool isLocal = state.teamAOnCourt.contains(playerId) || state.teamABench.contains(playerId);
+  final bool isVisit = state.teamBOnCourt.contains(playerId) || state.teamBBench.contains(playerId);
+
+  if (teamId == 'A' && !isLocal) return;
+  if (teamId == 'B' && !isVisit) return;
+
+  // 3. REGLA DE DESCALIFICACIÓN:
+  // Si el jugador ya tiene 5 o más faltas, no permitimos sumar más puntos o faltas.
+  if (currentStats.fouls >= 5 && (points > 0 || fouls > 0)) return;
+
+  // Guardamos el estado actual en el historial para permitir "Undo"
+  _saveToHistory();
+
+  // 4. CÁLCULO DE NUEVOS MARCADORES GLOBALES
+  int newScoreA = state.scoreA + (teamId == 'A' ? points : 0);
+  int newScoreB = state.scoreB + (teamId == 'B' ? points : 0);
+
+  // Determinar el puntaje acumulado del equipo correspondiente después de esta acción
+  int scoreAfter = (teamId == 'A' ? newScoreA : newScoreB);
+
+  // 5. ACTUALIZACIÓN DE PUNTUACIÓN POR PERIODO
+  final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
+  List<int> currentPeriodScore = List.from(newPeriodScores[state.currentPeriod] ?? [0, 0]);
+  
+  if (points > 0) {
+    if (teamId == 'A') {
+      currentPeriodScore[0] += points;
+    } else {
+      currentPeriodScore[1] += points;
+    }
+  }
+  newPeriodScores[state.currentPeriod] = currentPeriodScore;
+
+  // 6. ACTUALIZACIÓN DE ESTADÍSTICAS DEL JUGADOR (Cancha o Banca)
+  List<String> newFoulDetails = List.from(currentStats.foulDetails);
+  if (fouls > 0) {
+    newFoulDetails.add(foulType ?? "P");
+  }
+
+  final newPlayerStatsMap = Map<String, PlayerStats>.from(state.playerStats);
+  newPlayerStatsMap[playerId] = currentStats.copyWith(
+    points: currentStats.points + points,
+    fouls: currentStats.fouls + fouls,
+    foulDetails: newFoulDetails,
+    hasPlayed: true, // Si se le registra una acción, se marca que participó en el juego
+  );
+
+  // 7. REGISTRO EN EL LOG DE EVENTOS (Indispensable para el Acta PDF y el Undo selectivo)
+  final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
+  if (points > 0 || fouls > 0) {
+    String dorsal = currentStats.playerNumber;
+    String eventType = "UNKNOWN";
+    
+    if (points > 0) eventType = "POINT_$points"; // O simplemente "POINT"
+    if (fouls > 0) eventType = foulType ?? "FOUL";
+
+    newScoreLog.add(
+      ScoreEvent(
+        period: state.currentPeriod,
+        teamId: teamId,
+        playerId: playerId,
+        dbPlayerId: currentStats.dbId,
+        playerNumber: dorsal,
+        points: points,
+        scoreAfter: scoreAfter,
+        type: eventType,
+      ),
+    );
+  }
+
+  // 8. EMISIÓN DEL NUEVO ESTADO
+  state = state.copyWith(
+    scoreA: newScoreA,
+    scoreB: newScoreB,
+    periodScores: newPeriodScores,
+    playerStats: newPlayerStatsMap,
+    scoreLog: newScoreLog,
+  );
+
+  // Persistencia y logs externos
+  _saveToDatabase();
+  _logEventToDb(currentStats.dbId.toString(), points, fouls, foulType);
+}
+
+  void substitutePlayer(String teamId, String playerOutId, String playerInId) {
+    _saveToHistory();
+    final newStats = Map<String, PlayerStats>.from(state.playerStats);
+
+    if (newStats.containsKey(playerOutId)) {
+      newStats[playerOutId] = newStats[playerOutId]!.copyWith(isOnCourt: false);
+    }
+
+    if (newStats.containsKey(playerInId)) {
+      newStats[playerInId] = newStats[playerInId]!.copyWith(
+        isOnCourt: true,
+        hasPlayed: true,
+      );
+    }
+
+    if (teamId == 'A') {
+      final newOnCourt = List<String>.from(state.teamAOnCourt)
+        ..remove(playerOutId)
+        ..add(playerInId);
+      final newBench = List<String>.from(state.teamABench)
+        ..remove(playerInId)
+        ..add(playerOutId);
+      state = state.copyWith(
+        teamAOnCourt: newOnCourt,
+        teamABench: newBench,
+        playerStats: newStats,
+      );
+    } else {
+      final newOnCourt = List<String>.from(state.teamBOnCourt)
+        ..remove(playerOutId)
+        ..add(playerInId);
+      final newBench = List<String>.from(state.teamBBench)
+        ..remove(playerInId)
+        ..add(playerOutId);
+      state = state.copyWith(
+        teamBOnCourt: newOnCourt,
+        teamBBench: newBench,
+        playerStats: newStats,
+      );
+    }
+    _saveToDatabase();
+
+
+    // Registramos un evento especial en el ScoreLog para poder deshacerlo selectivamente
+  final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
+  newScoreLog.add(ScoreEvent(
+    period: state.currentPeriod,
+    teamId: teamId,
+    playerId: playerOutId, // Quién salió
+    playerNumber: playerInId, // Quién entró (usamos este campo para guardar el ID del entrante)
+    points: 0,
+    scoreAfter: 0,
+    type: 'SUB', // Tipo especial
+  ));
+
+    state = state.copyWith(scoreLog: newScoreLog); 
+    _logEventToDb(null, 0, 0, EventType.subEvent(side: teamId, outId: playerOutId, inId: playerInId));
+  }
+
+  // --- LÓGICA DE UNDO SELECTIVO ---
+
+
+// Añade el undo de Tiempo Fuera (Opcional pero recomendado)
+void undoLastTimeout() {
+  // 1. Buscar el último tiempo fuera en el log
+  final lastTO = state.scoreLog.where((e) => EventType.isTimeout(e.type)).lastOrNull;
+  if (lastTO == null) return;
+  
+  _saveToHistory();
+
+  // 2. Identificar qué lista de la memoria RAM debemos limpiar
+  List<String> to1A = List.from(state.teamATimeouts1);
+  List<String> to2A = List.from(state.teamATimeouts2);
+  List<String> toOTA = List.from(state.teamAOTTimeouts);
+  
+  List<String> to1B = List.from(state.teamBTimeouts1);
+  List<String> to2B = List.from(state.teamBTimeouts2);
+  List<String> toOTB = List.from(state.teamBOTTimeouts);
+
+  if (lastTO.teamId == 'A') {
+    if (lastTO.period <= 2) {
+      if (to1A.isNotEmpty) to1A.removeLast();
+    } else if (lastTO.period <= 4) {
+      if (to2A.isNotEmpty) to2A.removeLast();
+    } else {
+      if (toOTA.isNotEmpty) toOTA.removeLast();
+    }
+  } else {
+    if (lastTO.period <= 2) {
+      if (to1B.isNotEmpty) to1B.removeLast();
+    } else if (lastTO.period <= 4) {
+      if (to2B.isNotEmpty) to2B.removeLast();
+    } else {
+      if (toOTB.isNotEmpty) toOTB.removeLast();
+    }
+  }
+
+  // 3. Actualizar el estado: Limpiar la lista del equipo y remover del log
+  state = state.copyWith(
+    teamATimeouts1: to1A,
+    teamATimeouts2: to2A,
+    teamAOTTimeouts: toOTA,
+    teamBTimeouts1: to1B,
+    teamBTimeouts2: to2B,
+    teamBOTTimeouts: toOTB,
+    scoreLog: state.scoreLog.where((e) => e != lastTO).toList(),
+  );
+
+  _saveToDatabase();
+}
+
+void undoLastPoint() {
+  final lastPoint = state.scoreLog.where((e) => e.points > 0).lastOrNull;
+  if (lastPoint == null) return;
+  _saveToHistory();
+
+  final currentStats = state.playerStats[lastPoint.playerId]!;
+  
+  // 1. Revertir puntos del jugador
+  final newStats = currentStats.copyWith(
+    points: currentStats.points - lastPoint.points,
+  );
+
+  // 2. Revertir marcador global y de periodo
+  final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
+  newPeriodScores[lastPoint.period]![lastPoint.teamId == 'A' ? 0 : 1] -= lastPoint.points;
+
+  state = state.copyWith(
+    scoreA: lastPoint.teamId == 'A' ? state.scoreA - lastPoint.points : state.scoreA,
+    scoreB: lastPoint.teamId == 'B' ? state.scoreB - lastPoint.points : state.scoreB,
+    playerStats: {...state.playerStats, lastPoint.playerId: newStats},
+    scoreLog: state.scoreLog.where((e) => e != lastPoint).toList(), // Eliminar del log
+    periodScores: newPeriodScores,
+  );
+  _saveToDatabase();
+}
+
+void undoLastFoul() {
+  final lastFoul = state.scoreLog.where((e) => EventType.isPlayerFoul(e.type)).lastOrNull;
+  if (lastFoul == null) return;
+  _saveToHistory();
+
+  final currentStats = state.playerStats[lastFoul.playerId]!;
+  List<String> newFoulDetails = List.from(currentStats.foulDetails)..remove(lastFoul.type);
+
+  state = state.copyWith(
+    playerStats: {
+      ...state.playerStats,
+      lastFoul.playerId: currentStats.copyWith(
+        fouls: currentStats.fouls - 1,
+        foulDetails: newFoulDetails,
+      )
+    },
+    scoreLog: state.scoreLog.where((e) => e != lastFoul).toList(),
+  );
+  _saveToDatabase();
+}
+
+void undoLastSubstitution() {
+  final lastSub = state.scoreLog.where((e) => e.type == 'SUB').lastOrNull;
+  if (lastSub == null) return;
+
+  // El truco aquí es simplemente llamar a substitutePlayer pero al revés
+  // lastSub.playerId es el que salió, lastSub.playerNumber es el que entró
+  substitutePlayer(lastSub.teamId, lastSub.playerNumber, lastSub.playerId);
+  
+  // Limpiamos los dos eventos de sustitución (el original y el de reversión) del log
+  // para que no ensucien el acta PDF final
+  state = state.copyWith(
+    scoreLog: state.scoreLog.where((e) => !EventType.isSub(e.type)).toList()
+  );
+}
+
+  Future<void> _saveToDatabase() async {
+    if (state.matchId.isEmpty) return;
+    final timeStr =
+        "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}";
+    await _dao.updateMatchStatus(
+      state.matchId,
+      state.scoreA,
+      state.scoreB,
+      timeStr,
+      "IN_PROGRESS",
+    );
+  }
+
+  Future<void> _logEventToDb(
+    String? playeridDb,
+    int points,
+    int fouls,
+    String? customType,
+  ) async {
+    if (state.matchId.isEmpty) return;
+    String type = "UNKNOWN";
+    if (points == 1) {
+      type = "POINT_1";
+    } else if (points == 2) {
+      type = "POINT_2";
+    } else if (points == 3) {
+      type = "POINT_3";
+    } else if (customType != null) {
+      type = customType;
+    } else if (fouls > 0) {
+      type = "FOUL";
+    }
+
+    final timeStr =
+        "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}";
+
+    await _dao.insertEvent(
+      GameEventsCompanion.insert(
+        matchId: state.matchId,
+        playerId: drift.Value(playeridDb),
+        type: type,
+        period: state.currentPeriod,
+        clockTime: timeStr,
+        isSynced: const drift.Value(false),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void updateMatchPlayerInfo(String playerId, {String? newNumber}) {
+    if (!state.playerStats.containsKey(playerId)) return;
+    final currentStats = state.playerStats[playerId]!;
+    final newStats = currentStats.copyWith(
+      playerNumber: newNumber ?? currentStats.playerNumber,
+    );
+    final newPlayerStatsMap = Map<String, PlayerStats>.from(state.playerStats);
+    newPlayerStatsMap[playerId] = newStats;
+    state = state.copyWith(playerStats: newPlayerStatsMap);
+  }
+
+
+  // =========================================================================
+  // --- AÑADIR JUGADOR MID-GAME (SOPORTE OFFLINE-FIRST) ---
+  // =========================================================================
+  
+  Future<void> addNewPlayerToMatch({
+    required String teamSide,
+    required String name,
+    required int number,
+    required ApiService api,
+  }) async {
+    final teamId = teamSide == 'A' ? state.teamAId : state.teamBId;
+    if (teamId == null) {
+      throw Exception("Error crítico: ID del equipo no encontrado en el partido.");
+    }
+
+    final isNumberTaken = state.playerStats.values.any((p) {
+      final belongsToTeam = teamSide == 'A'
+          ? (state.teamAOnCourt.contains(p.dbId.toString()) || state.teamABench.contains(p.dbId.toString()))
+          : (state.teamBOnCourt.contains(p.dbId.toString()) || state.teamBBench.contains(p.dbId.toString()));
+          
+      return belongsToTeam && p.playerNumber == number.toString();
+    });
+
+    if (isNumberTaken) {
+      throw Exception("El número $number ya está en uso en este equipo.");
+    }
+
+    int newPlayerId;
+    bool isOnlineSync = false;
+
+    // 3. ESTRATEGIA DE ID NEGATIVO
+    try {
+      // Intentamos subirlo a la nube
+      newPlayerId = await api.addPlayer(teamId, name, number);
+      isOnlineSync = true;
+    } catch (e) {
+      // Si falla (no hay internet), creamos un ID negativo único local basado en el tiempo
+      // Esto garantiza matemáticamente que nunca chocará con un ID de la nube.
+      newPlayerId = -DateTime.now().millisecondsSinceEpoch;
+      isOnlineSync = false;
+    }
+
+    final String playerKey = newPlayerId.toString();
+
+    // 4. Persistencia Local (DAO)
+    await _dao.saveMidGamePlayerLocally(
+      matchId: state.matchId,
+      playerId: newPlayerId,
+      teamId: teamId,
+      name: name,
+      number: number,
+      teamSide: teamSide,
+      isSynced: isOnlineSync, // Le decimos a SQLite si ya está en la nube o no
+    );
+
+    // 5. Actualización RAM
+    final freshStatsMap = Map<String, PlayerStats>.from(state.playerStats);
+    freshStatsMap[playerKey] = PlayerStats(
+      dbId: newPlayerId,
+      playerName: name,
+      playerNumber: number.toString(),
+      isOnCourt: false,
+      isStarter: false,
+      hasPlayed: false,
+    );
+
+    List<String> freshBenchA = List.from(state.teamABench);
+    List<String> freshBenchB = List.from(state.teamBBench);
+
+    if (teamSide == 'A') {
+      freshBenchA.add(playerKey);
+    } else {
+      freshBenchB.add(playerKey);
+    }
+
+    state = state.copyWith(
+      playerStats: freshStatsMap,
+      teamABench: freshBenchA,
+      teamBBench: freshBenchB,
+    );
+
+    _saveToDatabase();
+  }
+
+  // =========================================================================
+  // --- RECONCILIACIÓN PRE-SYNC ---
+  // =========================================================================
+
+  /// Busca jugadores creados offline (ID negativo) y los sube a la nube.
+  /// Luego intercambia el ID viejo por el nuevo en SQLite y en la RAM.
+  Future<void> reconcileOfflinePlayers(ApiService api) async {
+    // Extraemos solo los jugadores que tienen un ID negativo
+    final offlinePlayers = state.playerStats.values.where((p) => p.dbId < 0).toList();
+    
+    if (offlinePlayers.isEmpty) return; // No hay nada que reconciliar
+
+    Map<String, PlayerStats> newStatsMap = Map.from(state.playerStats);
+    List<String> newBenchA = List.from(state.teamABench);
+    List<String> newCourtA = List.from(state.teamAOnCourt);
+    List<String> newBenchB = List.from(state.teamBBench);
+    List<String> newCourtB = List.from(state.teamBOnCourt);
+    List<ScoreEvent> newScoreLog = List.from(state.scoreLog);
+
+    for (var offlinePlayer in offlinePlayers) {
+      final oldIdStr = offlinePlayer.dbId.toString();
+      final teamIdInt = (newCourtA.contains(oldIdStr) || newBenchA.contains(oldIdStr)) ? state.teamAId : state.teamBId;
+      
+      if (teamIdInt == null) continue;
+
+      try {
+        // 1. Subir a la nube
+        final realId = await api.addPlayer(teamIdInt, offlinePlayer.playerName, int.parse(offlinePlayer.playerNumber));
+        final realIdStr = realId.toString();
+
+        // 2. Reconciliar SQLite (Capa de Datos)
+        await _dao.replaceTempPlayerId(oldIdStr, realIdStr);
+
+        // 3. Reconciliar Estadísticas en RAM
+        final statsObj = newStatsMap.remove(oldIdStr);
+        if (statsObj != null) {
+          newStatsMap[realIdStr] = statsObj.copyWith(dbId: realId);
+        }
+
+        // 4. Reconciliar Rosters en RAM
+        _replaceInList(newBenchA, oldIdStr, realIdStr);
+        _replaceInList(newCourtA, oldIdStr, realIdStr);
+        _replaceInList(newBenchB, oldIdStr, realIdStr);
+        _replaceInList(newCourtB, oldIdStr, realIdStr);
+
+        // 5. Reconciliar Historial (ScoreLog)
+        for (int i = 0; i < newScoreLog.length; i++) {
+          final ev = newScoreLog[i];
+          if (ev.playerId == oldIdStr) {
+            newScoreLog[i] = ScoreEvent(
+              period: ev.period,
+              teamId: ev.teamId,
+              playerId: realIdStr, // <--- Actualizamos al ID nuevo
+              dbPlayerId: realId,  
+              playerNumber: ev.playerNumber,
+              points: ev.points,
+              scoreAfter: ev.scoreAfter,
+              type: ev.type,
+            );
+          }
+        }
+      } catch (e) {
+        throw Exception("Fallo al sincronizar jugador offline '${offlinePlayer.playerName}'. Requiere internet.");
+      }
+    }
+
+    // 6. Emitimos el estado corregido
+    state = state.copyWith(
+      playerStats: newStatsMap,
+      teamABench: newBenchA,
+      teamAOnCourt: newCourtA,
+      teamBBench: newBenchB,
+      teamBOnCourt: newCourtB,
+      scoreLog: newScoreLog,
+    );
+  }
+
+  // Helper privado para cambiar IDs en listas
+  void _replaceInList(List<String> list, String oldItem, String newItem) {
+    final index = list.indexOf(oldItem);
+    if (index != -1) {
+      list[index] = newItem;
+    }
+  }
+
+
+}
+
+
+
+final matchGameProvider =
+    StateNotifierProvider<MatchGameController, MatchState>((ref) {
+      final dao = ref.watch(matchesDaoProvider);
+      return MatchGameController(dao);
+    });

@@ -1,0 +1,700 @@
+// ignore_for_file: deprecated_member_use
+
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../logic/catalog_provider.dart';
+import '../core/database/app_database.dart';
+import 'team_detail_screen.dart';
+import '../core/di/dependency_injection.dart' as di;
+import '../ui/widgets/app_background.dart';
+import '../ui/widgets/app_feedback.dart';
+
+class TeamManagementScreen extends ConsumerWidget {
+  final String tournamentId;
+  const TeamManagementScreen({super.key, required this.tournamentId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final catalogAsync = ref.watch(tournamentDataByIdProvider(tournamentId));
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text(
+          "GESTIÓN DE EQUIPOS",
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 1.5,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.black.withOpacity(0.6),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddTeamDialog(context, ref),
+        label: const Text(
+          "Nuevo Equipo",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        icon: const Icon(Icons.add_circle_outline),
+        backgroundColor: Colors.orangeAccent,
+        foregroundColor: Colors.black,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      body: AppBackground(
+        opacity: 0.8,
+        child: catalogAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: Colors.orangeAccent),
+          ),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 60,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Error: $err",
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          data: (data) {
+            if (data.teams.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        size: 80,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      "Aún no hay equipos",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Registra el primer equipo\nusando el botón inferior.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 600) {
+                    return GridView.builder(
+                      padding: const EdgeInsets.only(
+                        top: 20,
+                        bottom: 100,
+                        left: 20,
+                        right: 20,
+                      ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: constraints.maxWidth > 900 ? 3 : 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 2.5,
+                      ),
+                      itemCount: data.teams.length,
+                      itemBuilder: (context, index) {
+                        final team = data.teams[index];
+                        return _TeamCard(team: team, tournamentId: tournamentId);
+                      },
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.only(
+                      top: 20,
+                      bottom: 100,
+                      left: 16,
+                      right: 16,
+                    ),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: data.teams.length,
+                    itemBuilder: (context, index) {
+                      final team = data.teams[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14.0),
+                        child: _TeamCard(team: team, tournamentId: tournamentId),
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAddTeamDialog(BuildContext context, WidgetRef ref) {
+    final nameCtrl = TextEditingController();
+    final shortCtrl = TextEditingController();
+    final coachCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2432),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.shield_outlined, color: Colors.orangeAccent),
+            SizedBox(width: 10),
+            Text(
+              "Registrar Equipo",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildModernTextField(nameCtrl, "Nombre del Equipo", Icons.groups),
+            const SizedBox(height: 16),
+            _buildModernTextField(
+              shortCtrl,
+              "Abreviatura (Ej: LAL)",
+              Icons.short_text,
+            ),
+            const SizedBox(height: 16),
+            _buildModernTextField(
+              coachCtrl,
+              "Nombre del Entrenador",
+              Icons.sports,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text(
+              "Guardar",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            onPressed: () async {
+              if (nameCtrl.text.isEmpty) return;
+              Navigator.pop(ctx);
+              final db = ref.read(di.databaseProvider);
+              final api = ref.read(di.apiServiceProvider);
+
+              // REGLA DE ORO: Si el torneo es local (ej. un UUID muy largo), forzamos offline para evitar crashear MySQL
+              bool isTournamentLocal =
+                  tournamentId.length > 10 || tournamentId.startsWith('-');
+
+              try {
+                if (isTournamentLocal) {
+                  throw Exception(
+                    "Torneo local. Guardando offline en cascada.",
+                  );
+                }
+
+                final newTeamId = await api.createTeam(
+                  nameCtrl.text,
+                  shortCtrl.text,
+                  coachCtrl.text,
+                  tournamentId: tournamentId,
+                );
+                await db.transaction(() async {
+                  await db
+                      .into(db.teams)
+                      .insert(
+                        TeamsCompanion.insert(
+                          id: drift.Value(newTeamId.toString()),
+                          name: nameCtrl.text,
+                          shortName: drift.Value(shortCtrl.text),
+                          coachName: drift.Value(coachCtrl.text),
+                          isSynced: const drift.Value(true),
+                        ),
+                        mode: drift.InsertMode.insertOrReplace,
+                      );
+                  await db
+                      .into(db.tournamentTeams)
+                      .insert(
+                        TournamentTeamsCompanion.insert(
+                          tournamentId: tournamentId,
+                          teamId: newTeamId.toString(),
+                          isSynced: const drift.Value(true),
+                        ),
+                        mode: drift.InsertMode.insertOrReplace,
+                      );
+                });
+                if (!context.mounted) return;
+                context.showSuccess("Equipo creado y sincronizado");
+              } catch (e) {
+                final tempId = (-DateTime.now().millisecondsSinceEpoch)
+                    .toString();
+                await db.transaction(() async {
+                  await db
+                      .into(db.teams)
+                      .insert(
+                        TeamsCompanion.insert(
+                          id: drift.Value(tempId),
+                          name: nameCtrl.text,
+                          shortName: drift.Value(shortCtrl.text),
+                          coachName: drift.Value(coachCtrl.text),
+                          isSynced: const drift.Value(false),
+                        ),
+                      );
+                  await db
+                      .into(db.tournamentTeams)
+                      .insert(
+                        TournamentTeamsCompanion.insert(
+                          tournamentId: tournamentId,
+                          teamId: tempId,
+                          isSynced: const drift.Value(false),
+                        ),
+                      );
+                });
+                if (!context.mounted) return;
+                context.showWarning("Equipo creado localmente.");
+              }
+              ref.invalidate(tournamentDataByIdProvider(tournamentId));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+        prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+        filled: true,
+        fillColor: Colors.black26,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.orangeAccent),
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamCard extends ConsumerWidget {
+  final dynamic team;
+  final String tournamentId;
+  const _TeamCard({required this.team, required this.tournamentId});
+
+  String _resolveLogoUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http')) return path;
+    String cleanPath = path.replaceAll('../', '').replaceAll('./', '');
+    if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+    return 'https://vanball.com.mx/$cleanPath';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) { // <-- Aquí está la corrección (WidgetRef ref)
+    bool isLocal = false;
+    try {
+      final idInt = int.parse(team.id.toString());
+      if (idInt < 0) isLocal = true;
+    } catch (_) {
+      isLocal = true;
+    }
+    String? logoPath;
+    try {
+      logoPath = team.logoUrl;
+    } catch (_) {
+      logoPath = null;
+    }
+    final String resolvedUrl = _resolveLogoUrl(logoPath);
+    final String initial = team.name.isNotEmpty
+        ? team.name.substring(0, 1).toUpperCase()
+        : '?';
+    String shortName = '';
+    try {
+      shortName = team.shortName?.isNotEmpty == true ? team.shortName : '';
+    } catch (_) {
+      shortName = '';
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => TeamDetailScreen(team: team)),
+              );
+            },
+            // PRESIONAR LARGO PARA EDITAR ---
+            onLongPress: () {
+               // Llamamos a la función de editar
+               _showEditTeamLocalDialog(context, ref, team, tournamentId);
+            },
+            splashColor: Colors.orange.withOpacity(0.3),
+            highlightColor: Colors.white.withOpacity(0.05),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.15),
+                    Colors.white.withOpacity(0.02),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.15),
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 18.0,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: isLocal
+                          ? Colors.orange.withOpacity(0.1)
+                          : Colors.black45,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isLocal
+                            ? Colors.orangeAccent.withOpacity(0.5)
+                            : Colors.white38,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: resolvedUrl.isNotEmpty
+                          ? Image.network(
+                              resolvedUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildInitials(initial, isLocal),
+                            )
+                          : _buildInitials(initial, isLocal),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                team.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (shortName.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orangeAccent.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.orangeAccent.withOpacity(0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  shortName,
+                                  style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.sports,
+                                  size: 14,
+                                  color: Colors.white54,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    team.coachName?.isNotEmpty == true
+                                        ? team.coachName
+                                        : 'Sin entrenador',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isLocal ? Icons.cloud_off : Icons.cloud_done,
+                          color: isLocal
+                              ? Colors.orangeAccent
+                              : Colors.greenAccent,
+                          size: 18,
+                        ),
+                        const SizedBox(height: 6),
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.white38,
+                          size: 14,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInitials(String initial, bool isLocal) {
+    return Center(
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: isLocal ? Colors.orangeAccent : Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: 28,
+        ),
+      ),
+    );
+  }
+}
+
+// Función global (fuera de las clases) para mostrar el Modal de edición de equipos
+void _showEditTeamLocalDialog(BuildContext context, WidgetRef ref, dynamic team, String tournamentId) {
+    final nameCtrl = TextEditingController(text: team.name);
+    final shortCtrl = TextEditingController(text: team.shortName);
+    final coachCtrl = TextEditingController(text: team.coachName);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2432),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit, color: Colors.blueAccent),
+            SizedBox(width: 10),
+            Text("Editar Equipo", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: "Nombre del Equipo", labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  prefixIcon: const Icon(Icons.groups, color: Colors.white54),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: shortCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: "Abreviatura", labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  prefixIcon: const Icon(Icons.short_text, color: Colors.white54),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: coachCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: "Entrenador", labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  prefixIcon: const Icon(Icons.sports, color: Colors.white54),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar", style: TextStyle(color: Colors.grey))),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text("Actualizar", style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              if (nameCtrl.text.isEmpty) return;
+              Navigator.pop(ctx);
+              
+              final db = ref.read(di.databaseProvider);
+              final api = ref.read(apiServiceProvider); // Corrección: Usar el provider correcto
+
+              bool isSyncedStatus = false;
+              final isRealId = (int.tryParse(team.id.toString()) ?? 0) > 0;
+
+              if (isRealId) {
+                try {
+                  final success = await api.updateTeam(
+                    id: team.id.toString(), name: nameCtrl.text, shortName: shortCtrl.text, coachName: coachCtrl.text,
+                  );
+                  isSyncedStatus = success;
+                } catch (e) { isSyncedStatus = false; }
+              }
+
+              await (db.update(db.teams)..where((t) => t.id.equals(team.id.toString()))).write(
+                TeamsCompanion(
+                  name: drift.Value(nameCtrl.text),
+                  shortName: drift.Value(shortCtrl.text),
+                  coachName: drift.Value(coachCtrl.text),
+                  isSynced: drift.Value(isSyncedStatus),
+                ),
+              );
+
+              if (context.mounted) {
+                ref.invalidate(tournamentDataByIdProvider(tournamentId));
+                if (isSyncedStatus){
+                  context.showSuccess("Equipo actualizado en la nube.");
+                }else{
+                  context.showWarning("Equipo guardado offline.");
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+}

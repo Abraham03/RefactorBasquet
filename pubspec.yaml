@@ -1,0 +1,78 @@
+name: myapp
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.2+2
+
+environment:
+  sdk: ^3.9.0
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  drift: ^2.14.0
+  flutter_launcher_icons: ^0.13.1
+  sqlite3_flutter_libs: ^0.5.18
+  sqlite3: ^2.1.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  uuid: ^4.2.1 # Para generar IDs únicos
+  flutter_riverpod: ^2.6.1
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  http: ^1.2.0
+  signature: ^5.4.0
+  intl: ^0.20.0
+  # --- NUEVAS DEPENDENCIAS PARA RED LOCAL Y PANTALLAS ---
+  shelf: ^1.4.1                 # Para levantar el servidor HTTP local
+  shelf_web_socket: ^1.0.4      # Para el canal de comunicación en tiempo real
+  web_socket_channel: ^2.4.0    # Para que la tablet reciba los datos
+  network_info_plus: ^5.0.0     # Para obtener la IP de tu Zona Wi-Fi
+  flutter_presentation_display: ^2.0.6 # Para detectar pantallas por cable o AnyCast.
+  drift_db_viewer: ^2.1.0
+  share_plus: ^10.0.0
+  package_info_plus: ^9.0.1
+
+
+dev_dependencies:
+  flutter_test:    
+    sdk: flutter   
+  flutter_lints: ^3.0.0
+  drift_dev: ^2.14.0
+  build_runner: ^2.4.6
+
+# IMPORTANTE: Registra la imagen
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/hoja_anotacion.png
+    - assets/images/fondo1.jpg
+    - assets/images/app_logo.png
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/images/app_logo.png"
+  # Opcional: Si quieres un ícono adaptativo en Android (el que cambia de forma)
+  adaptive_icon_background: "#1E2432" # Color de fondo de tu app
+  adaptive_icon_foreground: "assets/images/app_logo.png"

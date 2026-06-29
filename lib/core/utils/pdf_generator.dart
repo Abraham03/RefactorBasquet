@@ -1,0 +1,1658 @@
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import '../../logic/match_game_controller.dart';
+import 'dart:typed_data';
+import '../constants/match_constants.dart';
+
+class PdfCoords {
+
+// Coordenada para el logo (A la izquierda del nombre del torneo)
+  static const double tournamentLogoX = 10.0; 
+  static const double tournamentLogoY = 8.0;
+
+  // Coordenada para el logo del arbitro (A la derecha del nombre del torneo)
+  static const double derechatournamentLogoX = 550.0; 
+  static const double derechatournamentLogoY = 8.0;
+
+  static const double headerY = 90.0;
+  static const double competitionX = 85.0;
+  static const double categoryX = 390.0;
+  static const double dateX = 188.0;
+  static const double timeX = 270.0;
+  static const double placeX = 180.0;
+  static const double placeY = 105.0;
+  //static const double gameNoX = 100.0;
+
+  static const double referee1X = 365.0;
+  static const double referee1Y = 105.0;
+  static const double referee2X = 495.0;
+  static const double referee2Y = 105.0;
+
+  static const double footerY = 785.0;
+  static const double footerReferee1X = 72.0;
+  static const double footerReferee2X = 210.0;
+  static const double footerScorekeeperY = 695.0;
+  static const double footerScorekeeperX = 140.0;
+  static const double winningTeamX = 400.0;
+  static const double winningTeamY = 810.0;
+
+  static const double teamANameX = 115.0;
+  static const double teamANameY = 123.0;
+  static const double teamBNameX = 115.0;
+  static const double teamBNameY = 405.0;
+  static const double teamAName2X = 130.0;
+  static const double teamAName2Y = 55.0;
+  static const double teamBName2X = 390.0;
+  static const double teamBName2Y = 55.0;
+
+  static const double teamAListStartY = 367.0;
+  static const double teamAColNumX = 195.5;
+  static const double teamAColNameX = 50.0;
+  static const double teamAColCaptainX = 20.0;
+  static const double teamAColFoulsX = 232.5;
+  static const double teamAColEntryX = 215.5;
+
+  static const double teamBListStartY = 650.0;
+  static const double teamBColNumX = 195.5;
+  static const double teamBColNameX = 50.0;
+  static const double teamBColCaptainX = 20.0;
+  static const double teamBColFoulsX = 232.5;
+  static const double teamBColEntryX = 215.5;
+
+  static const double rowHeight = 13.5;
+  static const double foulBoxWidth = 12.0;
+
+  static const double coachAX = 50.0;
+  static const double coachAY = 380.0;
+  static const double coachAFoulsX = 232.5;
+
+  //(Asistente/Banca)
+  static const double benchAX = 50.0;
+  static const double benchAY = 394.0; // 380 + 14 de separación
+  static const double benchAFoulsX = 232.5;
+
+  static const double coachBX = 50.0;
+  static const double coachBY = 664.0;
+  static const double coachBFoulsX = 232.5;
+
+  //(Asistente/Banca)
+  static const double benchBX = 50.0;
+  static const double benchBY = 678.0; // 664 + 14 de separación
+  static const double benchBFoulsX = 232.5;
+
+  static const double teamATimeoutsX = 28.0;
+  static const double teamATimeoutsY1 = 153.0;
+  static const double teamATimeoutsY2 = 168.0;
+  static const double teamATimeoutsY3 = 185.0;
+
+
+  static const double teamBTimeoutsX = 28.0;
+  static const double teamBTimeoutsY1 = 433.0;
+  static const double teamBTimeoutsY2 = 450.0;
+  static const double teamBTimeoutsY3 = 468.0;
+
+  static const double timeoutBoxStep = 12.0;
+
+  static const double scoreBoxY = 772.0;
+  static const double scoreAX = 450.0;
+  static const double scoreBX = 535.0;
+  static const double scoreFontSize = 20.0;
+
+  static const double period1AX = 446.0;
+  static const double period1BX = 532.0;
+  static const double period1Y = 692.0;
+  static const double period2AX = 446.0;
+  static const double period2BX = 532.0;
+  static const double period2Y = 707.0;
+  static const double period3AX = 446.0;
+  static const double period3BX = 532.0;
+  static const double period3Y = 723.0;
+  static const double period4AX = 446.0;
+  static const double period4BX = 532.0;
+  static const double period4Y = 740.0;
+  static const double overtimeAX = 446.0;
+  static const double overtimeBX = 532.0;
+  static const double overtimeY = 755.0;
+
+  static const double runScoreCol1X = 335.0;
+  static const double runScoreTeamSpacing = 10.0;
+  static const double runScoreBlockSpacing = 68.0;
+  static const double playerNumOffsetX = -18.0;
+  static const double runScoreStartY = 157.0;
+  static const double runScoreEndY = 680.0;
+
+  static const double teamAFoulsX = 156.0;
+  static const double teamAFoulsPeriod1Y = 150.0;
+  static const double teamAFoulsPeriod2Y = 165.0;
+  static const double teamAFoulsPeriod2Offset = 60.0;
+  static const double teamAFoulsPeriod3Y = 168.0;
+  static const double teamAFoulsPeriod4Y = 168.0;
+
+  static const double teamBFoulsX = 156.0;
+  static const double teamBFoulsPeriod1Y = 434.0;
+  static const double teamBFoulsPeriod3Y = 450.0;
+
+  static const double teamFoulBoxStep = 12.8;
+
+  static const double protestSignatureX = 175.0;
+  static const double protestSignatureY = 17.0;
+}
+
+class PdfGenerator {
+  static String _createFileName(String teamA, String teamB) {
+    final sanitizedA = teamA.replaceAll(" ", "_");
+    final sanitizedB = teamB.replaceAll(" ", "_");
+    return "Acta_${sanitizedA}_vs_$sanitizedB.pdf";
+  }
+
+  static Future<Uint8List> generateBytes(
+    MatchState state,
+    String teamAName,
+    String teamBName, {
+    String tournamentName = "",
+    String categoryName = "",
+    String tournamentLogoUrl = "",
+    String refereeLogoUrl = "",
+    String venueName = "",
+    String mainReferee = "",
+    String auxReferee = "",
+    String scorekeeper = "",
+    String coachA = "",
+    String coachB = "",
+    int? captainAId,
+    int? captainBId,
+    Uint8List? protestSignature,
+    DateTime? matchDate,
+    Uint8List? mainRefSignature,
+    Uint8List? auxRefSignature,
+  }) async {
+    final pdf = await _buildDocument(
+      state,
+      teamAName,
+      teamBName,
+      tournamentName,
+      categoryName,
+      tournamentLogoUrl,
+      refereeLogoUrl,
+      venueName,
+      mainReferee,
+      auxReferee,
+      scorekeeper,
+      coachA,
+      coachB,
+      captainAId,
+      captainBId,
+      protestSignature,
+      matchDate,
+      mainRefSignature,
+      auxRefSignature
+    );
+    return pdf.save();
+  }
+
+  static Future<void> generateAndPreview(
+    MatchState state,
+    String teamAName,
+    String teamBName, {
+    String tournamentName = "",
+    String categoryName = "",
+    String tournamentLogoUrl = "",
+    String refereeLogoUrl = "",
+    String venueName = "",
+    String mainReferee = "",
+    String auxReferee = "",
+    String scorekeeper = "",
+    String coachA = "",
+    String coachB = "",
+    int? captainAId,
+    int? captainBId,
+    Uint8List? protestSignature,
+    DateTime? matchDate,
+    Uint8List? mainRefSignature,
+    Uint8List? auxRefSignature,
+  }) async {
+    final pdf = await _buildDocument(
+      state,
+      teamAName,
+      teamBName,
+      tournamentName,
+      categoryName,
+      tournamentLogoUrl,
+      refereeLogoUrl,
+      venueName,
+      mainReferee,
+      auxReferee,
+      scorekeeper,
+      coachA,
+      coachB,
+      captainAId,
+      captainBId,
+      protestSignature,
+      matchDate,
+      mainRefSignature,
+      auxRefSignature
+    );
+    final fileName = _createFileName(teamAName, teamBName);
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdf.save(),
+      name: fileName,
+    );
+  }
+
+  static Future<void> generateAndShare(
+    MatchState state,
+    String teamAName,
+    String teamBName, {
+    String tournamentName = "",
+    String categoryName = "",
+    String tournamentLogoUrl = "",
+    String refereeLogoUrl = "",
+    String venueName = "",
+    String mainReferee = "",
+    String auxReferee = "",
+    String scorekeeper = "",
+    String coachA = "",
+    String coachB = "",
+    int? captainAId,
+    int? captainBId,
+    Uint8List? protestSignature,
+    DateTime? matchDate,
+    Uint8List? mainRefSignature,
+    Uint8List? auxRefSignature,
+  }) async {
+    final pdf = await _buildDocument(
+      state,
+      teamAName,
+      teamBName,
+      tournamentName,
+      categoryName,
+      tournamentLogoUrl,
+      refereeLogoUrl,
+      venueName,
+      mainReferee,
+      auxReferee,
+      scorekeeper,
+      coachA,
+      coachB,
+      captainAId,
+      captainBId,
+      protestSignature,
+      matchDate,
+      mainRefSignature,
+      auxRefSignature
+    );
+    final fileName = _createFileName(teamAName, teamBName);
+    await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
+  }
+
+  static Future<pw.Document> _buildDocument(
+    MatchState state,
+    String teamAName,
+    String teamBName,
+    String tournamentName,
+    String categoryName,
+    String tournamentLogoUrl,
+    String refereeLogoUrl,
+    String venueName,
+    String mainReferee,
+    String auxReferee,
+    String scorekeeper,
+    String coachA,
+    String coachB,
+    int? captainAId,
+    int? captainBId,
+    Uint8List? protestSignature,
+    DateTime? matchDate,
+    Uint8List? mainRefSignature,
+    Uint8List? auxRefSignature,
+  ) async {
+    final pdf = pw.Document();
+
+    String winningTeam = "---";
+    if (state.scoreA > state.scoreB) {
+      winningTeam = teamAName.toUpperCase();
+    } else if (state.scoreB > state.scoreA) {
+      winningTeam = teamBName.toUpperCase();
+    } else {
+      winningTeam = "EMPATE";
+    }
+
+    final dateStr = matchDate != null
+        ? "${matchDate.day.toString().padLeft(2, '0')}/${matchDate.month.toString().padLeft(2, '0')}/${matchDate.year}"
+        : "";
+    final timeStr = matchDate != null
+        ? "${matchDate.hour.toString().padLeft(2, '0')}:${matchDate.minute.toString().padLeft(2, '0')}"
+        : "";
+
+    //  CARGA DE LOGO TORNEO 
+    pw.ImageProvider? tournLogoProvider;
+    if (tournamentLogoUrl.isNotEmpty) {
+      try {
+        String finalUrl = tournamentLogoUrl;
+        if (finalUrl.startsWith('../')) {
+          finalUrl = finalUrl.replaceAll('../', 'https://vanball.com.mx/');
+        }
+        tournLogoProvider = await networkImage(finalUrl);
+      // ignore: empty_catches
+      } catch (e) {}
+    }  
+
+    //  CARGA DE LOGO ÁRBITRO (DERECHA) ---
+    // --- NUEVO: CARGA DE LOGO ÁRBITRO (DERECHA) ---
+    pw.ImageProvider? refereeLogoProvider;
+    
+    // Si pasas el objeto tournament completo o la URL por parámetro:
+    if (refereeLogoUrl.isNotEmpty) {
+      try {
+        String finalUrl = refereeLogoUrl.startsWith('../') 
+          ? refereeLogoUrl.replaceAll('../', 'https://vanball.com.mx/') 
+          : refereeLogoUrl;
+        refereeLogoProvider = await networkImage(finalUrl);
+      // ignore: empty_catches
+      } catch (e) {}
+    }
+
+    try {
+      final imageBytes = await rootBundle.load(
+        'assets/images/hoja_anotacion.png',
+      );
+      final image = pw.MemoryImage(imageBytes.buffer.asUint8List());
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (pw.Context context) {
+            return pw.Stack(
+              children: [
+                pw.Positioned.fill(child: pw.Image(image, fit: pw.BoxFit.fill)),
+
+                // LOGO DEL TORNEO (Izquierda)
+                if (tournLogoProvider != null)
+                  pw.Positioned(
+                    left: PdfCoords.tournamentLogoX, 
+                    top: PdfCoords.tournamentLogoY,  
+                    child: pw.Image(
+                      tournLogoProvider,
+                      width: 53, 
+                      height: 53,
+                    ),
+                  ),
+
+                // LOGO DEL ÁRBITRO (Derecha)
+                  if (refereeLogoProvider != null) 
+                    pw.Positioned(
+                      left: PdfCoords.derechatournamentLogoX,
+                      top: PdfCoords.derechatournamentLogoY,  
+                      child: pw.Image(
+                        refereeLogoProvider, 
+                        width: 53, 
+                        height: 53, 
+                        fit: pw.BoxFit.contain,
+                      ),
+                    ),
+
+                _drawText(
+                  tournamentName,
+                  x: PdfCoords.competitionX,
+                  y: PdfCoords.headerY,
+                  fontSize: 9,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  categoryName,
+                  x: PdfCoords.categoryX, 
+                  y: PdfCoords.headerY,
+                  fontSize: 9,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  dateStr,
+                  x: PdfCoords.dateX,
+                  y: PdfCoords.headerY,
+                  fontSize: 9,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  timeStr,
+                  x: PdfCoords.timeX,
+                  y: PdfCoords.headerY,
+                  fontSize: 9,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  venueName,
+                  x: PdfCoords.placeX,
+                  y: PdfCoords.placeY,
+                  fontSize: 9,
+                  color: PdfColors.blue900,
+                ),
+
+                // --- NUEVO: FIRMAS DE OFICIALES EN EL ACTA ---
+                if (mainRefSignature != null)
+                  pw.Positioned(
+                    left: PdfCoords.footerReferee1X,
+                    top: PdfCoords.footerY, // Ajuste para que quede sobre el nombre
+                    child: pw.Image(
+                      pw.MemoryImage(mainRefSignature),
+                      width: 55,
+                      height: 30,
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ),
+                
+                if (auxRefSignature != null)
+                  pw.Positioned(
+                    left: PdfCoords.footerReferee2X,
+                    top: PdfCoords.footerY, // Ajuste para que quede sobre el nombre
+                    child: pw.Image(
+                      pw.MemoryImage(auxRefSignature),
+                      width: 55,
+                      height: 30,
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ),
+                // --------------------------------------------
+
+                if (protestSignature != null)
+                  pw.Positioned(
+                    left: PdfCoords.protestSignatureX,
+                    bottom: PdfCoords.protestSignatureY,
+                    child: pw.Column(
+                      children: [
+                        pw.Image(
+                          pw.MemoryImage(protestSignature),
+                          width: 55,
+                          height: 30,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if (mainReferee.isNotEmpty)
+                  _drawText(
+                    mainReferee,
+                    x: PdfCoords.referee1X,
+                    y: PdfCoords.referee1Y,
+                    fontSize: 8,
+                    color: PdfColors.blue900,
+                  ),
+                if (auxReferee.isNotEmpty)
+                  _drawText(
+                    auxReferee,
+                    x: PdfCoords.referee2X,
+                    y: PdfCoords.referee2Y,
+                    fontSize: 8,
+                    color: PdfColors.blue900,
+                  ),
+                if (scorekeeper.isNotEmpty)
+                  _drawText(
+                    scorekeeper,
+                    x: PdfCoords.footerScorekeeperX,
+                    y: PdfCoords.footerScorekeeperY,
+                    fontSize: 9,
+                    isBold: true,
+                    color: PdfColors.blue900,
+                  ),
+
+                _drawText(
+                  winningTeam,
+                  x: PdfCoords.winningTeamX,
+                  y: PdfCoords.winningTeamY,
+                  fontSize: 10,
+                  isBold: true,
+                  color: PdfColors.blue900,
+                ),
+
+                _drawText(
+                  teamAName.toUpperCase(),
+                  x: PdfCoords.teamANameX,
+                  y: PdfCoords.teamANameY,
+                  isBold: true,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  teamBName.toUpperCase(),
+                  x: PdfCoords.teamBNameX,
+                  y: PdfCoords.teamBNameY,
+                  isBold: true,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  teamAName.toUpperCase(),
+                  x: PdfCoords.teamAName2X,
+                  y: PdfCoords.teamAName2Y,
+                  isBold: true,
+                  fontSize: 10,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  teamBName.toUpperCase(),
+                  x: PdfCoords.teamBName2X,
+                  y: PdfCoords.teamBName2Y,
+                  isBold: true,
+                  fontSize: 10,
+                  color: PdfColors.blue900,
+                ),
+
+                if (coachA.isNotEmpty)
+                  _drawText(
+                    coachA,
+                    x: PdfCoords.coachAX,
+                    y: PdfCoords.coachAY,
+                    fontSize: 10,
+                    isBold: true,
+                    color: PdfColors.blue900,
+                  )
+                else
+                  _drawHorizontalLine(
+                    PdfCoords.coachAX,
+                    PdfCoords.coachAY,
+                    150,
+                  ),
+
+                ..._drawCoachFoulsMarks(
+                  state,
+                  'A',
+                  PdfCoords.coachAFoulsX,
+                  PdfCoords.coachAY,
+                ),
+
+                ..._drawBenchFoulsMarks(
+                  state,
+                  'A',
+                  PdfCoords.benchAFoulsX,
+                  PdfCoords.benchAY,
+                ),
+
+                if (coachB.isNotEmpty)
+                  _drawText(
+                    coachB,
+                    x: PdfCoords.coachBX,
+                    y: PdfCoords.coachBY,
+                    fontSize: 10,
+                    isBold: true,
+                    color: PdfColors.blue900,
+                  )
+                else
+                  _drawHorizontalLine(
+                    PdfCoords.coachBX,
+                    PdfCoords.coachBY,
+                    150,
+                  ),
+
+                ..._drawCoachFoulsMarks(
+                  state,
+                  'B',
+                  PdfCoords.coachBFoulsX,
+                  PdfCoords.coachBY,
+                ),
+
+                ..._drawBenchFoulsMarks(
+                  state,
+                  'B',
+                  PdfCoords.benchBFoulsX,
+                  PdfCoords.benchBY,
+                ),
+
+                ..._drawTeamFoulsSection(state),
+
+                ..._drawTimeouts(state),
+
+                if (state.forfeitStatus == 'TEAM_A' || state.forfeitStatus == 'BOTH') ...[
+                  ..._buildRosterList(
+                    players: const [], 
+                    stats: state.playerStats,
+                    scoreLog: state.scoreLog,
+                    startXNum: PdfCoords.teamAColNumX,
+                    startXName: PdfCoords.teamAColNameX,
+                    startXCaptain: PdfCoords.teamAColCaptainX,
+                    startXFouls: PdfCoords.teamAColFoulsX,
+                    startY: PdfCoords.teamAListStartY,
+                    entryX: PdfCoords.teamAColEntryX,
+                    captainId: captainAId,
+                  ),
+                ] else ...[
+                  ..._buildRosterList(
+                    players: _getSortedRosterFromStats(state, 'A'),
+                    stats: state.playerStats,
+                    scoreLog: state.scoreLog,
+                    startXNum: PdfCoords.teamAColNumX,
+                    startXName: PdfCoords.teamAColNameX,
+                    startXCaptain: PdfCoords.teamAColCaptainX,
+                    startXFouls: PdfCoords.teamAColFoulsX,
+                    startY: PdfCoords.teamAListStartY,
+                    entryX: PdfCoords.teamAColEntryX,
+                    captainId: captainAId,
+                  ),
+                ],
+
+                if (state.forfeitStatus == 'TEAM_B' || state.forfeitStatus == 'BOTH') ...[
+                  ..._buildRosterList(
+                    players: const [], 
+                    stats: state.playerStats,
+                    scoreLog: state.scoreLog,
+                    startXNum: PdfCoords.teamBColNumX,
+                    startXName: PdfCoords.teamBColNameX,
+                    startXCaptain: PdfCoords.teamBColCaptainX,
+                    startXFouls: PdfCoords.teamBColFoulsX,
+                    startY: PdfCoords.teamBListStartY,
+                    entryX: PdfCoords.teamBColEntryX,
+                    captainId: captainBId,
+                  ),
+                ] else ...[
+                  ..._buildRosterList(
+                    players: _getSortedRosterFromStats(state, 'B'),
+                    stats: state.playerStats,
+                    scoreLog: state.scoreLog,
+                    startXNum: PdfCoords.teamBColNumX,
+                    startXName: PdfCoords.teamBColNameX,
+                    startXCaptain: PdfCoords.teamBColCaptainX,
+                    startXFouls: PdfCoords.teamBColFoulsX,
+                    startY: PdfCoords.teamBListStartY,
+                    entryX: PdfCoords.teamBColEntryX,
+                    captainId: captainBId,
+                  ),
+                ],
+                
+
+                _drawText(
+                  "${state.scoreA}",
+                  x: PdfCoords.scoreAX,
+                  y: PdfCoords.scoreBoxY,
+                  fontSize: PdfCoords.scoreFontSize,
+                  isBold: true,
+                  color: PdfColors.blue900,
+                ),
+                _drawText(
+                  "${state.scoreB}",
+                  x: PdfCoords.scoreBX,
+                  y: PdfCoords.scoreBoxY,
+                  fontSize: PdfCoords.scoreFontSize,
+                  isBold: true,
+                  color: PdfColors.blue900,
+                ),
+
+                _drawPeriodScore(
+                  state,
+                  1,
+                  PdfCoords.period1AX,
+                  PdfCoords.period1BX,
+                  PdfCoords.period1Y,
+                ),
+                _drawPeriodScore(
+                  state,
+                  2,
+                  PdfCoords.period2AX,
+                  PdfCoords.period2BX,
+                  PdfCoords.period2Y,
+                ),
+                _drawPeriodScore(
+                  state,
+                  3,
+                  PdfCoords.period3AX,
+                  PdfCoords.period3BX,
+                  PdfCoords.period3Y,
+                ),
+                _drawPeriodScore(
+                  state,
+                  4,
+                  PdfCoords.period4AX,
+                  PdfCoords.period4BX,
+                  PdfCoords.period4Y,
+                ),
+                if (state.periodScores.containsKey(5))
+                  _drawOvertimeScore(
+                    state,
+                    PdfCoords.overtimeAX,
+                    PdfCoords.overtimeBX,
+                    PdfCoords.overtimeY,
+                  ),
+
+                 
+
+                ..._drawRunningScore(state.scoreLog, state.periodScores),
+              ],
+            );
+          },
+        ),
+      );
+
+      // =================================================================
+      // --- NUEVA SECCIÓN: SEGUNDA HOJA PARA REPORTE ARBITRAL ---
+      // =================================================================
+      if (state.observaciones.trim().isNotEmpty) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(40), // Márgenes formales
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // --- ENCABEZADO OFICIAL ---
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      if (tournLogoProvider != null)
+                        pw.Image(tournLogoProvider, width: 60, height: 60)
+                      else
+                        pw.SizedBox(width: 60, height: 60),
+                      
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Text("REPORTE ARBITRAL / ANEXO DE NOVEDADES", 
+                            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                          pw.SizedBox(height: 4),
+                          pw.Text(tournamentName.toUpperCase(), 
+                            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        ]
+                      ),
+
+                      if (refereeLogoProvider != null)
+                        pw.Image(refereeLogoProvider, width: 60, height: 60)
+                      else
+                        pw.SizedBox(width: 60, height: 60),
+                    ]
+                  ),
+                  pw.SizedBox(height: 20),
+                  
+                  // --- DATOS DEL PARTIDO ---
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.blue900, width: 1.5),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text("Partido: $teamAName vs $teamBName", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            pw.Text("Categoría: $categoryName"),
+                            pw.Text("Cancha: $venueName"),
+                          ]
+                        ),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Text("Fecha: $dateStr", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            pw.Text("Hora: $timeStr"),
+                            pw.Text("Marcador: $teamAName ${state.scoreA} - ${state.scoreB} $teamBName"),
+                          ]
+                        ),
+                      ]
+                    )
+                  ),
+                  pw.SizedBox(height: 30),
+
+                  // --- CUERPO DEL REPORTE ---
+                  pw.Text("DESCRIPCIÓN DE LOS HECHOS:", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+                  pw.SizedBox(height: 10),
+                  pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.all(15),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border.all(color: PdfColors.grey400),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Text(
+                      state.observaciones,
+                      style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.5),
+                      textAlign: pw.TextAlign.justify,
+                    ),
+                  ),
+
+                  pw.Spacer(),
+
+                  // --- FIRMAS DE LOS ÁRBITROS ---
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Column(
+                        children: [
+                          if (mainRefSignature != null)
+                            pw.Image(pw.MemoryImage(mainRefSignature), width: 120, height: 60)
+                          else
+                            pw.SizedBox(height: 60),
+                          pw.Container(width: 180, height: 1.5, color: PdfColors.black),
+                          pw.SizedBox(height: 5),
+                          pw.Text("Árbitro Principal", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                          pw.Text(mainReferee, style: const pw.TextStyle(fontSize: 10)),
+                        ]
+                      ),
+                      if (auxReferee.isNotEmpty)
+                        pw.Column(
+                          children: [
+                            if (auxRefSignature != null)
+                              pw.Image(pw.MemoryImage(auxRefSignature), width: 120, height: 60)
+                            else
+                              pw.SizedBox(height: 60),
+                            pw.Container(width: 180, height: 1.5, color: PdfColors.black),
+                            pw.SizedBox(height: 5),
+                            pw.Text("Árbitro Auxiliar", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text(auxReferee, style: const pw.TextStyle(fontSize: 10)),
+                          ]
+                        ),
+                    ]
+                  ),
+                  pw.SizedBox(height: 20),
+                  pw.Center(
+                    child: pw.Text("Generado por Van Ball App", style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                  )
+                ],
+              );
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      throw Exception('Error al generar PDF: $e');
+    }
+    return pdf;
+  }
+
+
+
+  static List<pw.Widget> _drawTimeouts(MatchState state) {
+    List<pw.Widget> widgets = [];
+
+    // EQUIPO A
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamATimeouts1,
+        maxBoxes: 2,
+        startX: PdfCoords.teamATimeoutsX,
+        y: PdfCoords.teamATimeoutsY1,
+      ),
+    );
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamATimeouts2,
+        maxBoxes: 3,
+        startX: PdfCoords.teamATimeoutsX,
+        y: PdfCoords.teamATimeoutsY2,
+      ),
+    );
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamAOTTimeouts,
+        maxBoxes: 3,
+        startX: PdfCoords.teamATimeoutsX,
+        y: PdfCoords.teamATimeoutsY3,
+      ),
+    ); // OT
+
+    // EQUIPO B
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamBTimeouts1,
+        maxBoxes: 2,
+        startX: PdfCoords.teamBTimeoutsX,
+        y: PdfCoords.teamBTimeoutsY1,
+      ),
+    );
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamBTimeouts2,
+        maxBoxes: 3,
+        startX: PdfCoords.teamBTimeoutsX,
+        y: PdfCoords.teamBTimeoutsY2,
+      ),
+    );
+    widgets.addAll(
+      _drawTimeoutRow(
+        timeouts: state.teamBOTTimeouts,
+        maxBoxes: 3,
+        startX: PdfCoords.teamBTimeoutsX,
+        y: PdfCoords.teamBTimeoutsY3,
+      ),
+    ); // OT
+
+    return widgets;
+  }
+
+  static List<pw.Widget> _drawTimeoutRow({
+    required List<String> timeouts,
+    required int maxBoxes,
+    required double startX,
+    required double y,
+  }) {
+    List<pw.Widget> rowWidgets = [];
+    for (int i = 0; i < maxBoxes; i++) {
+      double x = startX + (i * PdfCoords.timeoutBoxStep);
+      String text = (i < timeouts.length) ? timeouts[i] : "";
+      if (text.isNotEmpty) {
+        rowWidgets.add(_drawText(text, x: x, y: y, fontSize: 9, isBold: true));
+      } else {
+        rowWidgets.add(_drawBlueHorizontalMark(x, y));
+      }
+    }
+    return rowWidgets;
+  }
+
+  static List<pw.Widget> _drawBenchFoulsMarks(
+    MatchState state,
+    String teamId,
+    double startX,
+    double y,
+  ) {
+    List<pw.Widget> widgets = [];
+
+    // Filtra solo las faltas tipo 'B' (Banca)
+    final benchEvents = state.scoreLog.where((e) {
+      return e.teamId == teamId && e.type == 'B';
+    }).toList();
+
+    for (int i = 0; i < 3; i++) {
+      double x = startX + (i * PdfCoords.foulBoxWidth);
+
+      if (i < benchEvents.length) {
+        widgets.add(
+          _drawText(
+            "X", 
+            x: x,
+            y: y,
+            fontSize: 10,
+            isBold: true,
+            color: PdfColors.blue900,
+          ),
+        );
+      } else {
+        widgets.add(_drawBlueHorizontalMark(x, y));
+      }
+    }
+    return widgets;
+  }
+
+  static List<pw.Widget> _drawCoachFoulsMarks(
+    MatchState state,
+    String teamId,
+    double startX,
+    double y,
+  ) {
+    List<pw.Widget> widgets = [];
+
+    final coachEvents = state.scoreLog.where((e) {
+      return e.teamId == teamId && (e.type == 'C');
+    }).toList();
+
+    for (int i = 0; i < 3; i++) {
+      double x = startX + (i * PdfCoords.foulBoxWidth);
+
+      if (i < coachEvents.length) {
+        widgets.add(
+          _drawText(
+            "X",
+            x: x,
+            y: y,
+            fontSize: 10,
+            isBold: true,
+            color: PdfColors.blue900,
+          ),
+        );
+      } else {
+        widgets.add(_drawBlueHorizontalMark(x, y));
+      }
+    }
+    return widgets;
+  }
+
+  static List<pw.Widget> _buildRosterList({
+    required List<String> players,
+    required Map<String, PlayerStats> stats,
+    required List<ScoreEvent> scoreLog, 
+    required double startXNum,
+    required double startXName,
+    required double startXCaptain,
+    required double startXFouls,
+    required double startY,
+    required double entryX,
+    int? captainId,
+  }) {
+    List<pw.Widget> widgets = [];
+    int limit = 12;
+
+    double currentY = startY - (11 * PdfCoords.rowHeight);
+
+    for (var i = 0; i < limit; i++) {
+      // --- CASO 1: LA FILA TIENE JUGADOR ---
+      if (i < players.length) {
+        final playerKey = players[i];
+        final stat = stats[playerKey] ?? const PlayerStats();
+        final dorsal = stat.playerNumber.isNotEmpty ? stat.playerNumber : "";
+
+        // --- RECUPERACIÓN DEL NOMBRE REAL ---
+        final String nameToDisplay = stat.playerName.isNotEmpty ? stat.playerName : playerKey;
+
+        // Solo son faltas reales los códigos cortos (P, P1, T1, U, D, ...) o los que contienen 'FOUL'.
+        final playerFoulEvents = scoreLog.where((e) =>
+          e.playerId == playerKey &&
+          e.points == 0 &&
+          EventType.isPlayerFoul(e.type)
+        ).toList();
+
+        // Dorsal
+        widgets.add(_drawText(dorsal, x: startXNum, y: currentY, fontSize: 10, color: PdfColors.blue900));
+
+        if (captainId != null && stat.dbId == captainId) {
+          widgets.add(
+            _drawText("C", x: startXCaptain, y: currentY, fontSize: 9, isBold: true, color: PdfColors.blue900),
+          );
+        }
+
+        // Formatear Nombre (con truncado si es muy largo)
+        String finalNameText = nameToDisplay.length > 22
+            ? "${nameToDisplay.substring(0, 20)}..."
+            : nameToDisplay;
+            
+        // Nombre
+        widgets.add(
+          _drawText(finalNameText, x: startXName, y: currentY, fontSize: 10, color: PdfColors.blue900),
+        );
+
+        // --- Marca de "Titular" o "Entró a cancha" (REGLA FIBA PERMANENTE) ---
+        bool hasPlayedEvents = stat.points > 0 || stat.fouls > 0 || stat.isOnCourt || stat.hasPlayed;
+        
+        if (stat.isStarter) {
+          widgets.add(_drawStarterMark(x: entryX, y: currentY));
+        } else if (hasPlayedEvents) {
+          widgets.add(_drawText("X", x: entryX, y: currentY, fontSize: 10, color: PdfColors.blue900));
+        }
+
+        // --- DIBUJO DE LAS FALTAS DEL JUGADOR ---
+        for (int f = 0; f < 5; f++) {
+          double foulX = startXFouls + (f * PdfCoords.foulBoxWidth);
+          if (f < stat.foulDetails.length) {
+            String foulCode = stat.foulDetails[f];
+            
+            int foulPeriod = (f < playerFoulEvents.length) ? playerFoulEvents[f].period : 1;
+            
+            // NUEVA REGLA DE COLORES
+            PdfColor foulColor;
+            if (foulPeriod == 1) {
+              foulColor = PdfColors.red; // Primer Cuarto
+            } else if (foulPeriod == 2) {
+              foulColor = PdfColors.blue900; // Segundo Cuarto
+            } else if (foulPeriod == 3) {
+              foulColor = PdfColors.red; // Tercer Cuarto
+            } else {
+              foulColor = PdfColors.blue900; // Cuarto Cuarto y Extras
+            }
+
+            // Descalificantes siempre van en rojo
+            if (foulCode == 'D') foulColor = PdfColors.red;
+
+            widgets.add(
+              _drawText(
+                foulCode,
+                x: foulX,
+                y: currentY,
+                fontSize: 8,
+                isBold: true,
+                color: foulColor,
+              ),
+            );
+          }
+        }
+
+        // --- LÍNEA DIVISORIA AL FINAL DEL PRIMER BLOQUE (MITAD 1) ---
+        int firstHalfFouls = playerFoulEvents.where((e) => e.period <= 2).length;
+        if (firstHalfFouls > 5) firstHalfFouls = 5; 
+        
+        double boxHeight = 14.5; 
+        
+        if (firstHalfFouls == 0) {
+          // Si NO tuvo faltas, dibujamos solo la línea vertical al inicio
+          widgets.add(
+            pw.Positioned(
+              left: startXFouls - 1.0, 
+              top: currentY - 1.0,
+              child: pw.Container(
+                width: 2.0,
+                height: boxHeight,
+                color: PdfColors.blue900,
+              ),
+            ),
+          );
+        } else {
+          // Si SÍ tuvo faltas, la línea va desde la primera casilla hasta el final de la última falta cometida
+          double blockWidth = firstHalfFouls * PdfCoords.foulBoxWidth;
+          widgets.add(
+            pw.Positioned(
+              left: startXFouls - 1.0, 
+              top: currentY - 1.0,
+              child: pw.Container(
+                width: blockWidth + 1.0, // Anchura total desde el inicio hasta el fin de sus faltas
+                height: boxHeight,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(color: PdfColors.blue900, width: 1.5),
+                    bottom: pw.BorderSide(color: PdfColors.blue900, width: 1.5),
+                    right: pw.BorderSide(color: PdfColors.blue900, width: 2.0),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+      } 
+      // --- CASO 2: LA FILA ESTÁ VACÍA (O ES FORFEIT Y LA LISTA VIENE EN []) ---
+      else {
+        widgets.add(_drawHorizontalLine(startXName, currentY, 130)); // Raya del Nombre
+        widgets.add(_drawHorizontalLine(startXNum, currentY, 20));   // Raya del Número
+        widgets.add(_drawHorizontalLine(entryX - 2, currentY, 10));  // Raya de la entrada (E)
+        
+        for (int f = 0; f < 5; f++) {
+          double foulX = startXFouls + (f * PdfCoords.foulBoxWidth);
+          widgets.add(_drawHorizontalLine(foulX, currentY, 10));     // Rayas de las faltas vacías
+        }
+      }
+      currentY += PdfCoords.rowHeight;
+    }
+    return widgets;
+  }
+
+  static List<pw.Widget> _drawFoulMarks({
+    required int count,
+    required double startX,
+    required double startY,
+    required PdfColor foulColor, // <--- Nuevo parámetro
+  }) {
+    List<pw.Widget> marks = [];
+    int limit = 4;
+    for (int i = 0; i < limit; i++) {
+      double currentX = startX + (i * PdfCoords.teamFoulBoxStep);
+      if (i < count) {
+        marks.add(
+          _drawText(
+            "X",
+            x: currentX,
+            y: startY,
+            fontSize: 10,
+            isBold: true,
+            color: foulColor, // <--- Aplicamos el color FIBA
+          ),
+        );
+      } else {
+        marks.add(_drawBlueHorizontalMark(currentX, startY));
+      }
+    }
+    return marks;
+  }
+
+  static pw.Widget _drawBlueHorizontalMark(double x, double y) {
+    return pw.Positioned(
+      left: x,
+      top: y + 4,
+      child: pw.Container(width: 10, height: 1.0, color: PdfColors.blue900),
+    );
+  }
+
+  static pw.Widget _drawHorizontalLine(double x, double y, double width) {
+    return pw.Positioned(
+      left: x - 3,
+      top: y + 4,
+      child: pw.Container(width: width, height: 1.0, color: PdfColors.blue900),
+    );
+  }
+
+  static List<String> _getSortedRosterFromStats(MatchState state, String teamSide) {
+    // Obtenemos los nombres de los jugadores basándonos en a qué equipo pertenecen
+    // Utilizaremos los nombres que estén en las listas combinadas del estado.
+    List<String> allPlayers = [];
+    if (teamSide == 'A') {
+      allPlayers = [...state.teamAOnCourt, ...state.teamABench];
+    } else {
+      allPlayers = [...state.teamBOnCourt, ...state.teamBBench];
+    }
+
+    // Si por alguna razón las listas están vacías pero hay stats, intentamos recuperarlos
+    // (Esto es un salvavidas por si el estado no sincronizó bien las listas de cancha/banca)
+    if (allPlayers.isEmpty && state.playerStats.isNotEmpty) {
+      // Nota: Esto asume que no podemos saber de qué equipo son solo viendo el mapa de stats.
+      // Por lo que es crucial que teamAOnCourt y teamABench tengan datos.
+    }
+
+    allPlayers.sort((a, b) {
+      String numA = state.playerStats[a]?.playerNumber ?? "0";
+      String numB = state.playerStats[b]?.playerNumber ?? "0";
+      int intA = int.tryParse(numA) ?? 999;
+      int intB = int.tryParse(numB) ?? 999;
+      int comparison = intA.compareTo(intB);
+      if (comparison != 0) return comparison;
+      return a.compareTo(b);
+    });
+    return allPlayers;
+  }
+
+  static List<pw.Widget> _drawTeamFoulsSection(MatchState state) {
+    List<pw.Widget> widgets = [];
+
+    // --- REGLA FIBA DE COLORES ---
+    const PdfColor colorQ1Q3 = PdfColors.red;
+    const PdfColor colorQ2Q4 = PdfColors.blue900;
+
+    // ----- EQUIPO A -----
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'A', 1),
+        startX: PdfCoords.teamAFoulsX,
+        startY: PdfCoords.teamAFoulsPeriod1Y,
+        foulColor: colorQ1Q3, // 1er Cuarto: Rojo
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'A', 2),
+        startX: PdfCoords.teamAFoulsX + 80.0,
+        startY: PdfCoords.teamAFoulsPeriod1Y,
+        foulColor: colorQ2Q4, // 2do Cuarto: Azul
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'A', 3),
+        startX: PdfCoords.teamAFoulsX,
+        startY: PdfCoords.teamAFoulsPeriod3Y,
+        foulColor: colorQ1Q3, // 3er Cuarto: Rojo
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'A', 4),
+        startX: PdfCoords.teamAFoulsX + 80.0,
+        startY: PdfCoords.teamAFoulsPeriod3Y,
+        foulColor: colorQ2Q4, // 4to Cuarto: Azul
+      ),
+    );
+
+    // ----- EQUIPO B -----
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'B', 1),
+        startX: PdfCoords.teamBFoulsX,
+        startY: PdfCoords.teamBFoulsPeriod1Y,
+        foulColor: colorQ1Q3, // 1er Cuarto: Rojo
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'B', 2),
+        startX: PdfCoords.teamBFoulsX + 80.0,
+        startY: PdfCoords.teamBFoulsPeriod1Y,
+        foulColor: colorQ2Q4, // 2do Cuarto: Azul
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'B', 3),
+        startX: PdfCoords.teamBFoulsX,
+        startY: PdfCoords.teamBFoulsPeriod3Y,
+        foulColor: colorQ1Q3, // 3er Cuarto: Rojo
+      ),
+    );
+    widgets.addAll(
+      _drawFoulMarks(
+        count: _countTeamFouls(state, 'B', 4),
+        startX: PdfCoords.teamBFoulsX + 80.0,
+        startY: PdfCoords.teamBFoulsPeriod3Y,
+        foulColor: colorQ2Q4, // 4to Cuarto: Azul
+      ),
+    );
+    return widgets;
+  }
+
+  static int _countTeamFouls(MatchState state, String teamId, int period) {
+    return state.scoreLog.where((event) {
+      bool isMatch = event.teamId == teamId && event.period == period;
+      // Asegurarnos de que tenga 0 puntos, pero que NO sea falta de Coach (C) ni Banca (B),
+      // ni un cambio (SUB) ni un tiempo muerto (TIMEOUT), que también tienen points == 0.
+      bool isFoul = event.points == 0 &&
+          EventType.isPlayerFoul(event.type) &&
+          !EventType.isTeamFoul(event.type);
+      return isMatch && isFoul;
+    }).length;
+  }
+
+  static pw.Widget _drawStarterMark({required double x, required double y}) {
+    return pw.Positioned(
+      left: x - 1,
+      top: y + 1,
+      child: pw.Stack(
+        alignment: pw.Alignment.center,
+        children: [
+          pw.Container(
+            width: 11,
+            height: 11,
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.blue900, width: 1),
+              shape: pw.BoxShape.circle,
+            ),
+          ),
+          pw.Text("x", style: const pw.TextStyle(fontSize: 8)),
+        ],
+      ),
+    );
+  }
+
+
+  static List<pw.Widget> _drawRunningScore(
+    List<ScoreEvent> log,
+    Map<int, List<int>> periodScores,
+  ) {
+    List<pw.Widget> widgets = [];
+    const double totalHeight =
+        PdfCoords.runScoreEndY - PdfCoords.runScoreStartY;
+    const double stepY = totalHeight / 39.0;
+
+    for (var event in log) {
+      if (event.points == 0) continue;
+      final PdfColor inkColor = (event.period % 2 != 0)
+          ? PdfColors.red
+          : PdfColors.blue900;
+      int score = event.scoreAfter;
+      if (score > 160) score = 160;
+      int blockIndex = (score - 1) ~/ 40;
+      int rowInBlock = (score - 1) % 40;
+      double blockX =
+          PdfCoords.runScoreCol1X +
+          (blockIndex * PdfCoords.runScoreBlockSpacing);
+      double finalX = (event.teamId == 'A')
+          ? blockX
+          : blockX + PdfCoords.runScoreTeamSpacing;
+      double finalY = PdfCoords.runScoreStartY + (rowInBlock * stepY);
+      // Ajuste exacto para centrar el número en su propia "celda"
+      double playerNumX = (event.teamId == 'A')
+          ? finalX - 24.0  // Mueve el número del Equipo A a la izquierda
+          : finalX + 18.0; // Mueve el número del Equipo B a la derecha
+      widgets.add(
+        _drawText(
+          event.playerNumber,
+          x: playerNumX,
+          y: finalY,
+          fontSize: 9.5, 
+          isBold: true,  
+          color: inkColor,
+        ),
+      );
+      if (event.points == 1) {
+        widgets.add(_drawFilledDot(finalX, finalY, inkColor));
+      } else {
+        widgets.add(_drawDiagonalSlash(finalX, finalY, inkColor));
+        if (event.points == 3) {
+          widgets.add(_drawCircleAroundNumber(playerNumX, finalY, inkColor));
+        }
+      }
+    }
+
+    int runningA = 0;
+    int runningB = 0;
+    final sortedPeriods = periodScores.keys.toList()..sort();
+    
+    int lastPeriod = sortedPeriods.isNotEmpty ? sortedPeriods.last : 1;
+
+    for (int p in sortedPeriods) {
+      final scores = periodScores[p];
+      if (scores == null) continue;
+      int pointsAInPeriod = scores.isNotEmpty ? scores[0] : 0;
+      int pointsBInPeriod = scores.length > 1 ? scores[1] : 0;
+      runningA += pointsAInPeriod;
+      runningB += pointsBInPeriod;
+      final PdfColor periodColor = (p % 2 != 0)
+          ? PdfColors.red
+          : PdfColors.blue900;
+          
+      if (p == lastPeriod) {
+        // En el último periodo dibujamos el cierre doble y la diagonal
+        if (runningA > 0 && runningA <= 160) {
+          widgets.addAll(_drawFinalClosingLine(runningA, 'A', stepY, periodColor));
+        }
+        if (runningB > 0 && runningB <= 160) {
+          widgets.addAll(_drawFinalClosingLine(runningB, 'B', stepY, periodColor));
+        }
+      } else {
+        // Cuartos intermedios normales
+        if (runningA > 0 && runningA <= 160) {
+          widgets.add(_drawPeriodEndLine(runningA, 'A', stepY, periodColor));
+        }
+        if (runningB > 0 && runningB <= 160) {
+          widgets.add(_drawPeriodEndLine(runningB, 'B', stepY, periodColor));
+        }
+      }
+    }
+    return widgets;
+  }
+
+  static pw.Widget _drawPeriodEndLine(
+    int score,
+    String teamId,
+    double stepY,
+    PdfColor color,
+  ) {
+    int blockIndex = (score - 1) ~/ 40;
+    int rowInBlock = (score - 1) % 40;
+    double blockX =
+        PdfCoords.runScoreCol1X + (blockIndex * PdfCoords.runScoreBlockSpacing);
+    
+    double y = PdfCoords.runScoreStartY + (rowInBlock * stepY) + 10;
+    // CORRECCIÓN CLAVE: Ajuste manual exacto igual que en el cierre final
+    double lineX = (teamId == 'A') ? blockX - 27 : blockX + 10;
+    
+    return pw.Positioned(
+      left: lineX,
+      top: y,
+      child: pw.Stack(
+        children: [
+          pw.Container(width: 35, height: 3.0, color: color),
+          if (rowInBlock < 39) 
+             pw.Positioned(
+               left: 0,
+               top: 3,
+               child: pw.CustomPaint(
+                 size: const PdfPoint(35, 12),
+                 painter: (canvas, size) {
+                   canvas.setColor(color);
+                   canvas.setLineWidth(2.0);
+                   canvas.drawLine(0, 12, 35, 0);
+                   canvas.strokePath();
+                 },
+               )
+             )
+        ]
+      )
+    );
+  }
+
+  static List<pw.Widget> _drawFinalClosingLine(
+    int score,
+    String teamId,
+    double stepY,
+    PdfColor color,
+  ) {
+    int blockIndex = (score - 1) ~/ 40;
+    int rowInBlock = (score - 1) % 40;
+    double blockX =
+        PdfCoords.runScoreCol1X + (blockIndex * PdfCoords.runScoreBlockSpacing);
+    
+    // Posición Y de la raya debajo del último punto
+    double y = PdfCoords.runScoreStartY + (rowInBlock * stepY) + 10;
+    
+    // CORRECCIÓN CLAVE: Ajuste manual exacto para las líneas de cierre 
+    // sin importar el teamSpacing o el playerOffset.
+    double lineX = (teamId == 'A') ? blockX - 27 : blockX + 10;
+    
+    List<pw.Widget> closingWidgets = [];
+    
+    // 1. Doble línea horizontal
+    closingWidgets.add(
+      pw.Positioned(
+        left: lineX,
+        top: y,
+        child: pw.Container(width: 35, height: 1.5, color: color),
+      ),
+    );
+    closingWidgets.add(
+      pw.Positioned(
+        left: lineX,
+        top: y + 3,
+        child: pw.Container(width: 35, height: 1.5, color: color),
+      ),
+    );
+
+    // 2. Línea diagonal inteligente hasta el final
+    int remainingRows = 39 - rowInBlock;
+    if (remainingRows > 0) {
+      double endY = PdfCoords.runScoreStartY + (39 * stepY) + 12; 
+      
+      closingWidgets.add(
+        pw.Positioned(
+          left: lineX,
+          top: y + 6,
+          child: pw.CustomPaint(
+            size: PdfPoint(35, endY - (y + 6)),
+            painter: (canvas, size) {
+              canvas.setColor(color);
+              canvas.setLineWidth(2.5); 
+              canvas.drawLine(0, size.y, 35, 0);
+              canvas.strokePath();
+            },
+          ),
+        ),
+      );
+    }
+
+    return closingWidgets;
+  }
+
+  static pw.Widget _drawFilledDot(double x, double y, PdfColor color) {
+    return pw.Positioned(
+      left: x + 2, // Ajustado para mantener el centro
+      top: y + 3,  // Ajustado para mantener el centro
+      child: pw.Container(
+        width: 6, // <--- Punto más grande (antes era 4)
+        height: 6, // <--- Punto más grande (antes era 4)
+        decoration: pw.BoxDecoration(color: color, shape: pw.BoxShape.circle),
+      ),
+    );
+  }
+
+  static pw.Widget _drawDiagonalSlash(double x, double y, PdfColor color) {
+    return pw.Positioned(
+      left: x,
+      top: y - 1,
+      child: pw.CustomPaint(
+        size: const PdfPoint(10, 10),
+        painter: (canvas, size) {
+          canvas.setColor(color);
+          canvas.setLineWidth(1.5);
+          canvas.drawLine(0, 10, 10, 0);
+          canvas.strokePath();
+        },
+      ),
+    );
+  }
+
+  static pw.Widget _drawCircleAroundNumber(double x, double y, PdfColor color) {
+    return pw.Positioned(
+      left: x - 1,
+      top: y - 1,
+      child: pw.Container(
+        width: 12,
+        height: 12,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: color, width: 1),
+          shape: pw.BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _drawPeriodScore(
+    MatchState state,
+    int period,
+    double xA,
+    double xB,
+    double y,
+  ) {
+    final scoreA =
+        (state.periodScores[period] != null &&
+            state.periodScores[period]!.isNotEmpty)
+        ? state.periodScores[period]![0]
+        : 0;
+    final scoreB =
+        (state.periodScores[period] != null &&
+            state.periodScores[period]!.length > 1)
+        ? state.periodScores[period]![1]
+        : 0;
+
+    // LÓGICA DE COLOR FIBA: Periodos 1 y 3 en Rojo. Periodos 2 y 4 en Azul Oscuro.
+    final PdfColor periodColor = (period % 2 != 0) ? PdfColors.red : PdfColors.blue900;
+
+    return pw.Stack(
+      children: [
+        _drawText("$scoreA", x: xA, y: y, fontSize: 10, isBold: true, color: periodColor),
+        _drawText("$scoreB", x: xB, y: y, fontSize: 10, isBold: true, color: periodColor),
+      ],
+    );
+  }
+
+  static pw.Widget _drawOvertimeScore(
+    MatchState state,
+    double xA,
+    double xB,
+    double y,
+  ) {
+    int totalA = _calculateOvertimeTotal(state, 0);
+    int totalB = _calculateOvertimeTotal(state, 1);
+
+    // REGLA FIBA: Los tiempos extra se anotan con el mismo color que el 4to cuarto (Azul Oscuro/Negro).
+    const PdfColor otColor = PdfColors.blue900;
+
+    return pw.Stack(
+      children: [
+        _drawText("$totalA", x: xA, y: y, fontSize: 10, isBold: true, color: otColor),
+        _drawText("$totalB", x: xB, y: y, fontSize: 10, isBold: true, color: otColor),
+      ],
+    );
+  }
+
+  static int _calculateOvertimeTotal(MatchState state, int teamIndex) {
+    int total = 0;
+    state.periodScores.forEach((period, scores) {
+      if (period >= 5 && scores.length > teamIndex) total += scores[teamIndex];
+    });
+    return total;
+  }
+
+  static pw.Widget _drawText(
+    String text, {
+    required double x,
+    required double y,
+    double fontSize = 12,
+    bool isBold = false,
+    PdfColor color = PdfColors.black,
+  }) {
+    return pw.Positioned(
+      left: x,
+      top: y,
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: fontSize,
+          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
