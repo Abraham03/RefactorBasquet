@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart'; 
 import '../core/models/catalog_models.dart' as catalog;
 import '../core/database/app_database.dart';
@@ -206,16 +207,30 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     );
 
     if (rules == null || !mounted) return;
-    
+
+    // Si ya hay calendario local, confirmamos antes de sobrescribir.
+    final db = ref.read(databaseProvider);
+    final existing = await (db.select(db.fixtures)
+          ..where((f) => f.tournamentId.equals(widget.tournamentId)))
+        .get();
+
+    if (existing.isNotEmpty) {
+      if (!mounted) return;
+      final confirm = await _confirmOverwrite(context);
+      if (confirm != true) return;
+    }
+
+    if (!mounted) return;
     showDialog(
-      context: context, 
-      barrierDismissible: false, 
-      builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orangeAccent))
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orangeAccent)),
     );
 
     try {
       final api = ref.read(apiServiceProvider);
-      
+
+      // 1. Guardar reglas
       final rulesSaved = await api.saveTournamentRules(
         tournamentId: widget.tournamentId,
         vueltas: rules['vueltas'],
@@ -225,59 +240,101 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         ptsForfeitWin: rules['forfeitWin'],
         ptsForfeitLoss: rules['forfeitLoss'],
       );
-
       if (!rulesSaved) throw Exception("Error guardando las reglas del torneo");
 
-      final success = await api.generateFixture(
-        tournamentId: widget.tournamentId,
-      );
-      
-      if (success) {
-        final newFixtureData = await api.fetchFixture(widget.tournamentId);
-        
-        if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
-          final db = ref.read(databaseProvider);
-          await (db.delete(db.fixtures)..where((f) => f.tournamentId.equals(widget.tournamentId))).go();
-
-          final roundsMap = newFixtureData['rounds'] as Map<String, dynamic>;
-          await db.transaction(() async {
-            for (var entry in roundsMap.entries) {
-              final roundName = entry.key;
-              for (var m in (entry.value as List)) {
-                await db.into(db.fixtures).insert(
-                  FixturesCompanion.insert(
-                    id: m['id'].toString(),
-                    tournamentId: widget.tournamentId,
-                    roundName: roundName,
-                    teamAId: m['team_a_id'].toString(),
-                    teamBId: m['team_b_id'].toString(),
-                    teamAName: m['team_a'] ?? 'A',
-                    teamBName: m['team_b'] ?? 'B',
-                    logoA: drift.Value(m['logo_a']),
-                    logoB: drift.Value(m['logo_b']),
-                    status: drift.Value(m['status'] ?? 'SCHEDULED'),
-                  ),
-                  mode: drift.InsertMode.insertOrReplace
-                );
-              }
-            }
-          });
-          
-          ref.invalidate(localFixtureProvider(widget.tournamentId));
-          setState(() => _selectedRound = null); // Reset a default al generar
+      // 2. Si había calendario, purgamos en el servidor ANTES de regenerar.
+      //    Esto evita el bloqueo "ya existen partidos" al dejar la tabla limpia.
+      if (existing.isNotEmpty) {
+        final purge = await api.deleteFixture(tournamentId: widget.tournamentId);
+        if (!purge.success) {
+          throw Exception(purge.message ?? "No se pudo purgar el calendario anterior");
         }
-
-        if (!mounted) return; 
-        Navigator.pop(context); 
-        context.showSuccess("Calendario generado con éxito");
-      } else {
-        context.showError("El servidor rechazó la solicitud de generación");
       }
+
+      // 3. Generar
+      final result = await api.generateFixture(tournamentId: widget.tournamentId);
+      if (!result.success) {
+        // Mensaje REAL del servidor (regla de negocio, etc.)
+        throw Exception(result.message ?? "El servidor rechazó la generación");
+      }
+
+      // 4. Descargar y persistir localmente el nuevo calendario
+      final newFixtureData = await api.fetchFixture(widget.tournamentId);
+      if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
+        await (db.delete(db.fixtures)..where((f) => f.tournamentId.equals(widget.tournamentId))).go();
+
+        final roundsMap = newFixtureData['rounds'] as Map<String, dynamic>;
+        await db.transaction(() async {
+          for (var entry in roundsMap.entries) {
+            final roundName = entry.key;
+            for (var m in (entry.value as List)) {
+              await db.into(db.fixtures).insert(
+                FixturesCompanion.insert(
+                  id: m['id'].toString(),
+                  tournamentId: widget.tournamentId,
+                  roundName: roundName,
+                  teamAId: m['team_a_id'].toString(),
+                  teamBId: m['team_b_id'].toString(),
+                  teamAName: m['team_a'] ?? 'A',
+                  teamBName: m['team_b'] ?? 'B',
+                  logoA: drift.Value(m['logo_a']),
+                  logoB: drift.Value(m['logo_b']),
+                  status: drift.Value(m['status'] ?? 'SCHEDULED'),
+                ),
+                mode: drift.InsertMode.insertOrReplace,
+              );
+            }
+          }
+        });
+
+        ref.invalidate(localFixtureProvider(widget.tournamentId));
+        setState(() => _selectedRound = null);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      context.showSuccess("Calendario generado con éxito");
     } catch (e) {
-      if (!mounted) return; 
-      Navigator.pop(context); 
-      context.showError("Error al generar el calendario: $e");
+      if (!mounted) return;
+      Navigator.pop(context);
+      // Mostramos el mensaje real (viene del Exception que armamos con result.message)
+      context.showError(e.toString().replaceFirst('Exception: ', ''));
     }
+  }
+
+  Future<bool?> _confirmOverwrite(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text("Sobrescribir calendario",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            ),
+          ],
+        ),
+        content: const Text(
+          "Ya existe un calendario para este torneo. Regenerarlo borrará el calendario actual y los partidos asociados en el servidor.\n\n¿Deseas continuar?",
+          style: TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Sí, sobrescribir", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

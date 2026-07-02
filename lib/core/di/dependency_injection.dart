@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:myapp/data/repositories/player_repository.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import '../database/app_database.dart';
 import '../service/api_service.dart';
@@ -44,4 +45,10 @@ final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
   final officialRepo = ref.watch(officialRepositoryProvider);
   final controller = ref.watch(matchGameProvider.notifier);
   return MatchFinalizer(db, api, officialRepo, controller);
+});
+
+final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
+  final db = ref.watch(databaseProvider);
+  final api = ref.watch(apiServiceProvider);
+  return PlayerRepository(db, api);
 });

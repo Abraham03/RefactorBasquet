@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 // ignore: depend_on_referenced_packages
 import 'package:http_parser/http_parser.dart'; 
 import '../models/catalog_models.dart';
+import '../network/api_result.dart';
 
 class ApiService {
   
@@ -117,14 +118,13 @@ class ApiService {
     }
   }
 
-  Future<bool> generateFixture({
+  Future<ApiResult> generateFixture({
     required String tournamentId,
   }) async {
     try {
       final payload = {
         "action": "generate_fixture",
         "tournament_id": tournamentId,
-        // Ya no enviamos "config" aquí porque lo enviaremos por separado
       };
 
       final response = await http.post(
@@ -133,13 +133,19 @@ class ApiService {
         body: jsonEncode(payload),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
+      final respData = jsonDecode(response.body);
+      final message = respData['message']?.toString();
+
+      // El backend manda 'status' y, cuando falla, un 'message' explicativo
+      // (p.ej. la regla de "ya hay partidos jugados"). Lo propagamos tal cual.
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          respData['status'] == 'success') {
+        return ApiResult.ok(message);
       }
-      return false;
+      return ApiResult.fail(
+          message ?? "El servidor rechazó la solicitud (código ${response.statusCode}).");
     } catch (e) {
-      return false;
+      return ApiResult.fail("Error de conexión: $e");
     }
   }
 
@@ -190,6 +196,30 @@ class ApiService {
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<ApiResult> deleteFixture({
+    required String tournamentId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl?action=delete_fixture'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"id": tournamentId}),
+      );
+
+      final respData = jsonDecode(response.body);
+      final message = respData['message']?.toString();
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          respData['status'] == 'success') {
+        return ApiResult.ok(message);
+      }
+      return ApiResult.fail(
+          message ?? "No se pudo purgar el calendario (código ${response.statusCode}).");
+    } catch (e) {
+      return ApiResult.fail("Error de conexión: $e");
     }
   }
 

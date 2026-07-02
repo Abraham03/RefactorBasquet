@@ -3,7 +3,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
+import 'package:myapp/data/repositories/player_repository.dart';
 
 import '../core/models/catalog_models.dart';
 import '../core/database/app_database.dart' as db_app;
@@ -235,10 +235,7 @@ class TeamDetailScreen extends ConsumerWidget {
         );
       },
       onDismissed: (direction) async {
-        final db = ref.read(di.databaseProvider);
-        await (db.delete(
-          db.players,
-        )..where((t) => t.id.equals(player.id))).go();
+        await ref.read(di.playerRepositoryProvider).deletePlayer(player.id);
       },
       child: GestureDetector(
         onTap: () => _showPlayerDialog(
@@ -334,64 +331,58 @@ class TeamDetailScreen extends ConsumerWidget {
                 context.showWarning("El nombre es obligatorio.");
                 return;
               }
-              
-              final db = ref.read(di.databaseProvider);
-              final api = ref.read(di.apiServiceProvider);
+
               final playerNum = int.tryParse(numberCtrl.text) ?? 0;
               final currentPlayers = ref.read(teamPlayersStreamProvider(teamIdInt)).value ?? [];
-              
+              final repo = ref.read(di.playerRepositoryProvider);
+
               // =================================================================
-              // LÓGICA DE SWAP (INTERCAMBIO)
+              // LÓGICA DE SWAP (INTERCAMBIO DE DORSAL)
               // =================================================================
-              final duplicates = currentPlayers.where((p) => p.defaultNumber == playerNum && p.id != playerToEdit?.id);
-              
+              final duplicates = currentPlayers.where(
+                (p) => p.defaultNumber == playerNum && p.id != playerToEdit?.id,
+              );
+
               if (duplicates.isNotEmpty) {
                 final duplicatePlayer = duplicates.first;
-                final numberForDuplicate = isEditing ? playerToEdit.defaultNumber : 0; // Si es nuevo, le damos 0 al otro
-                
+                final numberForDuplicate = isEditing ? playerToEdit.defaultNumber : 0;
+
                 final confirmSwap = await showDialog<bool>(
                   context: context,
                   builder: (swapCtx) => AlertDialog(
                     backgroundColor: const Color(0xFF1E2432),
-                    title: const Text("🔄 Número Ocupado", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    title: const Text("🔄 Número Ocupado",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     content: Text(
                       "El jugador ${duplicatePlayer.name} ya usa el número $playerNum.\n\n"
                       "¿Deseas quitárselo${isEditing ? ' e intercambiar sus números' : ' y asignarle el 0'}?",
                       style: const TextStyle(color: Colors.white70),
                     ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(swapCtx, false), child: const Text("Cancelar")),
+                      TextButton(
+                          onPressed: () => Navigator.pop(swapCtx, false),
+                          child: const Text("Cancelar")),
                       FilledButton(
                         style: FilledButton.styleFrom(backgroundColor: Colors.blueAccent),
                         onPressed: () => Navigator.pop(swapCtx, true),
-                        child: const Text("Sí, Intercambiar", style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text("Sí, Intercambiar",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                 );
 
-                if (confirmSwap != true) return; // Si no confirma, no hacemos nada
+                if (confirmSwap != true) return;
 
-                // 1. Ejecutar el cambio en el jugador duplicado primero
-                bool syncSuccessDup = false;
-                final isRealDupId = (int.tryParse(duplicatePlayer.id) ?? 0) > 0;
-                
-                if (isRealDupId && !isTeamLocal) {
-                  try {
-                    // --- TRUCO ANTI-DEADLOCK ONLINE ---
-                    // Movemos al jugador original al #9999 para que PHP no bloquee al duplicado
-                    if (isEditing) {
-                        await api.updatePlayer(playerToEdit.id, teamIdInt, playerToEdit.name, 9999);
-                    }
-                    syncSuccessDup = await api.updatePlayer(duplicatePlayer.id, teamIdInt, duplicatePlayer.name, numberForDuplicate);
-                  } catch (_) {}
-                }
-                
-                await (db.update(db.players)..where((p) => p.id.equals(duplicatePlayer.id.toString()))).write(
-                  db_app.PlayersCompanion(
-                    defaultNumber: drift.Value(numberForDuplicate),
-                    isSynced: drift.Value(syncSuccessDup),
-                  )
+                await repo.reassignNumber(
+                  duplicatePlayer: duplicatePlayer,
+                  newNumber: numberForDuplicate,
+                  teamId: teamIdInt,
+                  isTeamLocal: isTeamLocal,
+                  // Truco anti-deadlock: al editar, liberamos primero al jugador
+                  // que estamos editando (moviéndolo al #9999) antes de tocar al duplicado.
+                  freeUpFirstId: isEditing ? playerToEdit.id : null,
+                  freeUpFirstName: isEditing ? playerToEdit.name : null,
                 );
               }
 
@@ -399,70 +390,36 @@ class TeamDetailScreen extends ConsumerWidget {
               // GUARDADO DEL JUGADOR PRINCIPAL
               // =================================================================
               try {
+                final SavePlayerResult result;
+
                 if (isEditing) {
-                  final isRealId = (int.tryParse(playerToEdit.id) ?? 0) > 0;
-                  bool syncSuccess = false;
-
-                  if (isRealId && !isTeamLocal) {
-                    syncSuccess = await api.updatePlayer(playerToEdit.id, teamIdInt, nameCtrl.text, playerNum);
-                  }
-
-                  await (db.update(db.players)..where((t) => t.id.equals(playerToEdit.id))).write(
-                    db_app.PlayersCompanion(
-                      name: drift.Value(nameCtrl.text),
-                      defaultNumber: drift.Value(playerNum),
-                      isSynced: drift.Value(syncSuccess),
-                    ),
+                  result = await repo.updatePlayer(
+                    playerId: playerToEdit.id,
+                    teamId: teamIdInt,
+                    name: nameCtrl.text,
+                    number: playerNum,
+                    isTeamLocal: isTeamLocal,
                   );
-                  
-                  if (context.mounted) {
-                    if (syncSuccess) {
-                      context.showSuccess("Jugador actualizado en la nube");
-                    }else {
-                      context.showWarning("Jugador editado localmente (Pendiente de subir)");
-                    }
-                  }
                 } else {
-                  if (isTeamLocal) {
-                    throw Exception("Equipo padre es local. Forzando cascada offline.");
-                  }
-
-                  final newId = await api.addPlayer(teamIdInt, nameCtrl.text, playerNum);
-                  await db.into(db.players).insert(
-                    db_app.PlayersCompanion.insert(
-                      id: drift.Value(newId.toString()),
-                      teamId: teamIdInt,
-                      name: nameCtrl.text,
-                      defaultNumber: drift.Value(playerNum),
-                      active: const drift.Value(true),
-                      isSynced: const drift.Value(true),
-                    ),
-                    mode: drift.InsertMode.insertOrReplace,
+                  result = await repo.createPlayer(
+                    teamId: teamIdInt,
+                    name: nameCtrl.text,
+                    number: playerNum,
+                    isTeamLocal: isTeamLocal,
                   );
-                  
-                  if (context.mounted) {context.showSuccess("Jugador agregado");}
                 }
-                
-                if (context.mounted) Navigator.pop(ctx);
-                
-              } catch (e) {
-                if (!isEditing) {
-                  // Creación Offline
-                  final tempId = (-DateTime.now().millisecondsSinceEpoch).toString();
-                  await db.into(db.players).insert(
-                    db_app.PlayersCompanion.insert(
-                      id: drift.Value(tempId),
-                      teamId: teamIdInt,
-                      name: nameCtrl.text,
-                      defaultNumber: drift.Value(playerNum),
-                      active: const drift.Value(true),
-                      isSynced: const drift.Value(false),
-                    ),
-                  );
-                  if (context.mounted) {context.showWarning("Sin conexión. Guardado localmente.");
-                    Navigator.pop(ctx);
+
+                if (context.mounted) {
+                  if (result.synced) {
+                    context.showSuccess(
+                        isEditing ? "Jugador actualizado en la nube" : "Jugador agregado");
+                  } else {
+                    context.showWarning("Guardado localmente (Pendiente de subir)");
                   }
-                } else {context.showError("Error: $e");}
+                  Navigator.pop(ctx);
+                }
+              } catch (e) {
+                if (context.mounted) context.showError("Error: $e");
               }
             },
             child: Text(isEditing ? "Actualizar" : "Guardar", style: const TextStyle(fontWeight: FontWeight.bold)),
