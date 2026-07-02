@@ -4,7 +4,7 @@ import 'dart:io';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/matches_dao.dart';
 import '../../core/service/api_service.dart';
-import '../../core/models/sync_result.dart';
+import '../models/sync_result.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///

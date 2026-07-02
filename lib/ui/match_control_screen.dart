@@ -5,18 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_presentation_display/display.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter_presentation_display/flutter_presentation_display.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'dart:convert';
 
 import '../core/di/dependency_injection.dart';
 import '../core/models/catalog_models.dart';
-import '../core/utils/pdf_generator.dart';
 import '../logic/match_game_controller.dart';
 import '../ui/protest_signature_screen.dart';
 import '../ui/pdf_preview_screen.dart';
-import '../core/database/app_database.dart' as db;
 import '../core/network/websocket_server.dart'; 
 
 import '../ui/widgets/app_background.dart';
@@ -24,6 +21,8 @@ import '../ui/widgets/scoreboard_widget.dart';
 
 import '../ui/widgets/app_feedback.dart';
 import '../core/constants/app_colors.dart';
+
+import '../data/models/match_finalize_params.dart';
 
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -1271,7 +1270,7 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     Uint8List? signature, {
     bool autoShow = true,
   }) async {
-    // 1. Mostrar diálogo de carga
+    // Loader
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1281,59 +1280,13 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     );
 
     try {
-      final api = ref.read(apiServiceProvider);
-      final controller = ref.read(matchGameProvider.notifier);
-      final dbBase = ref.read(databaseProvider);
-
-      try {
-        await controller.reconcileOfflinePlayers(api);
-      } catch (e) {
-        // Si no hay internet, ignoramos el error. 
-        // El jugador se quedará con ID negativo localmente por ahora.
-        debugPrint("Modo Offline Activo: Se sincronizará después.");
-      }
-
-      // --- 1. RECUPERAR DATOS DEL TORNEO (PARA EL LOGO DEL ÁRBITRO) ---
-      final tournamentObj = await (dbBase.select(dbBase.tournaments)
-            ..where((t) => t.id.equals(widget.tournamentId.toString())))
-          .getSingleOrNull();
-
-      // Asumimos que agregaste 'refereeLogoUrl' a tu tabla Tournaments en Drift
-      final String refereeLogoUrl = tournamentObj?.refereeLogoUrl ?? "";    
-
-      // --- 2. RECUPERAR FIRMAS DE OFICIALES (POR NOMBRE Y ROL) ---
-      // Usamos .get() y firstOrNull para evitar el error de "Too many elements"
-      final mainRefObj = await (dbBase.select(dbBase.officials)
-            ..where((t) => t.name.equals(widget.mainReferee))
-            ..where((t) => t.role.equals('ARBITRO_PRINCIPAL')))
-          .get()
-          .then((list) => list.firstOrNull);
-
-      final auxRefObj = await (dbBase.select(dbBase.officials)
-            ..where((t) => t.name.equals(widget.auxReferee))
-            ..where((t) => t.role.equals('ARBITRO_AUXILIAR')))
-          .get()
-          .then((list) => list.firstOrNull);
-
-      Uint8List? mainSignBytes;
-      Uint8List? auxSignBytes;
-
-      if (mainRefObj?.signatureData != null && mainRefObj!.signatureData!.isNotEmpty) {
-        mainSignBytes = base64Decode(mainRefObj.signatureData!);
-      }
-      if (auxRefObj?.signatureData != null && auxRefObj!.signatureData!.isNotEmpty) {
-        auxSignBytes = base64Decode(auxRefObj.signatureData!);
-      }
-
-      // --- 3. GENERAR BYTES DEL PDF (CON LAS FIRMAS INCLUIDAS) ---
-      final pdfBytes = await PdfGenerator.generateBytes(
-        state,
-        widget.teamAName,
-        widget.teamBName,
+      final params = MatchFinalizeParams(
+        tournamentId: widget.tournamentId,
+        teamAName: widget.teamAName,
+        teamBName: widget.teamBName,
         tournamentName: widget.tournamentName,
         categoryName: widget.categoryName,
         tournamentLogoUrl: widget.tournamentLogoUrl,
-        refereeLogoUrl: refereeLogoUrl,
         venueName: widget.venueName,
         mainReferee: widget.mainReferee,
         auxReferee: widget.auxReferee,
@@ -1342,56 +1295,32 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
         coachB: widget.coachB,
         captainAId: widget.captainAId,
         captainBId: widget.captainBId,
-        protestSignature: signature, // Firma de protesta (capitán)
-        matchDate: widget.matchDate ?? DateTime.now(),
-        mainRefSignature: mainSignBytes, // Firma Árbitro Principal
-        auxRefSignature: auxSignBytes,   // Firma Árbitro Auxiliar
+        matchDate: widget.matchDate,
       );
 
-      // --- 4. FINALIZAR Y SINCRONIZAR A LA NUBE ---
-      bool synced = await controller.finalizeAndSync(
-        api,
-        signature,
-        pdfBytes,
-        widget.teamAName,
-        widget.teamBName,
-      );
+      final result = await ref.read(matchFinalizerProvider).finalize(
+            state: state,
+            params: params,
+            protestSignature: signature,
+          );
 
-      // --- 5. ACTUALIZAR ESTADOS LOCALES ---
-      await (dbBase.update(dbBase.matches)
-            ..where((tbl) => tbl.id.equals(state.matchId)))
-          .write(const db.MatchesCompanion(status: drift.Value('FINISHED')));
-
-      if (state.fixtureId != null) {
-        await (dbBase.update(dbBase.fixtures)
-              ..where((tbl) => tbl.id.equals(state.fixtureId!)))
-            .write(
-          db.FixturesCompanion(
-            status: const drift.Value('FINISHED'),
-            scoreA: drift.Value(state.scoreA),
-            scoreB: drift.Value(state.scoreB),
-          ),
-        );
-      }
-
-      // --- 6. MANEJO DE UI FINAL ---
       if (context.mounted) {
         setState(() => _isFinished = true);
-        Navigator.pop(context); // Quitar CircularProgressIndicator
+        Navigator.pop(context); // Quitar loader
 
-        if (synced) {
-            context.showSuccess("Sincronizado correctamente");
-          } else {
-            context.showInfo("Guardado localmente (Sin conexión)");
-          }
+        if (result.synced) {
+          context.showSuccess("Sincronizado correctamente");
+        } else {
+          context.showInfo("Guardado localmente (Sin conexión)");
+        }
 
         if (autoShow) _goToPdfPreview(context, state, signature);
-        ref.invalidate(matchGameProvider); // Esto destruye el estado viejo de memoria
+        ref.invalidate(matchGameProvider);
       }
     } catch (e) {
       debugPrint("Error en _finishMatchProcess: $e");
       if (context.mounted) {
-        Navigator.pop(context); // Quitar CircularProgressIndicator
+        Navigator.pop(context); // Quitar loader
         context.showError("Error al finalizar: $e");
         if (autoShow) _goToPdfPreview(context, state, signature);
       }
@@ -1399,38 +1328,12 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
   }
   
   void _goToPdfPreview(BuildContext context, MatchState state, Uint8List? signature) async {
-    final database = ref.read(databaseProvider);
-
-    // Buscamos por NOMBRE y por el ROL específico del partido
-  final mainRefObj = await (database.select(database.officials)
-        ..where((t) => t.name.equals(state.mainReferee))
-        ..where((t) => t.role.equals('ARBITRO_PRINCIPAL'))) // <--- Filtro de rol
-        .get().then((list) => list.firstOrNull);
-
-  final auxRefObj = await (database.select(database.officials)
-        ..where((t) => t.name.equals(state.auxReferee))
-        ..where((t) => t.role.equals('ARBITRO_AUXILIAR'))) // <--- Filtro de rol
-        .get().then((list) => list.firstOrNull);
-
-    Uint8List? mainSignBytes;
-    Uint8List? auxSignBytes;
-
-    // 2. Decodificar de Base64 a Uint8List
-    if (mainRefObj?.signatureData != null && mainRefObj!.signatureData!.isNotEmpty) {
-      try {
-        mainSignBytes = base64Decode(mainRefObj.signatureData!);
-      } catch (e) {
-        debugPrint("Error decodificando firma principal: $e");
-      }
-    }
-    
-    if (auxRefObj?.signatureData != null && auxRefObj!.signatureData!.isNotEmpty) {
-      try {
-        auxSignBytes = base64Decode(auxRefObj.signatureData!);
-      } catch (e) {
-        debugPrint("Error decodificando firma auxiliar: $e");
-      }
-    }
+    final signatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
+          mainRefereeName: state.mainReferee,
+          auxRefereeName: state.auxReferee,
+        );
+    final Uint8List? mainSignBytes = signatures.main;
+    final Uint8List? auxSignBytes = signatures.aux;
 
     // 3. Navegar
     if (context.mounted) {

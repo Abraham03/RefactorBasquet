@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:myapp/logic/match_game_controller.dart';
 import '../database/app_database.dart';
 import '../service/api_service.dart';
 import '../../data/repositories/sync_repository.dart';
+import '../../data/repositories/official_repository.dart';
+import '../../domain/services/match_finalizer.dart';
 
 
 // Provider de la Base de Datos (Singleton)
@@ -28,4 +31,17 @@ final syncRepositoryProvider = Provider<SyncRepository>((ref) {
   final api = ref.watch(apiServiceProvider);
   final matchesDao = ref.watch(matchesDaoProvider);
   return SyncRepository(db, api, matchesDao);
+});
+
+final officialRepositoryProvider = Provider<OfficialRepository>((ref) {
+  final db = ref.watch(databaseProvider);
+  return OfficialRepository(db);
+});
+
+final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
+  final db = ref.watch(databaseProvider);
+  final api = ref.watch(apiServiceProvider);
+  final officialRepo = ref.watch(officialRepositoryProvider);
+  final controller = ref.watch(matchGameProvider.notifier);
+  return MatchFinalizer(db, api, officialRepo, controller);
 });
