@@ -150,6 +150,30 @@ class PlayerRepository {
     return SavePlayerResult(synced: false, playerId: tempId);
   }
 
+  /// Devuelve el dorsal libre más bajo del equipo (empezando en 0),
+  /// ignorando opcionalmente a [excludePlayerId]. Se usa para reasignar
+  /// a un jugador cuyo número le fue quitado, sin chocar con otro existente.
+  Future<int> findLowestFreeNumber({
+    required int teamId,
+    String? excludePlayerId,
+  }) async {
+    final players = await (_db.select(_db.players)
+          ..where((p) => p.teamId.equals(teamId)))
+        .get();
+
+    final taken = <int>{};
+    for (final p in players) {
+      if (excludePlayerId != null && p.id == excludePlayerId) continue;
+      taken.add(p.defaultNumber);
+    }
+
+    int candidate = 0;
+    while (taken.contains(candidate)) {
+      candidate++;
+    }
+    return candidate;
+  }
+
   /// Borra un jugador localmente.
   Future<void> deletePlayer(String playerId) async {
     await (_db.delete(_db.players)..where((t) => t.id.equals(playerId))).go();

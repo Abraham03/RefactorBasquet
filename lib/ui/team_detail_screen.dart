@@ -345,7 +345,12 @@ class TeamDetailScreen extends ConsumerWidget {
 
               if (duplicates.isNotEmpty) {
                 final duplicatePlayer = duplicates.first;
-                final numberForDuplicate = isEditing ? playerToEdit.defaultNumber : 0;
+                final numberForDuplicate = isEditing
+                    ? playerToEdit.defaultNumber
+                    : await repo.findLowestFreeNumber(
+                        teamId: teamIdInt,
+                        excludePlayerId: duplicatePlayer.id,
+                      );
 
                 final confirmSwap = await showDialog<bool>(
                   context: context,
@@ -355,7 +360,7 @@ class TeamDetailScreen extends ConsumerWidget {
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     content: Text(
                       "El jugador ${duplicatePlayer.name} ya usa el número $playerNum.\n\n"
-                      "¿Deseas quitárselo${isEditing ? ' e intercambiar sus números' : ' y asignarle el 0'}?",
+                      "¿Deseas quitárselo${isEditing ? ' e intercambiar sus números' : ' y asignarle otro número libre'}?",
                       style: const TextStyle(color: Colors.white70),
                     ),
                     actions: [
