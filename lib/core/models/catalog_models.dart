@@ -5,22 +5,29 @@ class Tournament {
   final int id;
   final String name;
   final String category;
+  final String? status;
   final String? logoUrl;
   final String? refereeLogoUrl;
 
-  Tournament({required this.id, required this.name, required this.category,this.logoUrl,this.refereeLogoUrl,});
+  Tournament({
+    required this.id,
+    required this.name,
+    required this.category,
+    this.status,
+    this.logoUrl,
+    this.refereeLogoUrl,
+  });
 
   factory Tournament.fromJson(Map<String, dynamic> json) {
     return Tournament(
       id: int.parse(json['id'].toString()),
       name: json['name'],
       category: json['category'] ?? '',
+      status: json['status'],
       logoUrl: json['logo_url'],
       refereeLogoUrl: json['url_arbitro'],
     );
   }
-
-  get status => null;
 }
 
 class TournamentTeamRelation {

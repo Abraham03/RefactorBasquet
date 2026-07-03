@@ -1,9 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../logic/match_game_controller.dart';
-import 'dart:typed_data';
 import '../constants/match_constants.dart';
 
 class PdfCoords {
@@ -308,7 +308,19 @@ class PdfGenerator {
     Uint8List? mainRefSignature,
     Uint8List? auxRefSignature,
   ) async {
-    final pdf = pw.Document();
+    // Cargamos fuentes con soporte Unicode (acentos, ñ, etc.) desde los assets.
+    // La Helvetica por defecto del paquete no soporta estos caracteres y hace
+    // fallar el render cuando aparece texto con acentos (p.ej. la descripción
+    // de protesta). Cargar desde assets funciona sin internet (offline-first).
+    final baseFont = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+    final boldFont = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: baseFont,
+        bold: boldFont,
+      ),
+    );
 
     String winningTeam = "---";
     if (state.scoreA > state.scoreB) {
@@ -334,10 +346,12 @@ class PdfGenerator {
         if (finalUrl.startsWith('../')) {
           finalUrl = finalUrl.replaceAll('../', 'https://vanball.com.mx/');
         }
-        tournLogoProvider = await networkImage(finalUrl);
-      // ignore: empty_catches
-      } catch (e) {}
-    }  
+        tournLogoProvider = await networkImage(finalUrl)
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint("Logo torneo no cargó (timeout o red): $e");
+      }
+    } 
 
     //  CARGA DE LOGO ÁRBITRO (DERECHA) ---
     // --- NUEVO: CARGA DE LOGO ÁRBITRO (DERECHA) ---
@@ -349,9 +363,11 @@ class PdfGenerator {
         String finalUrl = refereeLogoUrl.startsWith('../') 
           ? refereeLogoUrl.replaceAll('../', 'https://vanball.com.mx/') 
           : refereeLogoUrl;
-        refereeLogoProvider = await networkImage(finalUrl);
-      // ignore: empty_catches
-      } catch (e) {}
+        refereeLogoProvider = await networkImage(finalUrl)
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint("Logo árbitro no cargó (timeout o red): $e");
+      }
     }
 
     try {

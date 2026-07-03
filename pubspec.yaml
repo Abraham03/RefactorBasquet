@@ -68,6 +68,7 @@ flutter:
     - assets/images/hoja_anotacion.png
     - assets/images/fondo1.jpg
     - assets/images/app_logo.png
+    - assets/fonts/
 
 flutter_launcher_icons:
   android: "ic_launcher"

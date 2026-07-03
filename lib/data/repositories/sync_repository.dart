@@ -283,41 +283,12 @@ class SyncRepository {
             uploaded++;
           }
         } else {
+           // Creamos el jugador en la nube y delegamos TODA la reconciliación
+          // (insertar ID real, revincular rosters/eventos/SUB, borrar temporal)
+          // al DAO, que lo hace de forma atómica en un solo lugar.
           final realPlayerId =
               await _api.addPlayer(player.teamId, player.name, player.defaultNumber);
-          final String realIdStr = realPlayerId.toString();
-          final String oldIdStr = player.id;
-
-          await _db.transaction(() async {
-            await _db.into(_db.players).insert(
-                  PlayersCompanion.insert(
-                    id: Value(realIdStr),
-                    teamId: player.teamId,
-                    name: player.name,
-                    defaultNumber: Value(player.defaultNumber),
-                    isSynced: const Value(true),
-                    active: const Value(true),
-                  ),
-                );
-            await (_db.update(_db.gameEvents)..where((e) => e.playerId.equals(oldIdStr)))
-                .write(GameEventsCompanion(playerId: Value(realIdStr)));
-            await (_db.update(_db.matchRosters)..where((r) => r.playerId.equals(oldIdStr)))
-                .write(MatchRostersCompanion(playerId: Value(realIdStr)));
-            await (_db.delete(_db.players)..where((p) => p.id.equals(oldIdStr))).go();
-          });
-
-          // Limpieza de IDs embebidos en el texto de los SUB.
-          final allEvents = await _db.select(_db.gameEvents).get();
-          for (final ev in allEvents) {
-            if (ev.type.contains(oldIdStr)) {
-              final newType = ev.type.replaceAll(oldIdStr, realIdStr);
-              await (_db.update(_db.gameEvents)
-                    ..where((e) =>
-                        e.matchId.equals(ev.matchId) & e.type.equals(ev.type)))
-                  .write(GameEventsCompanion(type: Value(newType)));
-            }
-          }
-
+          await _matchesDao.replaceTempPlayerId(player.id, realPlayerId.toString());
           uploaded++;
         }
       } catch (e) {
