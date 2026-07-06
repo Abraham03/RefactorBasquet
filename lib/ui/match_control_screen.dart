@@ -1306,6 +1306,7 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
 
       if (context.mounted) {
         setState(() => _isFinished = true);
+        ref.read(matchGameProvider.notifier).markAsFinished();
         Navigator.pop(context); // Quitar loader
 
         if (result.synced) {

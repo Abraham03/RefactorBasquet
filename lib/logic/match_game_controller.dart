@@ -261,6 +261,7 @@ class MatchState {
 class MatchGameController extends StateNotifier<MatchState> {
   final MatchesDao _dao;
   Timer? _timer;
+  bool _isFinished = false;
   final List<MatchState> _history = [];
 
   MatchGameController(this._dao) : super(const MatchState());
@@ -1169,6 +1170,14 @@ void _applyRestoreSub({
     }
   }
 
+  /// Detiene el reloj y marca el partido como finalizado, para que los
+  /// guardados posteriores no reviertan el estado a IN_PROGRESS.
+  void markAsFinished() {
+    _timer?.cancel();
+    _isFinished = true;
+    state = state.copyWith(isRunning: false);
+  }
+
   void _pause() {
     _timer?.cancel();
     _timer = null;
@@ -1448,6 +1457,9 @@ void undoLastSubstitution() {
 
   Future<void> _saveToDatabase() async {
     if (state.matchId.isEmpty) return;
+    // Si el partido ya finalizó, no seguimos escribiendo IN_PROGRESS:
+    // eso revertiría el estado FINISHED que dejó el finalizador.
+    if (_isFinished) return;
     final timeStr =
         "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}";
     await _dao.updateMatchStatus(
@@ -1455,7 +1467,7 @@ void undoLastSubstitution() {
       state.scoreA,
       state.scoreB,
       timeStr,
-      "IN_PROGRESS",
+      MatchStatus.inProgress,
     );
   }
 
