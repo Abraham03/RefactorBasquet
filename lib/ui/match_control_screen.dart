@@ -23,7 +23,7 @@ import '../ui/widgets/app_feedback.dart';
 import '../core/constants/app_colors.dart';
 
 import '../data/models/match_finalize_params.dart';
-
+import 'package:flutter/foundation.dart';
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String? fixtureId;
@@ -420,11 +420,34 @@ void initState() {
           builder: (context, constraints) {
             final isWideScreen = constraints.maxWidth > 750;
             
-            final sortedCourtA = _sortPlayersByNumberAsc(gameState.teamAOnCourt, gameState);
-            final sortedCourtB = _sortPlayersByNumberAsc(gameState.teamBOnCourt, gameState);
-
-            Widget teamAWidget = Expanded(child: _buildTeamList(context, widget.teamAName, Colors.orangeAccent, 'A', sortedCourtA, gameState.teamABench, controller, gameState, isWideScreen));
-            Widget teamBWidget = Expanded(child: _buildTeamList(context, widget.teamBName, Colors.lightBlueAccent, 'B', sortedCourtB, gameState.teamBBench, controller, gameState, isWideScreen));
+            // Las listas se envuelven en Consumer con select para NO
+            // reconstruirse con el tick del reloj. Observan una "firma" de los
+            // datos de jugadores (cancha, banca, stats, posesión). Cuando solo
+            // cambia timeLeft, la firma es igual y la lista no se reconstruye.
+            Widget teamAWidget = Expanded(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final s = ref.watch(matchGameProvider.select(
+                      (st) => _TeamViewData.from(st, 'A')));
+                  final freshState = ref.read(matchGameProvider);
+                  final sortedCourtA = _sortPlayersByNumberAsc(s.onCourt, freshState);
+                  return _buildTeamList(context, widget.teamAName, Colors.orangeAccent,
+                      'A', sortedCourtA, s.bench, controller, freshState, isWideScreen);
+                },
+              ),
+            );
+            Widget teamBWidget = Expanded(
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final s = ref.watch(matchGameProvider.select(
+                      (st) => _TeamViewData.from(st, 'B')));
+                  final freshState = ref.read(matchGameProvider);
+                  final sortedCourtB = _sortPlayersByNumberAsc(s.onCourt, freshState);
+                  return _buildTeamList(context, widget.teamBName, Colors.lightBlueAccent,
+                      'B', sortedCourtB, s.bench, controller, freshState, isWideScreen);
+                },
+              ),
+            );
 
             Widget scoreboardView = ScoreboardWidget(
               state: gameState,
@@ -1553,4 +1576,46 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     }
   }
 
+}
+
+/// Firma de los datos que una lista de equipo necesita para decidir si
+/// debe reconstruirse. Incluye cancha, banca y los stats de esos jugadores
+/// (puntos/faltas), pero NO el reloj. Así el tick de cada segundo no dispara
+/// el rebuild de las listas de jugadores.
+class _TeamViewData {
+  final List<String> onCourt;
+  final List<String> bench;
+  final Map<String, PlayerStats> relevantStats;
+  final String possession;
+
+  _TeamViewData(this.onCourt, this.bench, this.relevantStats, this.possession);
+
+  factory _TeamViewData.from(MatchState st, String team) {
+    final onCourt = team == 'A' ? st.teamAOnCourt : st.teamBOnCourt;
+    final bench = team == 'A' ? st.teamABench : st.teamBBench;
+    // Solo los stats de los jugadores de ESTE equipo (cancha + banca).
+    final ids = {...onCourt, ...bench};
+    final relevant = <String, PlayerStats>{};
+    for (final id in ids) {
+      final ps = st.playerStats[id];
+      if (ps != null) relevant[id] = ps;
+    }
+    return _TeamViewData(List.of(onCourt), List.of(bench), relevant, st.possession);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _TeamViewData &&
+      listEquals(other.onCourt, onCourt) &&
+      listEquals(other.bench, bench) &&
+      mapEquals(other.relevantStats, relevantStats) &&
+      other.possession == possession;
+
+  @override
+  int get hashCode => Object.hash(
+        Object.hashAll(onCourt),
+        Object.hashAll(bench),
+        possession,
+        relevantStats.length,
+      );
 }

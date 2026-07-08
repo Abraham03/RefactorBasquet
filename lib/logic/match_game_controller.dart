@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/database/app_database.dart';
@@ -11,7 +10,7 @@ import '../core/service/api_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../core/constants/match_constants.dart';
-
+import 'package:flutter/foundation.dart';
 class ScoreEvent {
   final int period;
   final String teamId;
@@ -80,6 +79,32 @@ class PlayerStats {
       foulDetails: foulDetails ?? this.foulDetails,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlayerStats &&
+      other.dbId == dbId &&
+      other.playerName == playerName &&
+      other.points == points &&
+      other.fouls == fouls &&
+      other.isOnCourt == isOnCourt &&
+      other.isStarter == isStarter &&
+      other.hasPlayed == hasPlayed &&
+      other.playerNumber == playerNumber &&
+      listEquals(other.foulDetails, foulDetails);
+
+  @override
+  int get hashCode => Object.hash(
+        dbId,
+        playerName,
+        points,
+        fouls,
+        isOnCourt,
+        isStarter,
+        hasPlayed,
+        playerNumber,
+        Object.hashAll(foulDetails),
+      );
 }
 
 class MatchState {
