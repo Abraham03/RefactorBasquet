@@ -157,6 +157,9 @@ void initState() {
 }
 
   void _broadcastFastUpdate(MatchState state, MatchGameController controller) {
+    // No emitir si el widget se desmontó o el partido ya finalizó: tras
+    // ref.invalidate el controller se destruye y usarlo lanzaría error.
+    if (!mounted || _isFinished) return;
     try {
       final payload = jsonEncode({
         "state": state.toJson(),
