@@ -503,6 +503,12 @@ class SyncRepository {
         "scorekeeper": match.scorekeeper,
         "signature_base64": match.signatureData,
         "status": match.status,
+        "forfeit_status": match.forfeitStatus,
+        "observaciones": match.observaciones,
+        "match_date": match.matchDate == null
+            ? null
+            : "${match.matchDate!.year}-${match.matchDate!.month.toString().padLeft(2, '0')}-${match.matchDate!.day.toString().padLeft(2, '0')} "
+              "${match.matchDate!.hour.toString().padLeft(2, '0')}:${match.matchDate!.minute.toString().padLeft(2, '0')}:${match.matchDate!.second.toString().padLeft(2, '0')}",
         "events": eventsList,
         "rosters": rostersList,
       };

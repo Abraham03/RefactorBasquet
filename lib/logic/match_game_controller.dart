@@ -1493,6 +1493,8 @@ void undoLastSubstitution() {
       state.scoreB,
       timeStr,
       MatchStatus.inProgress,
+      forfeitStatus: state.forfeitStatus,
+      observaciones: state.observaciones,
     );
   }
 
