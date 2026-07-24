@@ -10,7 +10,7 @@ import '../../core/di/dependency_injection.dart';
 import '../core/database/app_database.dart';
 import '../ui/widgets/tournament_rules_dialog.dart';
 import '../ui/widgets/app_feedback.dart';
-
+import '../logic/head_to_head_counter.dart';
 class ManualFixtureBuilderScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   const ManualFixtureBuilderScreen({super.key, required this.tournamentId});
@@ -28,7 +28,8 @@ class _ManualFixtureBuilderScreenState
   List<Map<String, dynamic>> _teamsStatus = [];
   List<Map<String, dynamic>> _createdMatchesForRound = [];
   
-  Map<int, Set<int>> _playedMatchups = {}; 
+  // Contador de dominio: cuántas veces se enfrentó cada par (no un simple sí/no).
+  HeadToHeadCounter _h2h = const HeadToHeadCounter.empty();
   bool _isLoading = true;
 
   @override
@@ -174,7 +175,9 @@ class _ManualFixtureBuilderScreenState
 
       final fixtureData = await api.fetchFixture(widget.tournamentId);
       
-      Map<int, Set<int>> matchups = {};
+      // Recolectamos pares (idLocal, idVisitante); el conteo y la validación
+      // viven en HeadToHeadCounter.fromPairs → una sola fuente de verdad (DRY).
+      final pairs = <(int, int)>[];
 
       if (fixtureData.isNotEmpty && fixtureData['rounds'] != null) {
         final roundsMap = fixtureData['rounds'] as Map<String, dynamic>;
@@ -187,8 +190,7 @@ class _ManualFixtureBuilderScreenState
             final teamB = int.tryParse(match['team_b_id'].toString()) ?? 0;
             
             if (teamA != 0 && teamB != 0) {
-              matchups.putIfAbsent(teamA, () => {}).add(teamB);
-              matchups.putIfAbsent(teamB, () => {}).add(teamA);
+              pairs.add((teamA, teamB));
             }
           }
         }
@@ -196,7 +198,7 @@ class _ManualFixtureBuilderScreenState
 
       if (mounted) {
         _teamsStatus = statusData;
-        _playedMatchups = matchups;
+        _h2h = HeadToHeadCounter.fromPairs(pairs);
       }
     } catch (e) {
       debugPrint("API falló. Usando BD Local. Error: $e");
@@ -222,17 +224,11 @@ class _ManualFixtureBuilderScreenState
         .get();
 
     List<Map<String, dynamic>> fallbackStatus = [];
-    Map<int, Set<int>> matchups = {};
-
-    for (var f in localFixtures) {
-      final tA = int.tryParse(f.teamAId) ?? 0;
-      final tB = int.tryParse(f.teamBId) ?? 0;
-      
-      if (tA != 0 && tB != 0) {
-        matchups.putIfAbsent(tA, () => {}).add(tB);
-        matchups.putIfAbsent(tB, () => {}).add(tA);
-      }
-    }
+    // Misma clase de dominio para la rama offline; sin duplicar el conteo.
+    final pairs = <(int, int)>[
+      for (final f in localFixtures)
+        (int.tryParse(f.teamAId) ?? 0, int.tryParse(f.teamBId) ?? 0),
+    ];
 
     for (var row in localTeams) {
       final team = row.readTable(db.teams);
@@ -264,7 +260,7 @@ class _ManualFixtureBuilderScreenState
     });
 
     _teamsStatus = fallbackStatus;
-    _playedMatchups = matchups;
+    _h2h = HeadToHeadCounter.fromPairs(pairs);
   }
 
 Future<void> _loadCreatedMatchesLocally() async {
@@ -315,6 +311,12 @@ Future<void> _loadCreatedMatchesLocally() async {
     return true; 
   }
 */
+  // Helper de PRESENTACIÓN (texto con singular/plural). Vive en la vista
+  // porque es formato de UI, no lógica de dominio.
+  String _matchupWarning(int veces) {
+    final etiqueta = veces == 1 ? "vez" : "veces";
+    return "⚠️ Cuidado: Estos equipos ya se enfrentaron $veces $etiqueta en este torneo.";
+  }
   void _addNewRound() {
     setState(() {
       int newRound =
@@ -401,6 +403,7 @@ Future<void> _loadCreatedMatchesLocally() async {
                       selectedValue: selectedTeamA,
                       otherSelectedValue: selectedTeamB,
                       originalTeamIdToIgnore: null,
+                      otherOriginalTeamId: null,
                       onChanged: (val) => setModalState(() => selectedTeamA = val),
                     ),
                     const Padding(
@@ -413,20 +416,25 @@ Future<void> _loadCreatedMatchesLocally() async {
                       selectedValue: selectedTeamB,
                       otherSelectedValue: selectedTeamA,
                       originalTeamIdToIgnore: null,
+                      otherOriginalTeamId: null,
                       onChanged: (val) => setModalState(() => selectedTeamB = val),
                     ),
                     const SizedBox(height: 30),
                     
-                    // --- MENSAJE DE ADVERTENCIA (Solo visual) ---
-                    if (selectedTeamA != null && selectedTeamB != null && (_playedMatchups[selectedTeamA]?.contains(selectedTeamB) ?? false))
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12.0),
-                        child: Text(
-                          "⚠️ Cuidado: Estos equipos ya se enfrentaron anteriormente en este torneo.",
-                          style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                    Builder(
+                      builder: (_) {
+                        final veces = _h2h.timesFaced(selectedTeamA, selectedTeamB);
+                        if (veces == 0) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Text(
+                            _matchupWarning(veces),
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      },
+                    ),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -506,6 +514,7 @@ Future<void> _loadCreatedMatchesLocally() async {
                       selectedValue: selectedTeamA,
                       otherSelectedValue: selectedTeamB,
                       originalTeamIdToIgnore: originalA, 
+                      otherOriginalTeamId: originalB,
                       onChanged: (val) => setModalState(() => selectedTeamA = val),
                     ),
                     const Padding(
@@ -518,20 +527,25 @@ Future<void> _loadCreatedMatchesLocally() async {
                       selectedValue: selectedTeamB,
                       otherSelectedValue: selectedTeamA,
                       originalTeamIdToIgnore: originalB, 
+                      otherOriginalTeamId: originalA, 
                       onChanged: (val) => setModalState(() => selectedTeamB = val),
                     ),
                     const SizedBox(height: 30),
 
-                    // --- MENSAJE DE ADVERTENCIA (Solo visual) ---
-                    if (selectedTeamA != null && selectedTeamB != null && (_playedMatchups[selectedTeamA]?.contains(selectedTeamB) ?? false))
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12.0),
-                        child: Text(
-                          "⚠️ Cuidado: Estos equipos ya se enfrentaron anteriormente en este torneo.",
-                          style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                    Builder(
+                      builder: (_) {
+                        final veces = _h2h.timesFaced(selectedTeamA, selectedTeamB, excludeA: originalA, excludeB: originalB);
+                        if (veces == 0) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Text(
+                            _matchupWarning(veces),
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      },
+                    ),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -574,6 +588,7 @@ Future<void> _loadCreatedMatchesLocally() async {
     required int? selectedValue,
     required int? otherSelectedValue,
     required int? originalTeamIdToIgnore, 
+    int? otherOriginalTeamId,
     required Function(int?) onChanged,
   }) {
     return Container(
@@ -618,8 +633,9 @@ Future<void> _loadCreatedMatchesLocally() async {
                 bool isOriginalTeam = teamId == originalTeamIdToIgnore;
                 bool alreadyPlayedRound = int.parse(team['scheduled_this_round'].toString()) > 0;
                 bool isSameTeam = teamId == otherSelectedValue;
-                bool alreadyPlayedAgainst = otherSelectedValue != null && 
-                    (_playedMatchups[otherSelectedValue]?.contains(teamId) ?? false);
+                int timesAgainst = _h2h.timesFaced(otherSelectedValue, teamId,
+                    excludeA: originalTeamIdToIgnore, excludeB: otherOriginalTeamId);
+                bool alreadyPlayedAgainst = timesAgainst > 0;
 
                 // Solo deshabilitar si es el mismo equipo o si ya jugó en ESTA jornada. 
                 // "alreadyPlayedAgainst" (ya jugaron en el torneo) será solo visual (rojo) pero seleccionable.
@@ -638,7 +654,7 @@ Future<void> _loadCreatedMatchesLocally() async {
                   statusIcon = Icons.warning_amber_rounded;
                 } else if (!isOriginalTeam && alreadyPlayedAgainst) {
                   dotColor = Colors.redAccent;
-                  statusText = "YA ENFRENTADOS";
+                  statusText = timesAgainst == 1 ? "1 VEZ" : "$timesAgainst VECES";
                   statusColor = Colors.redAccent;
                   statusIcon = Icons.block;
                 } else if (!isOriginalTeam && alreadyPlayedRound) {
