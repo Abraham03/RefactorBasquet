@@ -464,10 +464,15 @@ class SyncRepository {
       final rosterRows = await (_db.select(_db.matchRosters)
             ..where((r) => r.matchId.equals(match.id)))
           .get();
+          
       final rostersList = rosterRows.map((r) {
         final pIdInt = int.tryParse(r.playerId) ?? 0;
         if (pIdInt < 0) containsUnsyncedOfflinePlayers = true;
-        final hasPlayed = eventsList.any((event) => event["player_id"] == pIdInt);
+        // Un equipo en forfeit no jugó ni asistió: forzamos played = 0.
+        final bool teamForfeited =
+            (r.teamSide == 'A' && (match.forfeitStatus == 'TEAM_A' || match.forfeitStatus == 'BOTH')) ||
+            (r.teamSide == 'B' && (match.forfeitStatus == 'TEAM_B' || match.forfeitStatus == 'BOTH'));
+        final hasPlayed = !teamForfeited && eventsList.any((event) => event["player_id"] == pIdInt);
         return {
           "player_id": pIdInt,
           "team_side": r.teamSide,

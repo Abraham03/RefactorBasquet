@@ -778,17 +778,24 @@ void _applyRestoreSub({
     final rostersList = rosterRows
     .where((r) => (int.tryParse(r.playerId) ?? 0) > 0)
     .map((r) {
-      final pStats = state.playerStats.values
-          .where((p) => p.dbId.toString() == r.playerId)
-          .firstOrNull;
+      // Un equipo en forfeit NO jugó ni asistió, sin importar qué titulares
+      // se hayan seleccionado en la UI para poder avanzar. El forfeit manda.
+      final bool teamForfeited =
+          (r.teamSide == 'A' && (state.forfeitStatus == ForfeitStatus.teamA || state.forfeitStatus == ForfeitStatus.both)) ||
+          (r.teamSide == 'B' && (state.forfeitStatus == ForfeitStatus.teamB || state.forfeitStatus == ForfeitStatus.both));
 
       bool hasPlayed = false;
-      if (pStats != null) {
-        if (pStats.isStarter ||
-            pStats.isOnCourt ||
-            pStats.points > 0 ||
-            pStats.fouls > 0) {
-          hasPlayed = true;
+      if (!teamForfeited) {
+        final pStats = state.playerStats.values
+            .where((p) => p.dbId.toString() == r.playerId)
+            .firstOrNull;
+        if (pStats != null) {
+          if (pStats.isStarter ||
+              pStats.isOnCourt ||
+              pStats.points > 0 ||
+              pStats.fouls > 0) {
+            hasPlayed = true;
+          }
         }
       }
 
