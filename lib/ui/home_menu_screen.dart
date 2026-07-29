@@ -20,7 +20,7 @@ import 'team_management_screen.dart';
 import '../ui/widgets/glass_dashboard_card.dart';
 import '../ui/widgets/app_background.dart';
 
-import 'package:drift_db_viewer/drift_db_viewer.dart';
+//import 'package:drift_db_viewer/drift_db_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 // <--- ESTE RECONOCE EL XFile
 import 'dart:convert';
@@ -288,30 +288,13 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       floatingActionButton: _isAdminMode
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Desconectar la pantalla externa (HDMI/AnyCast) manualmente.
-                // Al entrar a un partido se reconecta sola.
-                FloatingActionButton.extended(
-                  heroTag: "disconnectDisplay",
-                  onPressed: _disconnectExternalDisplay,
-                  icon: const Icon(Icons.cast_connected),
-                  label: const Text("Desconectar pantalla"),
-                  backgroundColor: Colors.blueGrey.withOpacity(0.85),
-                  foregroundColor: Colors.white,
-                ),
-                const SizedBox(height: 12),
-                FloatingActionButton.extended(
-                  heroTag: "newTournament",
-                  onPressed: _showCreateDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Nuevo Torneo"),
-                  backgroundColor: Colors.orange.withOpacity(0.80),
-                  foregroundColor: Colors.white,
-                ),
-              ],
+          ? FloatingActionButton.extended(
+              heroTag: "newTournament",
+              onPressed: _showCreateDialog,
+              icon: const Icon(Icons.add),
+              label: const Text(""),
+              backgroundColor: Colors.orange.withOpacity(0.80),
+              foregroundColor: Colors.white,
             )
           : null,
       body: AppBackground(
@@ -378,6 +361,34 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                           color: Colors.orangeAccent,
                                         ),
                                       ],
+                                      // Empuja el menú de acciones al extremo derecho.
+                                      if (_isAdminMode) const Spacer(),
+                                      if (_isAdminMode)
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert, color: Colors.white),
+                                          color: AppColors.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          onSelected: (value) {
+                                            if (value == 'disconnect_display') {
+                                              _disconnectExternalDisplay();
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'disconnect_display',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.cast_connected, color: Colors.white70, size: 20),
+                                                  SizedBox(width: 12),
+                                                  Text("Desconectar pantalla",
+                                                      style: TextStyle(color: Colors.white)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -492,7 +503,9 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                             ),
                                           ),
                                   ),
-                                GlassDashboardCard(
+                                
+                                if (_isAdminMode) ...[
+                                  GlassDashboardCard(
                                   title: "Jugar Partido",
                                   icon: Icons.sports_basketball,
                                   color: Colors.orange,
@@ -518,7 +531,6 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                     );
                                   },
                                 ),
-                                if (_isAdminMode) ...[
                                   GlassDashboardCard(
                                     title: "Pantalla Tablero",
                                     icon: Icons.tv,
@@ -553,6 +565,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                   color: Colors.greenAccent,
                                   onTap: () => _uploadPendingData(),
                                 ),
+                                /** 
                                 GlassDashboardCard(
                                     title: "Ver SQLite Local",
                                     icon: Icons.storage,
@@ -568,6 +581,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                       );
                                     },
                                   ),
+                                  */
                                   GlassDashboardCard(
                                     title: "Rescatar Partido",
                                     icon: Icons.bug_report,
