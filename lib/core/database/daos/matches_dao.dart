@@ -28,22 +28,29 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     int scoreB,
     String clockTime,
     String status, {
-    // Named opcionales: se persisten junto al resto del estado del partido.
-    // Sin esto se quedaban solo en RAM y se perdían al subir offline.
     String? forfeitStatus,
     String? observaciones,
+    int? currentPeriod,
   }) async {
     await (update(matches)..where((t) => t.id.equals(matchId))).write(
       MatchesCompanion(
         scoreA: Value(scoreA),
         scoreB: Value(scoreB),
         status: Value(status),
+        clockTime: Value(clockTime),
+        currentPeriod: currentPeriod == null ? const Value.absent() : Value(currentPeriod),
         forfeitStatus: forfeitStatus == null ? const Value.absent() : Value(forfeitStatus),
         observaciones: observaciones == null ? const Value.absent() : Value(observaciones),
         updatedAt: Value(DateTime.now()),
         isSynced: const Value(false),
       ),
     );
+  }
+
+  /// Devuelve la fila del partido por su ID, o null si no existe.
+  Future<BasketballMatch?> getMatchById(String matchId) {
+    return (select(matches)..where((t) => t.id.equals(matchId)))
+        .getSingleOrNull();
   }
 
   // Método para guardar metadatos del partido (Árbitros, IDs, etc.)

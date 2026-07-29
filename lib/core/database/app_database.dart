@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase._internal() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   // Migraciones: Aquí manejarás cambios futuros de esquema
   @override
@@ -42,6 +42,10 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (Migrator m, int from, int to) async {
       // Ejemplo: si en la v2 agregas una columna
        if (from < 2) await m.addColumn(matchRosters, matchRosters.isStarter);
+       if (from < 3) {
+         await m.addColumn(matches, matches.clockTime);
+         await m.addColumn(matches, matches.currentPeriod);
+       }
     },
   );
 }

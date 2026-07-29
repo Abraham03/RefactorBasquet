@@ -254,6 +254,30 @@ class $MatchesTable extends Matches
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _clockTimeMeta = const VerificationMeta(
+    'clockTime',
+  );
+  @override
+  late final GeneratedColumn<String> clockTime = GeneratedColumn<String>(
+    'clock_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('10:00'),
+  );
+  static const VerificationMeta _currentPeriodMeta = const VerificationMeta(
+    'currentPeriod',
+  );
+  @override
+  late final GeneratedColumn<int> currentPeriod = GeneratedColumn<int>(
+    'current_period',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -278,6 +302,8 @@ class $MatchesTable extends Matches
     forfeitStatus,
     observaciones,
     fixtureId,
+    clockTime,
+    currentPeriod,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -445,6 +471,21 @@ class $MatchesTable extends Matches
         fixtureId.isAcceptableOrUnknown(data['fixture_id']!, _fixtureIdMeta),
       );
     }
+    if (data.containsKey('clock_time')) {
+      context.handle(
+        _clockTimeMeta,
+        clockTime.isAcceptableOrUnknown(data['clock_time']!, _clockTimeMeta),
+      );
+    }
+    if (data.containsKey('current_period')) {
+      context.handle(
+        _currentPeriodMeta,
+        currentPeriod.isAcceptableOrUnknown(
+          data['current_period']!,
+          _currentPeriodMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -542,6 +583,14 @@ class $MatchesTable extends Matches
         DriftSqlType.string,
         data['${effectivePrefix}fixture_id'],
       ),
+      clockTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}clock_time'],
+      )!,
+      currentPeriod: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}current_period'],
+      )!,
     );
   }
 
@@ -574,6 +623,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
   final String forfeitStatus;
   final String observaciones;
   final String? fixtureId;
+  final String clockTime;
+  final int currentPeriod;
   const BasketballMatch({
     required this.id,
     required this.createdAt,
@@ -597,6 +648,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
     required this.forfeitStatus,
     required this.observaciones,
     this.fixtureId,
+    required this.clockTime,
+    required this.currentPeriod,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -647,6 +700,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
     if (!nullToAbsent || fixtureId != null) {
       map['fixture_id'] = Variable<String>(fixtureId);
     }
+    map['clock_time'] = Variable<String>(clockTime);
+    map['current_period'] = Variable<int>(currentPeriod);
     return map;
   }
 
@@ -698,6 +753,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
       fixtureId: fixtureId == null && nullToAbsent
           ? const Value.absent()
           : Value(fixtureId),
+      clockTime: Value(clockTime),
+      currentPeriod: Value(currentPeriod),
     );
   }
 
@@ -729,6 +786,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
       forfeitStatus: serializer.fromJson<String>(json['forfeitStatus']),
       observaciones: serializer.fromJson<String>(json['observaciones']),
       fixtureId: serializer.fromJson<String?>(json['fixtureId']),
+      clockTime: serializer.fromJson<String>(json['clockTime']),
+      currentPeriod: serializer.fromJson<int>(json['currentPeriod']),
     );
   }
   @override
@@ -757,6 +816,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
       'forfeitStatus': serializer.toJson<String>(forfeitStatus),
       'observaciones': serializer.toJson<String>(observaciones),
       'fixtureId': serializer.toJson<String?>(fixtureId),
+      'clockTime': serializer.toJson<String>(clockTime),
+      'currentPeriod': serializer.toJson<int>(currentPeriod),
     };
   }
 
@@ -783,6 +844,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
     String? forfeitStatus,
     String? observaciones,
     Value<String?> fixtureId = const Value.absent(),
+    String? clockTime,
+    int? currentPeriod,
   }) => BasketballMatch(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -810,6 +873,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
     forfeitStatus: forfeitStatus ?? this.forfeitStatus,
     observaciones: observaciones ?? this.observaciones,
     fixtureId: fixtureId.present ? fixtureId.value : this.fixtureId,
+    clockTime: clockTime ?? this.clockTime,
+    currentPeriod: currentPeriod ?? this.currentPeriod,
   );
   BasketballMatch copyWithCompanion(MatchesCompanion data) {
     return BasketballMatch(
@@ -851,6 +916,10 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
           ? data.observaciones.value
           : this.observaciones,
       fixtureId: data.fixtureId.present ? data.fixtureId.value : this.fixtureId,
+      clockTime: data.clockTime.present ? data.clockTime.value : this.clockTime,
+      currentPeriod: data.currentPeriod.present
+          ? data.currentPeriod.value
+          : this.currentPeriod,
     );
   }
 
@@ -878,7 +947,9 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
           ..write('matchReportPath: $matchReportPath, ')
           ..write('forfeitStatus: $forfeitStatus, ')
           ..write('observaciones: $observaciones, ')
-          ..write('fixtureId: $fixtureId')
+          ..write('fixtureId: $fixtureId, ')
+          ..write('clockTime: $clockTime, ')
+          ..write('currentPeriod: $currentPeriod')
           ..write(')'))
         .toString();
   }
@@ -907,6 +978,8 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
     forfeitStatus,
     observaciones,
     fixtureId,
+    clockTime,
+    currentPeriod,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -933,7 +1006,9 @@ class BasketballMatch extends DataClass implements Insertable<BasketballMatch> {
           other.matchReportPath == this.matchReportPath &&
           other.forfeitStatus == this.forfeitStatus &&
           other.observaciones == this.observaciones &&
-          other.fixtureId == this.fixtureId);
+          other.fixtureId == this.fixtureId &&
+          other.clockTime == this.clockTime &&
+          other.currentPeriod == this.currentPeriod);
 }
 
 class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
@@ -959,6 +1034,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
   final Value<String> forfeitStatus;
   final Value<String> observaciones;
   final Value<String?> fixtureId;
+  final Value<String> clockTime;
+  final Value<int> currentPeriod;
   final Value<int> rowid;
   const MatchesCompanion({
     this.id = const Value.absent(),
@@ -983,6 +1060,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
     this.forfeitStatus = const Value.absent(),
     this.observaciones = const Value.absent(),
     this.fixtureId = const Value.absent(),
+    this.clockTime = const Value.absent(),
+    this.currentPeriod = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MatchesCompanion.insert({
@@ -1008,6 +1087,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
     this.forfeitStatus = const Value.absent(),
     this.observaciones = const Value.absent(),
     this.fixtureId = const Value.absent(),
+    this.clockTime = const Value.absent(),
+    this.currentPeriod = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : teamAName = Value(teamAName),
        teamBName = Value(teamBName);
@@ -1034,6 +1115,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
     Expression<String>? forfeitStatus,
     Expression<String>? observaciones,
     Expression<String>? fixtureId,
+    Expression<String>? clockTime,
+    Expression<int>? currentPeriod,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1059,6 +1142,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
       if (forfeitStatus != null) 'forfeit_status': forfeitStatus,
       if (observaciones != null) 'observaciones': observaciones,
       if (fixtureId != null) 'fixture_id': fixtureId,
+      if (clockTime != null) 'clock_time': clockTime,
+      if (currentPeriod != null) 'current_period': currentPeriod,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1086,6 +1171,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
     Value<String>? forfeitStatus,
     Value<String>? observaciones,
     Value<String?>? fixtureId,
+    Value<String>? clockTime,
+    Value<int>? currentPeriod,
     Value<int>? rowid,
   }) {
     return MatchesCompanion(
@@ -1111,6 +1198,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
       forfeitStatus: forfeitStatus ?? this.forfeitStatus,
       observaciones: observaciones ?? this.observaciones,
       fixtureId: fixtureId ?? this.fixtureId,
+      clockTime: clockTime ?? this.clockTime,
+      currentPeriod: currentPeriod ?? this.currentPeriod,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1184,6 +1273,12 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
     if (fixtureId.present) {
       map['fixture_id'] = Variable<String>(fixtureId.value);
     }
+    if (clockTime.present) {
+      map['clock_time'] = Variable<String>(clockTime.value);
+    }
+    if (currentPeriod.present) {
+      map['current_period'] = Variable<int>(currentPeriod.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1215,6 +1310,8 @@ class MatchesCompanion extends UpdateCompanion<BasketballMatch> {
           ..write('forfeitStatus: $forfeitStatus, ')
           ..write('observaciones: $observaciones, ')
           ..write('fixtureId: $fixtureId, ')
+          ..write('clockTime: $clockTime, ')
+          ..write('currentPeriod: $currentPeriod, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6657,6 +6754,8 @@ typedef $$MatchesTableCreateCompanionBuilder =
       Value<String> forfeitStatus,
       Value<String> observaciones,
       Value<String?> fixtureId,
+      Value<String> clockTime,
+      Value<int> currentPeriod,
       Value<int> rowid,
     });
 typedef $$MatchesTableUpdateCompanionBuilder =
@@ -6683,6 +6782,8 @@ typedef $$MatchesTableUpdateCompanionBuilder =
       Value<String> forfeitStatus,
       Value<String> observaciones,
       Value<String?> fixtureId,
+      Value<String> clockTime,
+      Value<int> currentPeriod,
       Value<int> rowid,
     });
 
@@ -6843,6 +6944,16 @@ class $$MatchesTableFilterComposer
 
   ColumnFilters<String> get fixtureId => $composableBuilder(
     column: $table.fixtureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clockTime => $composableBuilder(
+    column: $table.clockTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get currentPeriod => $composableBuilder(
+    column: $table.currentPeriod,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7015,6 +7126,16 @@ class $$MatchesTableOrderingComposer
     column: $table.fixtureId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get clockTime => $composableBuilder(
+    column: $table.clockTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get currentPeriod => $composableBuilder(
+    column: $table.currentPeriod,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MatchesTableAnnotationComposer
@@ -7107,6 +7228,14 @@ class $$MatchesTableAnnotationComposer
 
   GeneratedColumn<String> get fixtureId =>
       $composableBuilder(column: $table.fixtureId, builder: (column) => column);
+
+  GeneratedColumn<String> get clockTime =>
+      $composableBuilder(column: $table.clockTime, builder: (column) => column);
+
+  GeneratedColumn<int> get currentPeriod => $composableBuilder(
+    column: $table.currentPeriod,
+    builder: (column) => column,
+  );
 
   Expression<T> matchRostersRefs<T extends Object>(
     Expression<T> Function($$MatchRostersTableAnnotationComposer a) f,
@@ -7209,6 +7338,8 @@ class $$MatchesTableTableManager
                 Value<String> forfeitStatus = const Value.absent(),
                 Value<String> observaciones = const Value.absent(),
                 Value<String?> fixtureId = const Value.absent(),
+                Value<String> clockTime = const Value.absent(),
+                Value<int> currentPeriod = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MatchesCompanion(
                 id: id,
@@ -7233,6 +7364,8 @@ class $$MatchesTableTableManager
                 forfeitStatus: forfeitStatus,
                 observaciones: observaciones,
                 fixtureId: fixtureId,
+                clockTime: clockTime,
+                currentPeriod: currentPeriod,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7259,6 +7392,8 @@ class $$MatchesTableTableManager
                 Value<String> forfeitStatus = const Value.absent(),
                 Value<String> observaciones = const Value.absent(),
                 Value<String?> fixtureId = const Value.absent(),
+                Value<String> clockTime = const Value.absent(),
+                Value<int> currentPeriod = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MatchesCompanion.insert(
                 id: id,
@@ -7283,6 +7418,8 @@ class $$MatchesTableTableManager
                 forfeitStatus: forfeitStatus,
                 observaciones: observaciones,
                 fixtureId: fixtureId,
+                clockTime: clockTime,
+                currentPeriod: currentPeriod,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

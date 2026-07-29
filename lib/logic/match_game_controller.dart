@@ -508,19 +508,31 @@ Future<void> restoreFromDatabase({
     }
 
     // 5. RESTAURAR RELOJ Y PERIODO desde el último evento registrado.
-  if (events.isNotEmpty) {
-    final last = events.last;
-    final parts = last.clockTime.split(':');
-    if (parts.length == 2) {
+  final matchRow = await _dao.getMatchById(matchId);
+  if (matchRow != null && matchRow.clockTime.contains(':')) {
+      final parts = matchRow.clockTime.split(':');
       final mm = int.tryParse(parts[0].trim()) ?? 10;
       final ss = int.tryParse(parts[1].trim()) ?? 0;
       state = state.copyWith(
         timeLeft: Duration(minutes: mm, seconds: ss),
-        currentPeriod: last.period,
+        currentPeriod: matchRow.currentPeriod,
         isRunning: false,
       );
+    } else if (events.isNotEmpty) {
+      // Respaldo: partidos viejos sin reloj persistido en 'matches'.
+      final last = events.last;
+      final parts = last.clockTime.split(':');
+      if (parts.length == 2) {
+        final mm = int.tryParse(parts[0].trim()) ?? 10;
+        final ss = int.tryParse(parts[1].trim()) ?? 0;
+        state = state.copyWith(
+          timeLeft: Duration(minutes: mm, seconds: ss),
+          currentPeriod: last.period,
+          isRunning: false,
+        );
+      }
     }
-  }
+
 }
 
 // Reconstruye un tiempo muerto durante el restore, respetando los topes por
@@ -989,8 +1001,16 @@ void _applyRestoreSub({
 
         state = state.copyWith(timeLeft: newTime);
         if (triggerAutoBurn) _applyAutoBurn();
+
+        // Persistir el reloj cada 5s para poder restaurarlo tras salir/reanudar
+        // sin escribir en la BD cada segundo.
+        if (newTime.inSeconds % 5 == 0) {
+          _saveToDatabase();
+        }
+
       } else {
         _pause();
+        _saveToDatabase();
       }
     });
   }
@@ -1502,6 +1522,7 @@ void undoLastSubstitution() {
       MatchStatus.inProgress,
       forfeitStatus: state.forfeitStatus,
       observaciones: state.observaciones,
+      currentPeriod: state.currentPeriod,
     );
   }
 

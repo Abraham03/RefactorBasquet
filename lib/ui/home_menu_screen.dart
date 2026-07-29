@@ -28,6 +28,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../ui/widgets/app_feedback.dart';
 import '../core/constants/app_colors.dart';
+import '../core/service/external_display_service.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});
@@ -176,6 +177,13 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
     );
   }
 
+  Future<void> _disconnectExternalDisplay() async {
+    await ExternalDisplayService.instance.hideScoreboard();
+    if (mounted) {
+      context.showInfo("Pantalla externa desconectada. Se reconectará al abrir un partido.");
+    }
+  }
+
   // --- NUEVO: BOTTOM SHEET PARA DESCARGAR DESDE LA NUBE ---
   void _showCloudDownloadPicker() {
     showModalBottomSheet(
@@ -280,12 +288,30 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       floatingActionButton: _isAdminMode
-          ? FloatingActionButton.extended(
-              onPressed: _showCreateDialog,
-              icon: const Icon(Icons.add),
-              label: const Text("Nuevo Torneo"),
-              backgroundColor: Colors.orange.withOpacity(0.80),
-              foregroundColor: Colors.white,
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Desconectar la pantalla externa (HDMI/AnyCast) manualmente.
+                // Al entrar a un partido se reconecta sola.
+                FloatingActionButton.extended(
+                  heroTag: "disconnectDisplay",
+                  onPressed: _disconnectExternalDisplay,
+                  icon: const Icon(Icons.cast_connected),
+                  label: const Text("Desconectar pantalla"),
+                  backgroundColor: Colors.blueGrey.withOpacity(0.85),
+                  foregroundColor: Colors.white,
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: "newTournament",
+                  onPressed: _showCreateDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Nuevo Torneo"),
+                  backgroundColor: Colors.orange.withOpacity(0.80),
+                  foregroundColor: Colors.white,
+                ),
+              ],
             )
           : null,
       body: AppBackground(

@@ -3,9 +3,7 @@
 import 'dart:ui' hide Display; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_presentation_display/display.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_presentation_display/flutter_presentation_display.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'dart:convert';
 
@@ -24,6 +22,7 @@ import '../core/constants/app_colors.dart';
 
 import '../data/models/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
+import '../core/service/external_display_service.dart';
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String? fixtureId;
@@ -88,7 +87,6 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   Uint8List? _capturedSignature;
   bool _isFinished = false;
   String _localIp = "Buscando IP...";
-  final FlutterPresentationDisplay _displayManager = FlutterPresentationDisplay();
 
   // --- VARIABLES PARA ALMACENAR EL NOMBRE DEL CAPITÁN RÁPIDAMENTE ---
   String? _captainAName;
@@ -111,7 +109,7 @@ void initState() {
   }
 
   LocalWebSocketServer.instance.startServer();
-  _checkExternalDisplays(); 
+  ExternalDisplayService.instance.showScoreboard();
   _fetchLocalIp();
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -175,8 +173,11 @@ void initState() {
   }
 
   @override
-  void dispose() {
-    _closeExternalDisplay(); 
+    void dispose() {
+    // NO apagamos la pantalla externa aquí. Salir del partido (accidental o
+    // intencional) no debe apagar la TV: el scoreboard sigue visible y al
+    // reanudar se reusa la pantalla ya activa. El apagado se maneja cuando el
+    // usuario realmente termina de usar el marcador (Escenario 2).
     super.dispose();
   }
 
@@ -194,39 +195,7 @@ void initState() {
     }
   }
 
-  Future<void> _checkExternalDisplays() async {
-    try {
-      List<Display>? displays = await _displayManager.getDisplays();
-      
-      if (displays != null && displays.length > 1) {
-        final displayId = displays[1].displayId;
-        
-        if (displayId != null) {
-          debugPrint("Pantalla secundaria detectada: $displayId");
-          await _displayManager.showSecondaryDisplay(
-            displayId: displayId,
-            routerName: "presentation_scoreboard", 
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint("No se pudo iniciar la pantalla externa: $e");
-    }
-  }
 
-  Future<void> _closeExternalDisplay() async {
-    try {
-      List<Display>? displays = await _displayManager.getDisplays();
-      if (displays != null && displays.length > 1) {
-        final displayId = displays[1].displayId;
-        if (displayId != null) {
-          await _displayManager.hideSecondaryDisplay(displayId: displayId);
-        }
-      }
-    } catch (e) {
-      debugPrint("Error cerrando pantalla: $e");
-    }
-  }
 
   bool _isNumberTaken(String teamSide, String newNumber, String currentPlayerName) {
     final state = ref.read(matchGameProvider);

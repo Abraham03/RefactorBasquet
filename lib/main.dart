@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:myapp/core/service/external_display_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'ui/home_menu_screen.dart'; 
@@ -22,8 +23,39 @@ void secondaryDisplayMain() {
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Al arrancar la app, intenta mostrar el scoreboard si ya hay pantalla
+    // conectada (p.ej. el cliente reabrió la app con el HDMI puesto).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ExternalDisplayService.instance.showScoreboard();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cuando la app vuelve al frente (resumed), re-asegura el scoreboard:
+    // pudo haberse conectado la pantalla mientras estaba en segundo plano.
+    if (state == AppLifecycleState.resumed) {
+      ExternalDisplayService.instance.showScoreboard();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,16 +64,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepOrange, 
+          seedColor: Colors.deepOrange,
           brightness: Brightness.light,
         ),
         useMaterial3: true,
         cardTheme: CardThemeData(
           elevation: 2,
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -51,13 +81,11 @@ class MyApp extends StatelessWidget {
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ),
-      home: const HomeMenuScreen(), 
+      home: const HomeMenuScreen(),
     );
   }
 }

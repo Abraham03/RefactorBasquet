@@ -27,6 +27,10 @@ class Matches extends Table with BaseTable {
   TextColumn get forfeitStatus => text().withDefault(const Constant('NONE'))();
   TextColumn get observaciones => text().withDefault(const Constant('Sin novedad'))();
   TextColumn get fixtureId => text().nullable()();
+  // Reloj y período persistentes, para restaurar el tiempo exacto aunque
+  // no haya eventos nuevos (antes el tiempo solo vivía pegado a los eventos).
+  TextColumn get clockTime => text().withDefault(const Constant('10:00'))();
+  IntColumn get currentPeriod => integer().withDefault(const Constant(1))();
   // ignore: annotate_overrides
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
 }
