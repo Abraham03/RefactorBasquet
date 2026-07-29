@@ -20,7 +20,7 @@ import 'team_management_screen.dart';
 import '../ui/widgets/glass_dashboard_card.dart';
 import '../ui/widgets/app_background.dart';
 
-//import 'package:drift_db_viewer/drift_db_viewer.dart';
+import 'package:drift_db_viewer/drift_db_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 // <--- ESTE RECONOCE EL XFile
 import 'dart:convert';
@@ -181,6 +181,69 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
     await ExternalDisplayService.instance.hideScoreboard();
     if (mounted) {
       context.showInfo("Pantalla externa desconectada. Se reconectará al abrir un partido.");
+    }
+  }
+
+  /// Encabezado no-seleccionable para agrupar acciones del menú admin.
+  PopupMenuItem<String> _buildMenuHeader(String label) {
+    return PopupMenuItem<String>(
+      enabled: false,
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.5),
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  /// Ítem estándar del menú admin: icono coloreado + texto blanco.
+  /// Centralizar el layout aquí (DRY) permite ajustar el estilo del menú
+  /// entero desde un solo lugar y agregar acciones futuras con una línea.
+  PopupMenuItem<String> _buildMenuItem({
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 14),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  /// Router del menú admin. Cada acción es un case, testeable por separado.
+  void _handleAdminMenuAction(String value) {
+    switch (value) {
+      case 'scoreboard':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientScoreboardScreen()),
+        );
+        break;
+      case 'rescue':
+        _showRescueMatchPicker();
+        break;
+      case 'sqlite':
+        final db = ref.read(databaseProvider);
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => DriftDbViewer(db)),
+        );
+        break;
+      case 'disconnect_display':
+        _disconnectExternalDisplay();
+        break;
     }
   }
 
@@ -370,22 +433,36 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(12),
                                           ),
-                                          onSelected: (value) {
-                                            if (value == 'disconnect_display') {
-                                              _disconnectExternalDisplay();
-                                            }
-                                          },
+                                          onSelected: _handleAdminMenuAction,
                                           itemBuilder: (context) => [
-                                            const PopupMenuItem(
+                                            _buildMenuHeader("Herramientas"),
+                                            _buildMenuItem(
+                                              value: 'scoreboard',
+                                              icon: Icons.tv,
+                                              iconColor: Colors.deepPurpleAccent,
+                                              label: "Pantalla Tablero",
+                                            ),
+                                            _buildMenuItem(
+                                              value: 'rescue',
+                                              icon: Icons.medical_services_outlined,
+                                              iconColor: Colors.orangeAccent,
+                                              label: "Rescatar Partido",
+                                            ),
+                                            const PopupMenuDivider(),
+                                            _buildMenuHeader("Depuración"),
+                                            _buildMenuItem(
+                                              value: 'sqlite',
+                                              icon: Icons.storage_outlined,
+                                              iconColor: Colors.redAccent,
+                                              label: "Ver SQLite Local",
+                                            ),
+                                            const PopupMenuDivider(),
+                                            _buildMenuHeader("Configuración"),
+                                            _buildMenuItem(
                                               value: 'disconnect_display',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.cast_connected, color: Colors.white70, size: 20),
-                                                  SizedBox(width: 12),
-                                                  Text("Desconectar pantalla",
-                                                      style: TextStyle(color: Colors.white)),
-                                                ],
-                                              ),
+                                              icon: Icons.cast_connected,
+                                              iconColor: Colors.blueGrey,
+                                              label: "Desconectar pantalla",
                                             ),
                                           ],
                                         ),
@@ -532,15 +609,6 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                   },
                                 ),
                                   GlassDashboardCard(
-                                    title: "Pantalla Tablero",
-                                    icon: Icons.tv,
-                                    color: Colors.deepPurpleAccent,
-                                    onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => const ClientScoreboardScreen()),
-                                    ),
-                                  ),
-                                  GlassDashboardCard(
                                     title: "Equipos",
                                     icon: Icons.groups,
                                     color: Colors.blueAccent,
@@ -564,30 +632,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                   icon: Icons.cloud_upload,
                                   color: Colors.greenAccent,
                                   onTap: () => _uploadPendingData(),
-                                ),
-                                /** 
-                                GlassDashboardCard(
-                                    title: "Ver SQLite Local",
-                                    icon: Icons.storage,
-                                    color: Colors.redAccent,
-                                    onTap: () {
-                                      // Obtenemos la instancia de la base de datos
-                                      final db = ref.read(databaseProvider);
-                                      // Navegamos al visor mágico
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => DriftDbViewer(db),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  */
-                                  GlassDashboardCard(
-                                    title: "Rescatar Partido",
-                                    icon: Icons.bug_report,
-                                    color: Colors.orangeAccent,
-                                    onTap: () => _showRescueMatchPicker(),
-                                  ),
+                                )
                                 ],
                                 
                               ],
