@@ -355,7 +355,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
               heroTag: "newTournament",
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),
-              label: const Text(""),
+              label: const Text("Nuevo Torneo"),
               backgroundColor: Colors.orange.withOpacity(0.80),
               foregroundColor: Colors.white,
             )

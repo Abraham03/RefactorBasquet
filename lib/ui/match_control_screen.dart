@@ -88,25 +88,12 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   bool _isFinished = false;
   String _localIp = "Buscando IP...";
 
-  // --- VARIABLES PARA ALMACENAR EL NOMBRE DEL CAPITÁN RÁPIDAMENTE ---
-  String? _captainAName;
-  String? _captainBName;
   String? _playerToSubstituteId; // Guarda el nombre del jugador que inició el cambio
   String? _teamOfSubstitution;  // Guarda el equipo 'A' o 'B'
 
   @override
 void initState() {
   super.initState();
-  
-  // 1. Buscamos nombres de capitanes por IDs recibidos por constructor
-  if (widget.captainAId != null) {
-    final capA = widget.fullRosterA.where((p) => p.id == widget.captainAId).firstOrNull;
-    _captainAName = capA?.name;
-  }
-  if (widget.captainBId != null) {
-    final capB = widget.fullRosterB.where((p) => p.id == widget.captainBId).firstOrNull;
-    _captainBName = capB?.name;
-  }
 
   LocalWebSocketServer.instance.startServer();
   ExternalDisplayService.instance.showScoreboard();
@@ -137,13 +124,10 @@ void initState() {
         scorekeeper: widget.scorekeeper,
       );
 
-      final updatedState = ref.read(matchGameProvider);
       if (mounted) {
         setState(() {
-          updatedState.playerStats.forEach((key, stats) {
-            if (stats.dbId == widget.captainAId) _captainAName = stats.playerName;
-            if (stats.dbId == widget.captainBId) _captainBName = stats.playerName;
-          });
+          // El estado del jugador cambió; refrescamos la UI. El capitán ya no
+          // se resuelve por nombre aquí, se compara por ID al pintar cada fila.
         });
       }
     }
@@ -612,8 +596,10 @@ PopupMenuItem<String> _buildUndoMenuItem({
   final String nameToDisplay = stats.playerName.isNotEmpty ? stats.playerName : playerKey;
   
   final bool isDisqualified = stats.fouls >= 5;
-  final bool isCaptain = (teamId == 'A' && nameToDisplay == _captainAName) ||
-                         (teamId == 'B' && nameToDisplay == _captainBName);
+  // Comparar por ID único, no por nombre: dos jugadores pueden llamarse igual
+  // (p.ej. dos "PATY" con distinto dorsal) y el nombre marcaría a ambos.
+  final bool isCaptain = (teamId == 'A' && stats.dbId == widget.captainAId) ||
+                         (teamId == 'B' && stats.dbId == widget.captainBId);
 
   final bool isSelectedForSwap = _playerToSubstituteId == playerKey;
 
