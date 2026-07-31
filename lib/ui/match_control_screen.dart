@@ -1368,10 +1368,15 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
                 style: FilledButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)), 
                 icon: const Icon(Icons.check_circle), 
                 label: const Text("Finalizar Normal", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), 
-                onPressed: () { 
-                  Navigator.pop(ctx); 
-                  // Finaliza directo sin preguntar novedades
-                  _finishMatchProcess(context, currentState, null, autoShow: true); 
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final manual = await _askAttendance(context, currentState);
+                  if (manual == null) return; // canceló
+                  await ref.read(matchGameProvider.notifier)
+                      .commitAttendance(manuallyPresent: manual);
+                  if (context.mounted) {
+                    _finishMatchProcess(context, currentState, null, autoShow: true);
+                  }
                 }
               ),
             
@@ -1407,7 +1412,236 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     );
   }
 
+  /// Diálogo de asistencia agrupado por equipo, con "seleccionar todos" y
+  /// botón Guardar. Devuelve el set de IDs presentes, o null si cancela.
+  Future<Set<int>?> _askAttendance(BuildContext context, MatchState state) async {
+    final grouped = ref.read(matchGameProvider.notifier).playersPendingAttendanceByTeam();
+    if (grouped.isEmpty) return <int>{};
 
+    final Set<int> present = {};
+    final int totalPending = grouped.values.fold(0, (s, l) => s + l.length);
+
+    return showDialog<Set<int>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            title: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.how_to_reg, color: AppColors.primary, size: 30),
+                ),
+                const SizedBox(height: 10),
+                const Text("Registro de Asistencia",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 4),
+                Text(
+                  "Marca a quienes asistieron pero no entraron a cancha",
+                  style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: grouped.entries.map((entry) {
+                      final side = entry.key;
+                      final players = entry.value;
+                      final teamName = side == 'A' ? widget.teamAName : widget.teamBName;
+                      final teamColor = side == 'A' ? AppColors.primary : AppColors.secondary;
+                      final allSelected = players.every((p) => present.contains(p.dbId));
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Header del equipo con selector "todos".
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: teamColor.withOpacity(0.12),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                border: Border(left: BorderSide(color: teamColor, width: 3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      teamName.toUpperCase(),
+                                      style: TextStyle(
+                                        color: teamColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${players.where((p) => present.contains(p.dbId)).length}/${players.length}",
+                                    style: TextStyle(color: teamColor.withOpacity(0.7), fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(6),
+                                    onTap: () => setLocal(() {
+                                      if (allSelected) {
+                                        for (final p in players) {
+                                          present.remove(p.dbId);
+                                        }
+                                      } else {
+                                        for (final p in players) {
+                                          present.add(p.dbId);
+                                        }
+                                      }
+                                    }),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      child: Text(
+                                        allSelected ? "Ninguno" : "Todos",
+                                        style: TextStyle(
+                                          color: teamColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Lista de jugadores del equipo.
+                            Container(
+                              decoration: const BoxDecoration(
+                                color: AppColors.surfaceVariant,
+                                borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+                              ),
+                              child: Column(
+                                children: List.generate(players.length, (i) {
+                                  final ps = players[i];
+                                  final checked = present.contains(ps.dbId);
+                                  final isLast = i == players.length - 1;
+                                  return Column(
+                                    children: [
+                                      InkWell(
+                                        onTap: () => setLocal(() {
+                                          if (checked) {
+                                            present.remove(ps.dbId);
+                                          } else {
+                                            present.add(ps.dbId);
+                                          }
+                                        }),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          child: Row(
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 18,
+                                                backgroundColor: checked
+                                                    ? teamColor.withOpacity(0.25)
+                                                    : AppColors.surfaceInput,
+                                                child: Text(
+                                                  ps.playerNumber,
+                                                  style: TextStyle(
+                                                    color: checked ? teamColor : Colors.white54,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  ps.playerName,
+                                                  style: TextStyle(
+                                                    color: checked ? Colors.white : Colors.white70,
+                                                    fontWeight: checked ? FontWeight.w600 : FontWeight.normal,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ),
+                                              Icon(
+                                                checked ? Icons.check_circle : Icons.radio_button_unchecked,
+                                                color: checked ? teamColor : Colors.white24,
+                                                size: 22,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isLast)
+                                        Divider(color: Colors.white.withOpacity(0.05), height: 1, indent: 12, endIndent: 12),
+                                    ],
+                                  );
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white60,
+                        side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("Cancelar"),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.save_alt, size: 20),
+                      label: Text(
+                        "Guardar (${present.length}/$totalPending)",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, present),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _handleForfeitFlow(BuildContext context, MatchState state) async {
     final controller = ref.read(matchGameProvider.notifier);
@@ -1462,7 +1696,13 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
       final Uint8List? signature = await Navigator.push(context, MaterialPageRoute(builder: (_) => ProtestSignatureScreen(teamName: protestingTeam)));
       if (signature != null && context.mounted) { 
         setState(() => _capturedSignature = signature); 
-        _finishMatchProcess(context, state, signature, autoShow: true); 
+        final manual = await _askAttendance(context, state);
+        if (manual == null) return;
+        await ref.read(matchGameProvider.notifier)
+            .commitAttendance(manuallyPresent: manual);
+        if (context.mounted) {
+          _finishMatchProcess(context, state, signature, autoShow: true);
+        }
       }
     }
   }

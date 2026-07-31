@@ -129,6 +129,31 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     });
   }
 
+  /// Marca la asistencia de un jugador en un partido concreto.
+  Future<void> setPlayerAttendance(String matchId, String playerId, bool attended) {
+    return (update(matchRosters)
+          ..where((r) => r.matchId.equals(matchId) & r.playerId.equals(playerId)))
+        .write(MatchRostersCompanion(attended: Value(attended)));
+  }
+
+  /// Marca en lote la asistencia de varios jugadores del partido.
+  Future<void> setAttendanceBatch(String matchId, Map<String, bool> byPlayerId) async {
+    await batch((b) {
+      byPlayerId.forEach((playerId, attended) {
+        b.update(
+          matchRosters,
+          MatchRostersCompanion(attended: Value(attended)),
+          where: (r) => r.matchId.equals(matchId) & r.playerId.equals(playerId),
+        );
+      });
+    });
+  }
+
+  /// Devuelve el roster completo de un partido.
+  Future<List<RosterEntry>> getRostersForMatch(String matchId) {
+    return (select(matchRosters)..where((r) => r.matchId.equals(matchId))).get();
+  }
+
   /// Guarda localmente un jugador creado a mitad de un partido.
   /// Soporta modo Online (ID real, isSynced: true) y Offline (ID negativo, isSynced: false).
   Future<void> saveMidGamePlayerLocally({

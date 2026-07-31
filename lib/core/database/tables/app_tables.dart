@@ -141,6 +141,7 @@ class MatchRosters extends Table with BaseTable {
   IntColumn get jerseyNumber => integer()(); // El número de HOY
   BoolColumn get isCaptain => boolean().withDefault(const Constant(false))();
   BoolColumn get isStarter => boolean().withDefault(const Constant(false))();
+  BoolColumn get attended => boolean().withDefault(const Constant(false))();
   @override
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
 

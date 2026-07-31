@@ -817,6 +817,7 @@ void _applyRestoreSub({
         "jersey_number": r.jerseyNumber,
         "is_captain": r.isCaptain ? 1 : 0,
         "played": hasPlayed ? 1 : 0,
+        "attended": r.attended ? 1 : 0,
       };
     }).toList();
 
@@ -862,6 +863,58 @@ void _applyRestoreSub({
     } catch (e) {
       return false;
     }
+  }
+
+  /// Persiste la asistencia del partido según la regla de dominio:
+  /// asistió = jugó (titular/en cancha/anotó/faltó) O marcado manualmente.
+  /// Un equipo en forfeit no asiste. Se llama antes de finalizar.
+  Future<void> commitAttendance({Set<int> manuallyPresent = const {}}) async {
+    final rosters = await _dao.getRostersForMatch(state.matchId);
+    final Map<String, bool> attendanceByPlayer = {};
+
+    for (final r in rosters) {
+      final pid = int.tryParse(r.playerId) ?? 0;
+
+      final bool teamForfeited =
+          (r.teamSide == 'A' && (state.forfeitStatus == ForfeitStatus.teamA || state.forfeitStatus == ForfeitStatus.both)) ||
+          (r.teamSide == 'B' && (state.forfeitStatus == ForfeitStatus.teamB || state.forfeitStatus == ForfeitStatus.both));
+
+      bool played = false;
+      if (!teamForfeited) {
+        final ps = state.playerStats.values.where((p) => p.dbId == pid).firstOrNull;
+        played = ps != null && (ps.isStarter || ps.isOnCourt || ps.points > 0 || ps.fouls > 0);
+      }
+
+      final bool attended = !teamForfeited && (played || manuallyPresent.contains(pid));
+      attendanceByPlayer[r.playerId] = attended;
+    }
+
+    await _dao.setAttendanceBatch(state.matchId, attendanceByPlayer);
+  }
+
+  /// Jugadores pendientes de asistencia, agrupados por equipo ('A' / 'B').
+  /// Excluye a los que ya jugaron (asistencia automática) y a los del equipo
+  /// en forfeit. Un mapa vacío significa que no hay a quién preguntar.
+  Map<String, List<PlayerStats>> playersPendingAttendanceByTeam() {
+    final forfeitA = state.forfeitStatus == ForfeitStatus.teamA ||
+        state.forfeitStatus == ForfeitStatus.both;
+    final forfeitB = state.forfeitStatus == ForfeitStatus.teamB ||
+        state.forfeitStatus == ForfeitStatus.both;
+    if (forfeitA && forfeitB) return {};
+
+    final Map<String, List<PlayerStats>> result = {'A': [], 'B': []};
+
+    state.playerStats.forEach((key, ps) {
+      if (ps.isStarter || ps.isOnCourt || ps.points > 0 || ps.fouls > 0) return;
+      final side = state.teamAOnCourt.contains(key) || state.teamABench.contains(key) ? 'A' : 'B';
+      if (side == 'A' && forfeitA) return;
+      if (side == 'B' && forfeitB) return;
+      result[side]!.add(ps);
+    });
+
+    // Limpia lados vacíos para simplificar el consumidor.
+    result.removeWhere((_, list) => list.isEmpty);
+    return result;
   }
 
   // función para el Default
@@ -1013,6 +1066,21 @@ void _applyRestoreSub({
         _saveToDatabase();
       }
     });
+  }
+
+  // IDs de jugadores marcados presentes manualmente (asistieron sin jugar).
+  final Set<int> _manualAttendance = {};
+
+  void setManualAttendance(int playerDbId, bool present) {
+    if (present) {
+      _manualAttendance.add(playerDbId);
+    } else {
+      _manualAttendance.remove(playerDbId);
+    }
+  }
+
+  bool didAttend(int playerDbId, {required bool played}) {
+    return played || _manualAttendance.contains(playerDbId);
   }
 
   void _applyAutoBurn() {

@@ -2529,6 +2529,21 @@ class $MatchRostersTable extends MatchRosters
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _attendedMeta = const VerificationMeta(
+    'attended',
+  );
+  @override
+  late final GeneratedColumn<bool> attended = GeneratedColumn<bool>(
+    'attended',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("attended" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2541,6 +2556,7 @@ class $MatchRostersTable extends MatchRosters
     jerseyNumber,
     isCaptain,
     isStarter,
+    attended,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2622,6 +2638,12 @@ class $MatchRostersTable extends MatchRosters
         isStarter.isAcceptableOrUnknown(data['is_starter']!, _isStarterMeta),
       );
     }
+    if (data.containsKey('attended')) {
+      context.handle(
+        _attendedMeta,
+        attended.isAcceptableOrUnknown(data['attended']!, _attendedMeta),
+      );
+    }
     return context;
   }
 
@@ -2675,6 +2697,10 @@ class $MatchRostersTable extends MatchRosters
         DriftSqlType.bool,
         data['${effectivePrefix}is_starter'],
       )!,
+      attended: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}attended'],
+      )!,
     );
   }
 
@@ -2695,6 +2721,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
   final int jerseyNumber;
   final bool isCaptain;
   final bool isStarter;
+  final bool attended;
   const RosterEntry({
     required this.id,
     required this.createdAt,
@@ -2706,6 +2733,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
     required this.jerseyNumber,
     required this.isCaptain,
     required this.isStarter,
+    required this.attended,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2722,6 +2750,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
     map['jersey_number'] = Variable<int>(jerseyNumber);
     map['is_captain'] = Variable<bool>(isCaptain);
     map['is_starter'] = Variable<bool>(isStarter);
+    map['attended'] = Variable<bool>(attended);
     return map;
   }
 
@@ -2739,6 +2768,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
       jerseyNumber: Value(jerseyNumber),
       isCaptain: Value(isCaptain),
       isStarter: Value(isStarter),
+      attended: Value(attended),
     );
   }
 
@@ -2758,6 +2788,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
       jerseyNumber: serializer.fromJson<int>(json['jerseyNumber']),
       isCaptain: serializer.fromJson<bool>(json['isCaptain']),
       isStarter: serializer.fromJson<bool>(json['isStarter']),
+      attended: serializer.fromJson<bool>(json['attended']),
     );
   }
   @override
@@ -2774,6 +2805,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
       'jerseyNumber': serializer.toJson<int>(jerseyNumber),
       'isCaptain': serializer.toJson<bool>(isCaptain),
       'isStarter': serializer.toJson<bool>(isStarter),
+      'attended': serializer.toJson<bool>(attended),
     };
   }
 
@@ -2788,6 +2820,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
     int? jerseyNumber,
     bool? isCaptain,
     bool? isStarter,
+    bool? attended,
   }) => RosterEntry(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -2799,6 +2832,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
     jerseyNumber: jerseyNumber ?? this.jerseyNumber,
     isCaptain: isCaptain ?? this.isCaptain,
     isStarter: isStarter ?? this.isStarter,
+    attended: attended ?? this.attended,
   );
   RosterEntry copyWithCompanion(MatchRostersCompanion data) {
     return RosterEntry(
@@ -2814,6 +2848,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
           : this.jerseyNumber,
       isCaptain: data.isCaptain.present ? data.isCaptain.value : this.isCaptain,
       isStarter: data.isStarter.present ? data.isStarter.value : this.isStarter,
+      attended: data.attended.present ? data.attended.value : this.attended,
     );
   }
 
@@ -2829,7 +2864,8 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
           ..write('teamSide: $teamSide, ')
           ..write('jerseyNumber: $jerseyNumber, ')
           ..write('isCaptain: $isCaptain, ')
-          ..write('isStarter: $isStarter')
+          ..write('isStarter: $isStarter, ')
+          ..write('attended: $attended')
           ..write(')'))
         .toString();
   }
@@ -2846,6 +2882,7 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
     jerseyNumber,
     isCaptain,
     isStarter,
+    attended,
   );
   @override
   bool operator ==(Object other) =>
@@ -2860,7 +2897,8 @@ class RosterEntry extends DataClass implements Insertable<RosterEntry> {
           other.teamSide == this.teamSide &&
           other.jerseyNumber == this.jerseyNumber &&
           other.isCaptain == this.isCaptain &&
-          other.isStarter == this.isStarter);
+          other.isStarter == this.isStarter &&
+          other.attended == this.attended);
 }
 
 class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
@@ -2874,6 +2912,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
   final Value<int> jerseyNumber;
   final Value<bool> isCaptain;
   final Value<bool> isStarter;
+  final Value<bool> attended;
   final Value<int> rowid;
   const MatchRostersCompanion({
     this.id = const Value.absent(),
@@ -2886,6 +2925,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
     this.jerseyNumber = const Value.absent(),
     this.isCaptain = const Value.absent(),
     this.isStarter = const Value.absent(),
+    this.attended = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MatchRostersCompanion.insert({
@@ -2899,6 +2939,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
     required int jerseyNumber,
     this.isCaptain = const Value.absent(),
     this.isStarter = const Value.absent(),
+    this.attended = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : matchId = Value(matchId),
        playerId = Value(playerId),
@@ -2915,6 +2956,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
     Expression<int>? jerseyNumber,
     Expression<bool>? isCaptain,
     Expression<bool>? isStarter,
+    Expression<bool>? attended,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2928,6 +2970,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
       if (jerseyNumber != null) 'jersey_number': jerseyNumber,
       if (isCaptain != null) 'is_captain': isCaptain,
       if (isStarter != null) 'is_starter': isStarter,
+      if (attended != null) 'attended': attended,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2943,6 +2986,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
     Value<int>? jerseyNumber,
     Value<bool>? isCaptain,
     Value<bool>? isStarter,
+    Value<bool>? attended,
     Value<int>? rowid,
   }) {
     return MatchRostersCompanion(
@@ -2956,6 +3000,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
       jerseyNumber: jerseyNumber ?? this.jerseyNumber,
       isCaptain: isCaptain ?? this.isCaptain,
       isStarter: isStarter ?? this.isStarter,
+      attended: attended ?? this.attended,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2993,6 +3038,9 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
     if (isStarter.present) {
       map['is_starter'] = Variable<bool>(isStarter.value);
     }
+    if (attended.present) {
+      map['attended'] = Variable<bool>(attended.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3012,6 +3060,7 @@ class MatchRostersCompanion extends UpdateCompanion<RosterEntry> {
           ..write('jerseyNumber: $jerseyNumber, ')
           ..write('isCaptain: $isCaptain, ')
           ..write('isStarter: $isStarter, ')
+          ..write('attended: $attended, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8336,6 +8385,7 @@ typedef $$MatchRostersTableCreateCompanionBuilder =
       required int jerseyNumber,
       Value<bool> isCaptain,
       Value<bool> isStarter,
+      Value<bool> attended,
       Value<int> rowid,
     });
 typedef $$MatchRostersTableUpdateCompanionBuilder =
@@ -8350,6 +8400,7 @@ typedef $$MatchRostersTableUpdateCompanionBuilder =
       Value<int> jerseyNumber,
       Value<bool> isCaptain,
       Value<bool> isStarter,
+      Value<bool> attended,
       Value<int> rowid,
     });
 
@@ -8442,6 +8493,11 @@ class $$MatchRostersTableFilterComposer
 
   ColumnFilters<bool> get isStarter => $composableBuilder(
     column: $table.isStarter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get attended => $composableBuilder(
+    column: $table.attended,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8541,6 +8597,11 @@ class $$MatchRostersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get attended => $composableBuilder(
+    column: $table.attended,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MatchesTableOrderingComposer get matchId {
     final $$MatchesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8622,6 +8683,9 @@ class $$MatchRostersTableAnnotationComposer
 
   GeneratedColumn<bool> get isStarter =>
       $composableBuilder(column: $table.isStarter, builder: (column) => column);
+
+  GeneratedColumn<bool> get attended =>
+      $composableBuilder(column: $table.attended, builder: (column) => column);
 
   $$MatchesTableAnnotationComposer get matchId {
     final $$MatchesTableAnnotationComposer composer = $composerBuilder(
@@ -8708,6 +8772,7 @@ class $$MatchRostersTableTableManager
                 Value<int> jerseyNumber = const Value.absent(),
                 Value<bool> isCaptain = const Value.absent(),
                 Value<bool> isStarter = const Value.absent(),
+                Value<bool> attended = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MatchRostersCompanion(
                 id: id,
@@ -8720,6 +8785,7 @@ class $$MatchRostersTableTableManager
                 jerseyNumber: jerseyNumber,
                 isCaptain: isCaptain,
                 isStarter: isStarter,
+                attended: attended,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8734,6 +8800,7 @@ class $$MatchRostersTableTableManager
                 required int jerseyNumber,
                 Value<bool> isCaptain = const Value.absent(),
                 Value<bool> isStarter = const Value.absent(),
+                Value<bool> attended = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MatchRostersCompanion.insert(
                 id: id,
@@ -8746,6 +8813,7 @@ class $$MatchRostersTableTableManager
                 jerseyNumber: jerseyNumber,
                 isCaptain: isCaptain,
                 isStarter: isStarter,
+                attended: attended,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

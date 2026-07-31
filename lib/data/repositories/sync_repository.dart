@@ -478,7 +478,8 @@ class SyncRepository {
           "team_side": r.teamSide,
           "jersey_number": r.jerseyNumber,
           "is_captain": r.isCaptain ? 1 : 0,
-          "played": hasPlayed ? 1 : 0
+          "played": hasPlayed ? 1 : 0,
+          "attended": r.attended ? 1 : 0
         };
       }).toList();
 
