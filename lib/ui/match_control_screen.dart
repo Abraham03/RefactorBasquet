@@ -1414,8 +1414,8 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
 
   /// Diálogo de asistencia agrupado por equipo, con "seleccionar todos" y
   /// botón Guardar. Devuelve el set de IDs presentes, o null si cancela.
-  Future<Set<int>?> _askAttendance(BuildContext context, MatchState state) async {
-    final grouped = ref.read(matchGameProvider.notifier).playersPendingAttendanceByTeam();
+  Future<Set<int>?> _askAttendance(BuildContext context, MatchState state, {String? forfeitOverride}) async {
+    final grouped = ref.read(matchGameProvider.notifier).playersPendingAttendanceByTeam(forfeitOverride: forfeitOverride);
     if (grouped.isEmpty) return <int>{};
 
     final Set<int> present = {};
@@ -1674,18 +1674,18 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     );
     
     if (defaultingTeam != null && context.mounted) {
+      // Preguntar asistencia ANTES de mutar el marcador. Si cancela, el 20-0
+      // nunca se aplica y el partido queda intacto.
+      final manual = await _askAttendance(context, state, forfeitOverride: defaultingTeam);
+      if (manual == null) return;
+
       controller.declareForfeit(defaultingTeam);
       controller.setObservaciones("Partido finalizado por inasistencia (Default).");
-
-      final newState = ref.read(matchGameProvider);
-      // Preguntar asistencia del equipo que SÍ se presentó (el diálogo ya
-      // excluye al equipo en forfeit; si es doble forfeit, no muestra nada).
-      final manual = await _askAttendance(context, newState);
-      if (manual == null) return;
       await ref.read(matchGameProvider.notifier)
           .commitAttendance(manuallyPresent: manual);
       if (context.mounted) {
-        _finishMatchProcess(context, newState, null, autoShow: true);
+        //_finishMatchProcess(context, newState, null, autoShow: true);
+        _finishMatchProcess(context, ref.read(matchGameProvider), null, autoShow: true);
       }
     }
   }

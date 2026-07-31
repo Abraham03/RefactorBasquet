@@ -895,11 +895,11 @@ void _applyRestoreSub({
   /// Jugadores pendientes de asistencia, agrupados por equipo ('A' / 'B').
   /// Excluye a los que ya jugaron (asistencia automática) y a los del equipo
   /// en forfeit. Un mapa vacío significa que no hay a quién preguntar.
-  Map<String, List<PlayerStats>> playersPendingAttendanceByTeam() {
-    final forfeitA = state.forfeitStatus == ForfeitStatus.teamA ||
-        state.forfeitStatus == ForfeitStatus.both;
-    final forfeitB = state.forfeitStatus == ForfeitStatus.teamB ||
-        state.forfeitStatus == ForfeitStatus.both;
+  Map<String, List<PlayerStats>> playersPendingAttendanceByTeam({String? forfeitOverride}) {
+    final ef = forfeitOverride ?? state.forfeitStatus;
+    final forfeitA = ef == 'A' || ef == 'BOTH' || ef == ForfeitStatus.teamA || ef == ForfeitStatus.both;
+    final forfeitB = ef == 'B' || ef == 'BOTH' || ef == ForfeitStatus.teamB || ef == ForfeitStatus.both;
+
     if (forfeitA && forfeitB) return {};
 
     final Map<String, List<PlayerStats>> result = {'A': [], 'B': []};
