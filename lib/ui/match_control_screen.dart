@@ -1675,10 +1675,18 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     
     if (defaultingTeam != null && context.mounted) {
       controller.declareForfeit(defaultingTeam);
-      controller.setObservaciones("Partido finalizado por inasistencia (Default)."); // <--- AÑADIDO PARA AUTOMATIZAR
-      
+      controller.setObservaciones("Partido finalizado por inasistencia (Default).");
+
       final newState = ref.read(matchGameProvider);
-      _finishMatchProcess(context, newState, null, autoShow: true);
+      // Preguntar asistencia del equipo que SÍ se presentó (el diálogo ya
+      // excluye al equipo en forfeit; si es doble forfeit, no muestra nada).
+      final manual = await _askAttendance(context, newState);
+      if (manual == null) return;
+      await ref.read(matchGameProvider.notifier)
+          .commitAttendance(manuallyPresent: manual);
+      if (context.mounted) {
+        _finishMatchProcess(context, newState, null, autoShow: true);
+      }
     }
   }
 
