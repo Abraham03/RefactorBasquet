@@ -17,12 +17,14 @@ class ExternalDisplayService {
   /// Si el scoreboard ya está activo en la pantalla externa. Evita el ciclo
   /// hide+show que causaba el fallo de timing al reanudar.
   bool _isShowing = false;
+  bool _operationInProgress = false; // ← evita llamadas concurrentes
   bool get isShowing => _isShowing;
 
-  /// Enciende el scoreboard si hay pantalla conectada y aún no se muestra.
-  /// Idempotente: llamarlo dos veces no duplica ni reinicia.
   Future<void> showScoreboard() async {
-    if (_isShowing) return;
+    // Guard inmediato: si ya está mostrándose o hay una operación en curso,
+    // salir sin tocar el canal nativo (evita cuelgues por llamadas concurrentes).
+    if (_isShowing || _operationInProgress) return;
+    _operationInProgress = true;
     try {
       final displays = await _manager.getDisplays();
       if (displays != null && displays.length > 1) {
@@ -38,13 +40,16 @@ class ExternalDisplayService {
       }
     } catch (e) {
       debugPrint("ExternalDisplay: no se pudo mostrar: $e");
+    } finally {
+      _operationInProgress = false;
     }
   }
 
   /// Apaga el scoreboard. Solo debe llamarse cuando de verdad se deja de usar
   /// el marcador, no al navegar entre pantallas.
   Future<void> hideScoreboard() async {
-    if (!_isShowing) return;
+    if (!_isShowing || _operationInProgress) return;
+    _operationInProgress = true;
     try {
       final displays = await _manager.getDisplays();
       if (displays != null && displays.length > 1) {
@@ -58,6 +63,7 @@ class ExternalDisplayService {
       debugPrint("ExternalDisplay: error al ocultar: $e");
     } finally {
       _isShowing = false;
+      _operationInProgress = false;
     }
   }
 }

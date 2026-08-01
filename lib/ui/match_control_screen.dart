@@ -253,7 +253,10 @@ void initState() {
         }
       });
 
-      if ((previous?.timeLeft.inSeconds ?? 1) > 0 && next.timeLeft.inSeconds == 0) {
+      if ((previous?.timeLeft.inSeconds ?? 1) > 0 &&
+          next.timeLeft.inSeconds == 0 &&
+          next.forfeitStatus == 'NONE' &&
+          !_isFinished) {
         bool isRegularTimeOver = next.currentPeriod >= 4;
         String title = !isRegularTimeOver ? "Fin del Periodo ${next.currentPeriod}" : (next.scoreA == next.scoreB ? "¡EMPATE!" : "Fin del Partido");
         String content = !isRegularTimeOver ? "¿Iniciar Periodo ${next.currentPeriod + 1}?" : (next.scoreA == next.scoreB ? "¿Iniciar Tiempo Extra?" : "Marcador Final: ${next.scoreA} - ${next.scoreB}");

@@ -31,6 +31,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _wasPaused = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,9 +46,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Cuando la app vuelve al frente (resumed), re-asegura el scoreboard:
-    // pudo haberse conectado la pantalla mientras estaba en segundo plano.
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused) {
+      _wasPaused = true;
+    } else if (state == AppLifecycleState.resumed && _wasPaused) {
+      _wasPaused = false;
       ExternalDisplayService.instance.showScoreboard();
     }
   }
