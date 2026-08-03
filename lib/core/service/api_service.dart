@@ -291,7 +291,8 @@ class ApiService {
             fixturesRaw: data['fixtures'] ?? [],
             officials: data['officials'] != null 
                 ? (data['officials'] as List).map((e) => Official.fromJson(e)).toList() 
-                : [],    
+                : [],  
+            finishedRosters: data['finished_rosters'] ?? [],      
           );
         } else {
           throw Exception('API Error: ${jsonResponse['message']}');

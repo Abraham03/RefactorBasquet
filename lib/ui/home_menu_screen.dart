@@ -949,6 +949,23 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
               );
         }
 
+        // Reinsertar rosters de partidos finalizados descargados, para poder
+        // corregir asistencia de partidos que no estaban en local.
+        for (var r in catalogData.finishedRosters) {
+          await db.into(db.matchRosters).insert(
+            MatchRostersCompanion.insert(
+              matchId: r['match_id'].toString(),
+              playerId: r['player_id'].toString(),
+              teamSide: (r['team_side'] ?? 'A').toString(),
+              jerseyNumber: int.tryParse((r['jersey_number'] ?? 0).toString()) ?? 0,
+              isCaptain: drift.Value((r['is_captain'] ?? 0) == 1),
+              attended: drift.Value((r['attended'] ?? 0) == 1),
+              isSynced: const drift.Value(true),
+            ),
+            mode: drift.InsertMode.insertOrReplace,
+          );
+        }
+
        for (var off in catalogData.officials) { 
           await db.into(db.officials).insert(
             OfficialsCompanion.insert(

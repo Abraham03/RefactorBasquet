@@ -143,6 +143,7 @@ class CatalogData {
   final List<TournamentTeamRelation> relationships; 
   final List<dynamic> fixturesRaw;
   final List<Official> officials;
+  final List<dynamic> finishedRosters;
 
   CatalogData({
     required this.tournaments,
@@ -152,6 +153,7 @@ class CatalogData {
     required this.relationships,
     this.fixturesRaw = const [],
     required this.officials,
+    this.finishedRosters = const [],
   });
 }
 
