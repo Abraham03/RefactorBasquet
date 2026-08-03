@@ -827,10 +827,19 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
         // ====================================================================
         // --- 3. LIMPIEZA ABSOLUTA DE FANTASMAS Y DATOS LOCALES ---
         // ====================================================================
-        // Al descargar, borramos todo el historial local para que quede idéntico a la nube
-        await db.delete(db.matchRosters).go(); // NUEVO
-        await db.delete(db.gameEvents).go();   // NUEVO
-        await db.delete(db.matches).go();      // NUEVO
+        // Borrar SOLO partidos no finalizados (fantasmas a medio jugar).
+        // Los FINISHED sincronizados se conservan: la nube no los re-descarga
+        // y perderíamos su historial (rosters, asistencia, eventos).
+        final ghostMatches = await (db.select(db.matches)
+              ..where((m) => m.status.equals('FINISHED').not()))
+            .get();
+        final ghostIds = ghostMatches.map((m) => m.id).toList();
+
+        if (ghostIds.isNotEmpty) {
+          await (db.delete(db.matchRosters)..where((r) => r.matchId.isIn(ghostIds))).go();
+          await (db.delete(db.gameEvents)..where((e) => e.matchId.isIn(ghostIds))).go();
+          await (db.delete(db.matches)..where((m) => m.id.isIn(ghostIds))).go();
+        }
         
         await db.delete(db.tournaments).go();
         await db.delete(db.teams).go();
