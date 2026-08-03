@@ -154,3 +154,19 @@ class CatalogData {
     required this.officials,
   });
 }
+
+/// Roster + nombre resuelto, para UI. No es una tabla, solo un DTO de lectura.
+class RosterWithName {
+  final String playerId;
+  final String name;
+  final int jerseyNumber;
+  final String teamSide;
+  final bool attended;
+  const RosterWithName({
+    required this.playerId,
+    required this.name,
+    required this.jerseyNumber,
+    required this.teamSide,
+    required this.attended,
+  });
+}

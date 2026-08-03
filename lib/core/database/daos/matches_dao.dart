@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:myapp/core/database/app_database.dart'; // Importa tu DB
 import 'package:myapp/core/database/tables/app_tables.dart';
+import 'package:myapp/core/models/catalog_models.dart';
 
 part 'matches_dao.g.dart'; // Drift generará esto
 
@@ -287,4 +288,27 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     }
   }
 
+  /// Roster de un partido con el nombre de cada jugador (join con players),
+  /// para pantallas de edición que necesitan mostrar nombres.
+  Future<List<RosterWithName>> getRosterWithNames(String matchId) async {
+    final query = select(matchRosters).join([
+      leftOuterJoin(players, players.id.equalsExp(matchRosters.playerId)),
+    ])..where(matchRosters.matchId.equals(matchId));
+
+    final rows = await query.get();
+    return rows.map((row) {
+      final roster = row.readTable(matchRosters);
+      final player = row.readTableOrNull(players);
+      return RosterWithName(
+        playerId: roster.playerId,
+        name: player?.name ?? "Jugador ${roster.playerId}",
+        jerseyNumber: roster.jerseyNumber,
+        teamSide: roster.teamSide,
+        attended: roster.attended,
+      );
+    }).toList();
+  }
+
 }
+
+

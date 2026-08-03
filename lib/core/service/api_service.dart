@@ -686,4 +686,25 @@ class ApiService {
       return false;
     }
   } 
+
+
+  Future<ApiResult> updateMatchAttendance({
+    required String matchId,
+    required List<Map<String, dynamic>> attendance,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl?action=update_match_attendance'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"match_id": matchId, "attendance": attendance}),
+      );
+      final data = jsonDecode(response.body);
+      if ((response.statusCode == 200) && data['status'] == 'success') {
+        return ApiResult.ok(data['message']?.toString());
+      }
+      return ApiResult.fail(data['message']?.toString() ?? "No se pudo actualizar la asistencia.");
+    } catch (e) {
+      return ApiResult.fail("Error de conexión: $e");
+    }
+  }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:myapp/core/constants/app_colors.dart';
+import 'package:myapp/ui/attendance_edit_screen.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart'; 
 import '../core/models/catalog_models.dart' as catalog;
 import '../core/database/app_database.dart';
@@ -337,6 +338,45 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     );
   }
 
+  void _showFinishedMatchOptions(BuildContext context, dynamic match) {
+    final matchId = match.matchId ?? match.id;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text("${match.teamAName} vs ${match.teamBName}",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+            ListTile(
+              leading: const Icon(Icons.how_to_reg, color: AppColors.primary),
+              title: const Text("Corregir asistencia", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => AttendanceEditScreen(
+                    matchId: matchId,
+                    teamAName: match.teamAName,
+                    teamBName: match.teamBName,
+                  ),
+                ));
+              },
+            ),
+            // Fase 3 agregará aquí "Cambiar resultado".
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fixtureAsync = ref.watch(localFixtureProvider(widget.tournamentId));
@@ -614,7 +654,9 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: isPlayable ? () async {
+            onTap: isFinished
+                ? () => _showFinishedMatchOptions(context, match)
+                : isPlayable ? () async {
               final dbBase = ref.read(databaseProvider);
               final currentState = ref.read(matchGameProvider);
               final String idABuscar = match.matchId ?? match.id;

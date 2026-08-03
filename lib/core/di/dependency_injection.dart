@@ -6,6 +6,7 @@ import '../service/api_service.dart';
 import '../../data/repositories/sync_repository.dart';
 import '../../data/repositories/official_repository.dart';
 import '../../domain/services/match_finalizer.dart';
+import '../../data/repositories/attendance_repository.dart';
 
 
 // Provider de la Base de Datos (Singleton)
@@ -51,4 +52,8 @@ final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
   final db = ref.watch(databaseProvider);
   final api = ref.watch(apiServiceProvider);
   return PlayerRepository(db, api);
+});
+
+final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
+  return AttendanceRepository(ref.watch(matchesDaoProvider), ref.watch(apiServiceProvider));
 });
