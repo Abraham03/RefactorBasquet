@@ -958,8 +958,8 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
               playerId: r['player_id'].toString(),
               teamSide: (r['team_side'] ?? 'A').toString(),
               jerseyNumber: int.tryParse((r['jersey_number'] ?? 0).toString()) ?? 0,
-              isCaptain: drift.Value((r['is_captain'] ?? 0) == 1),
-              attended: drift.Value((r['attended'] ?? 0) == 1),
+              isCaptain: drift.Value(_toBool(r['is_captain'])),
+              attended: drift.Value(_toBool(r['attended'])),
               isSynced: const drift.Value(true),
             ),
             mode: drift.InsertMode.insertOrReplace,
@@ -1033,6 +1033,14 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
         );
       }
     }
+  }
+
+  /// Convierte un valor de la API (que puede venir como "1", 1, "true" o true)
+  /// a bool de forma robusta. El backend PHP devuelve enteros como strings.
+  bool _toBool(dynamic value) {
+    if (value == null) return false;
+    final s = value.toString().toLowerCase().trim();
+    return s == '1' || s == 'true';
   }
 
   Future<void> _uploadPendingData() async {

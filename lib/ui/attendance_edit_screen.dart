@@ -118,9 +118,9 @@ class _AttendanceEditScreenState extends ConsumerState<AttendanceEditScreen> {
               style: TextStyle(color: color, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         ),
         Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.surfaceVariant,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
           ),
           child: Column(
             children: players.map((p) {
