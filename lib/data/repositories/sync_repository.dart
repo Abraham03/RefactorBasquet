@@ -49,6 +49,10 @@ class SyncRepository {
 
     result = result.copyWith(officials: await _uploadOfficials());
 
+    // Subir correcciones de asistencia pendientes (independiente de si hay
+    // torneos/partidos nuevos: puede haber solo asistencias corregidas offline).
+    await _uploadAttendanceCorrections();
+
     return result;
   }
 
@@ -93,7 +97,6 @@ class SyncRepository {
           await (_db.delete(_db.tournaments)
                 ..where((t) => t.id.equals(oldUuid)))
               .go();
-          await _uploadAttendanceCorrections();    
         });
 
         uploaded++;
