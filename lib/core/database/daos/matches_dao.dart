@@ -143,7 +143,10 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
       byPlayerId.forEach((playerId, attended) {
         b.update(
           matchRosters,
-          MatchRostersCompanion(attended: Value(attended)),
+          MatchRostersCompanion(
+            attended: Value(attended),
+            isSynced: const Value(false), // ← marca pendiente de subir
+          ),
           where: (r) => r.matchId.equals(matchId) & r.playerId.equals(playerId),
         );
       });

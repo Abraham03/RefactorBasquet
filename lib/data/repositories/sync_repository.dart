@@ -93,6 +93,7 @@ class SyncRepository {
           await (_db.delete(_db.tournaments)
                 ..where((t) => t.id.equals(oldUuid)))
               .go();
+          await _uploadAttendanceCorrections();    
         });
 
         uploaded++;
@@ -608,6 +609,40 @@ class SyncRepository {
     }
 
     return uploaded;
+  }
+
+  /// Sube las correcciones de asistencia pendientes (rosters con isSynced=false)
+  /// agrupadas por partido, vía el endpoint de asistencia.
+  Future<int> _uploadAttendanceCorrections() async {
+    final pending = await (_db.select(_db.matchRosters)
+          ..where((r) => r.isSynced.equals(false)))
+        .get();
+    if (pending.isEmpty) return 0;
+
+    // Agrupar por match_id.
+    final Map<String, List<Map<String, dynamic>>> byMatch = {};
+    for (final r in pending) {
+      byMatch.putIfAbsent(r.matchId, () => []).add({
+        "player_id": int.tryParse(r.playerId) ?? 0,
+        "attended": r.attended ? 1 : 0,
+      });
+    }
+
+    int synced = 0;
+    for (final entry in byMatch.entries) {
+      final result = await _api.updateMatchAttendance(
+        matchId: entry.key,
+        attendance: entry.value,
+      );
+      if (result.success) {
+        // Marcar esos rosters como sincronizados.
+        await (_db.update(_db.matchRosters)
+              ..where((r) => r.matchId.equals(entry.key) & r.isSynced.equals(false)))
+            .write(const MatchRostersCompanion(isSynced: Value(true)));
+        synced++;
+      }
+    }
+    return synced;
   }
 
 }
