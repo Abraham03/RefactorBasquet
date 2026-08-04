@@ -942,6 +942,25 @@ void _applyRestoreSub({
     _saveToDatabase();
   }
 
+  /// Cambia el desenlace de un partido ya finalizado. Aplica la regla de
+  /// marcador según el tipo y NO toca eventos ni rosters.
+  /// tipo: 'NONE' (normal), 'TEAM_A', 'TEAM_B', 'BOTH' (forfeit), 'PROTEST'.
+  MatchState changeOutcome(String tipo, {Uint8List? signature, String? observaciones}) {
+    if (tipo == 'TEAM_A' || tipo == 'TEAM_B' || tipo == 'BOTH') {
+      declareForfeit(tipo == 'TEAM_A' ? 'A' : (tipo == 'TEAM_B' ? 'B' : 'BOTH'));
+    } else {
+      int a = 0, b = 0;
+      for (final e in state.scoreLog) {
+        if (e.teamId == 'A') a += e.points;
+        if (e.teamId == 'B') b += e.points;
+      }
+      state = state.copyWith(scoreA: a, scoreB: b, forfeitStatus: 'NONE');
+    }
+    if (observaciones != null) setObservaciones(observaciones);
+    _saveToDatabase();
+    return state; // ← el orquestador usa este retorno, no accede a state directo
+  }
+
   void addTimeout(String teamId) {
     _saveToHistory();
 
@@ -1816,10 +1835,7 @@ void undoLastSubstitution() {
     }
   }
 
-
 }
-
-
 
 final matchGameProvider =
     StateNotifierProvider<MatchGameController, MatchState>((ref) {

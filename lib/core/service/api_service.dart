@@ -708,4 +708,49 @@ class ApiService {
       return ApiResult.fail("Error de conexión: $e");
     }
   }
+
+  Future<ApiResult> updateMatchOutcome({
+    required String matchId,
+    required String forfeitStatus,
+    required String observaciones,
+    String? signatureBase64,
+    required int scoreA,
+    required int scoreB,
+    String? tournamentId,
+    Uint8List? pdfBytes,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl?action=update_match_outcome');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Los datos van en 'data' como JSON (mismo patrón que sync_match).
+      request.fields['data'] = jsonEncode({
+        "match_id": matchId,
+        "forfeit_status": forfeitStatus,
+        "observaciones": observaciones,
+        "signature_data": signatureBase64,
+        "score_a": scoreA,
+        "score_b": scoreB,
+        "tournament_id": tournamentId,
+      });
+
+      if (pdfBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'pdf_report', pdfBytes, filename: 'match_$matchId.pdf',
+        ));
+      }
+
+      final streamed = await request.send();
+      final body = await streamed.stream.bytesToString();
+      final data = jsonDecode(body);
+
+      if (streamed.statusCode == 200 && data['status'] == 'success') {
+        return ApiResult.ok(data['message']?.toString());
+      }
+      return ApiResult.fail(data['message']?.toString() ?? "No se pudo actualizar el resultado.");
+    } catch (e) {
+      return ApiResult.fail("Error de conexión: $e");
+    }
+  }
+  
 }

@@ -370,7 +370,15 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                 ));
               },
             ),
-            // Fase 3 agregará aquí "Cambiar resultado".
+            ListTile(
+              leading: const Icon(Icons.gavel, color: Colors.orangeAccent),
+              title: const Text("Cambiar resultado", style: TextStyle(color: Colors.white)),
+              subtitle: const Text("Forfeit, protesta o normal", style: TextStyle(color: Colors.white54, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                // Navega a la pantalla/diálogo de cambio de resultado.
+              },
+            ),
           ],
         ),
       ),
