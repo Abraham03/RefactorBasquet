@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/data/repositories/player_repository.dart';
+import 'package:myapp/domain/services/outcome_changer.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import '../database/app_database.dart';
 import '../service/api_service.dart';
@@ -56,4 +57,8 @@ final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
   return AttendanceRepository(ref.watch(matchesDaoProvider), ref.watch(apiServiceProvider));
+});
+
+final outcomeChangerProvider = Provider<OutcomeChanger>((ref) {
+  return OutcomeChanger(ref.watch(apiServiceProvider));
 });
