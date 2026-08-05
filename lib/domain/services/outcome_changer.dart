@@ -20,8 +20,9 @@ class OutcomeChanger {
     required OutcomePdfParams pdfParams,
   }) async {
     // 1. Aplicar la regla; el método retorna el estado nuevo (encapsulamiento).
-    final updated = controller.changeOutcome(
+    final updated = await controller.changeOutcome(
       newOutcome,
+      _api,
       signature: signature,
       observaciones: observaciones,
     );

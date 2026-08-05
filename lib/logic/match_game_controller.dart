@@ -945,15 +945,34 @@ void _applyRestoreSub({
   /// Cambia el desenlace de un partido ya finalizado. Aplica la regla de
   /// marcador según el tipo y NO toca eventos ni rosters.
   /// tipo: 'NONE' (normal), 'TEAM_A', 'TEAM_B', 'BOTH' (forfeit), 'PROTEST'.
-  MatchState changeOutcome(String tipo, {Uint8List? signature, String? observaciones}) {
+  ///
+  /// [api] necesario SOLO para el caso NONE sin eventos locales (forfeit→normal):
+  /// recalcula el marcador real desde score_logs en el backend (online-only).
+  Future<MatchState> changeOutcome(
+    String tipo,
+    ApiService api, {
+    Uint8List? signature,
+    String? observaciones,
+  }) async {
     if (tipo == 'TEAM_A' || tipo == 'TEAM_B' || tipo == 'BOTH') {
       declareForfeit(tipo == 'TEAM_A' ? 'A' : (tipo == 'TEAM_B' ? 'B' : 'BOTH'));
     } else {
       int a = 0, b = 0;
-      for (final e in state.scoreLog) {
-        if (e.teamId == 'A') a += e.points;
-        if (e.teamId == 'B') b += e.points;
+
+      if (state.scoreLog.isNotEmpty) {
+        // Hay eventos locales: el marcador real se recalcula sin red.
+        for (final e in state.scoreLog) {
+          if (e.teamId == 'A') a += e.points;
+          if (e.teamId == 'B') b += e.points;
+        }
+      } else {
+        // forfeit→normal sin eventos locales (la descarga los borró):
+        // el marcador real vive en score_logs del backend. Online-only.
+        final real = await api.getRealScores(state.matchId);
+        a = real.scoreA;
+        b = real.scoreB;
       }
+
       state = state.copyWith(scoreA: a, scoreB: b, forfeitStatus: 'NONE');
     }
     if (observaciones != null) setObservaciones(observaciones);

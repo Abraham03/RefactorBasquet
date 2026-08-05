@@ -752,5 +752,40 @@ class ApiService {
       return ApiResult.fail("Error de conexión: $e");
     }
   }
+
+  /// Consulta al backend el marcador REAL de un partido (suma de score_logs).
+  /// Se usa al revertir un forfeit (20-0) al marcador jugado realmente,
+  /// cuando los eventos ya no están en la BD local.
+  ///
+  /// [matchId] ID del partido a consultar.
+  /// Retorna un record (scoreA, scoreB). Lanza Exception si la petición falla.
+  Future<({int scoreA, int scoreB})> getRealScores(String matchId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl?action=get_real_scores&match_id=$matchId'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+
+        if (jsonResponse['status'] == 'success') {
+          final data = jsonResponse['data'];
+
+          // El backend ya castea a int; (num).toInt() normaliza por si
+          // el JSON lo serializa como num y evita un error de cast.
+          return (
+            scoreA: (data['real_score_a'] as num).toInt(),
+            scoreB: (data['real_score_b'] as num).toInt(),
+          );
+        } else {
+          throw Exception('API Error: ${jsonResponse['message']}');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error obteniendo marcador real: $e');
+    }
+  }
   
 }
