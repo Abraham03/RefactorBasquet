@@ -377,104 +377,150 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
               title: const Text("Cambiar resultado", style: TextStyle(color: Colors.white)),
               subtitle: const Text("Forfeit, protesta o normal", style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () async {
-                Navigator.pop(ctx);
-                final db = ref.read(databaseProvider);
-                final controller = ref.read(matchGameProvider.notifier);
+              Navigator.pop(ctx);
+              final db = ref.read(databaseProvider);
 
-                // 1. Fila matches local del acta (se conserva por el borrado selectivo).
-                final localMatch = await (db.select(db.matches)
-                      ..where((t) => t.id.equals(matchId))).getSingleOrNull();
-                if (localMatch == null) {
-                  if (context.mounted) context.showError("No se encontró el acta local del partido.");
+              // 1. Intentar fila matches local (solo existe si el partido se jugó aquí).
+              final linkedId = match.matchId;
+              var localMatch = (linkedId != null && linkedId.isNotEmpty)
+                  ? await (db.select(db.matches)..where((t) => t.id.equals(linkedId))).getSingleOrNull()
+                  : null;
+              localMatch ??= await (db.select(db.matches)
+                    ..where((t) => t.fixtureId.equals(match.id))).getSingleOrNull();
+
+              // Datos del acta: si no hay fila local, los traemos del backend.
+              // Variables que usaremos para armar OutcomePdfParams.
+              String actaMatchId;
+              String actaTeamAName, actaTeamBName;
+              String actaMainReferee, actaAuxReferee, actaScorekeeper;
+              DateTime? actaMatchDate;
+              String? actaTournamentId;
+              int actaTeamAId, actaTeamBId;
+              String? actaVenueId;
+
+              if (localMatch != null) {
+                // Acta local disponible (partido jugado en este dispositivo).
+                actaMatchId = localMatch.id;
+                actaTeamAName = localMatch.teamAName;
+                actaTeamBName = localMatch.teamBName;
+                actaMainReferee = localMatch.mainReferee ?? '';
+                actaAuxReferee = localMatch.auxReferee ?? '';
+                actaScorekeeper = localMatch.scorekeeper ?? '';
+                actaMatchDate = localMatch.matchDate;
+                actaTournamentId = localMatch.tournamentId;
+                actaTeamAId = localMatch.teamAId ?? 0;
+                actaTeamBId = localMatch.teamBId ?? 0;
+                actaVenueId = localMatch.venueId;
+              } else {
+                // Sin acta local: traer del backend (online-only).
+                final remoteId = match.matchId ?? match.id;
+                try {
+                  final api = ref.read(apiServiceProvider);
+                  final details = await api.getMatchDetails(remoteId);
+                  actaMatchId = details['id']?.toString() ?? remoteId;
+                  actaTeamAName = details['team_a_name']?.toString() ?? match.teamAName;
+                  actaTeamBName = details['team_b_name']?.toString() ?? match.teamBName;
+                  actaMainReferee = details['main_referee']?.toString() ?? '';
+                  actaAuxReferee = details['aux_referee']?.toString() ?? '';
+                  actaScorekeeper = details['scorekeeper']?.toString() ?? '';
+                  actaMatchDate = DateTime.tryParse(details['match_date']?.toString() ?? '');
+                  actaTournamentId = details['tournament_id']?.toString();
+                  actaTeamAId = int.tryParse(details['team_a_id']?.toString() ?? '0') ?? 0;
+                  actaTeamBId = int.tryParse(details['team_b_id']?.toString() ?? '0') ?? 0;
+                  actaVenueId = details['venue_id']?.toString();
+                } catch (e) {
+                  if (context.mounted) {
+                    context.showError("No se pudo obtener el acta: $e");
+                  }
                   return;
                 }
+              }
 
-                // 2. Logos y categoría desde tournaments.
-                final tournamentData = await (db.select(db.tournaments)
-                      ..where((t) => t.id.equals(localMatch.tournamentId ?? ''))).getSingleOrNull();
+              // 2. Logos y categoría desde tournaments.
+              final tournamentData = await (db.select(db.tournaments)
+                    ..where((t) => t.id.equals(actaTournamentId ?? ''))).getSingleOrNull();
 
-                // 3. Rosters (mismo tipo models.Player que exige restoreFromDatabase).
-                final allDbPlayers = await db.select(db.players).get();
-                final rosterA = allDbPlayers
-                    .where((p) => p.teamId.toString() == (localMatch.teamAId?.toString() ?? ''))
-                    .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
-                    .toList();
-                final rosterB = allDbPlayers
-                    .where((p) => p.teamId.toString() == (localMatch.teamBId?.toString() ?? ''))
-                    .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
-                    .toList();
+              // 3. Rosters para restoreFromDatabase.
+              final allDbPlayers = await db.select(db.players).get();
+              final rosterA = allDbPlayers
+                  .where((p) => p.teamId.toString() == actaTeamAId.toString())
+                  .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
+                  .toList();
+              final rosterB = allDbPlayers
+                  .where((p) => p.teamId.toString() == actaTeamBId.toString())
+                  .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
+                  .toList();
 
-                // 4. Capitanes (matchRosters) y coaches (teams) para el PDF.
-                final dbRosters = await (db.select(db.matchRosters)
-                      ..where((t) => t.matchId.equals(localMatch.id))).get();
-                final capA = dbRosters.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
-                final capB = dbRosters.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
-                final teamA = await (db.select(db.teams)
-                      ..where((t) => t.id.equals(localMatch.teamAId?.toString() ?? ''))).getSingleOrNull();
-                final teamB = await (db.select(db.teams)
-                      ..where((t) => t.id.equals(localMatch.teamBId?.toString() ?? ''))).getSingleOrNull();
+              // 4. Capitanes y coaches.
+              final dbRosters = await (db.select(db.matchRosters)
+                    ..where((t) => t.matchId.equals(actaMatchId))).get();
+              final capA = dbRosters.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
+              final capB = dbRosters.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
+              final teamA = await (db.select(db.teams)
+                    ..where((t) => t.id.equals(actaTeamAId.toString()))).getSingleOrNull();
+              final teamB = await (db.select(db.teams)
+                    ..where((t) => t.id.equals(actaTeamBId.toString()))).getSingleOrNull();
 
-                // 5. Firmas de árbitros: mismo repositorio que el flujo de finalizar.
-                final refSignatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
-                      mainRefereeName: localMatch.mainReferee ?? '',
-                      auxRefereeName: localMatch.auxReferee ?? '',
-                    );
-
-                // 6. PASO 5 — reabrir el partido en el controller SOLO si no es el activo.
-                //    Reproduce los gameEvents locales y reconstruye el scoreLog, base del
-                //    caso 'NONE' (marcador real) al aplicar el cambio de desenlace.
-                final currentState = ref.read(matchGameProvider);
-                if (currentState.matchId != localMatch.id) {
-                  await controller.restoreFromDatabase(
-                    matchId: localMatch.id,
-                    fixtureId: match.id,
-                    rosterA: rosterA,
-                    rosterB: rosterB,
-                    startersA: const {}, // no relevan para el cambio de desenlace
-                    startersB: const {},
-                    tournamentId: int.tryParse(localMatch.tournamentId ?? '0') ?? 0,
-                    venueId: int.tryParse(localMatch.venueId ?? '0') ?? 0,
-                    teamAId: localMatch.teamAId ?? 0,
-                    teamBId: localMatch.teamBId ?? 0,
-                    mainReferee: localMatch.mainReferee ?? '',
-                    auxReferee: localMatch.auxReferee ?? '',
-                    scorekeeper: localMatch.scorekeeper ?? '',
+              // 5. Firmas de árbitros.
+              final refSignatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
+                    mainRefereeName: actaMainReferee,
+                    auxRefereeName: actaAuxReferee,
                   );
-                }
 
-                // 7. Parámetros del acta para regenerar el PDF (coaches + firmas incluidos).
-                final pdfParams = OutcomePdfParams(
-                  teamAName: localMatch.teamAName,
-                  teamBName: localMatch.teamBName,
-                  tournamentName: tournamentData?.name ?? '',
-                  categoryName: tournamentData?.category ?? '',
-                  tournamentLogoUrl: tournamentData?.logoUrl ?? '',
-                  refereeLogoUrl: tournamentData?.refereeLogoUrl ?? '',
-                  venueName: match.venueName ?? '',
-                  mainReferee: localMatch.mainReferee ?? '',
-                  auxReferee: localMatch.auxReferee ?? '',
-                  scorekeeper: localMatch.scorekeeper ?? '',
-                  coachA: teamA?.coachName ?? '',
-                  coachB: teamB?.coachName ?? '',
-                  captainAId: capA != null ? int.tryParse(capA.playerId) : null,
-                  captainBId: capB != null ? int.tryParse(capB.playerId) : null,
-                  matchDate: localMatch.matchDate,
-                  mainRefSignature: refSignatures.main,
-                  auxRefSignature: refSignatures.aux,
-                  tournamentId: localMatch.tournamentId,
+              // 6. Restaurar estado del partido en el controller (scoreLog, eventos).
+              final controller = ref.read(matchGameProvider.notifier);
+              final currentState = ref.read(matchGameProvider);
+              if (currentState.matchId != actaMatchId) {
+                await controller.restoreFromDatabase(
+                  matchId: actaMatchId,
+                  fixtureId: match.id,
+                  rosterA: rosterA,
+                  rosterB: rosterB,
+                  startersA: const {},
+                  startersB: const {},
+                  tournamentId: int.tryParse(actaTournamentId ?? '0') ?? 0,
+                  venueId: int.tryParse(actaVenueId ?? '0') ?? 0,
+                  teamAId: actaTeamAId,
+                  teamBId: actaTeamBId,
+                  mainReferee: actaMainReferee,
+                  auxReferee: actaAuxReferee,
+                  scorekeeper: actaScorekeeper,
                 );
+              }
 
-                // 8. Navegar a la pantalla de cambio de resultado.
-                if (!context.mounted) return;
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => ChangeOutcomeScreen(
-                    matchId: localMatch.id,
-                    teamAName: localMatch.teamAName,
-                    teamBName: localMatch.teamBName,
-                    pdfParams: pdfParams,
-                  ),
-                ));
-              },
+              // 7. OutcomePdfParams con coaches + firmas.
+              final pdfParams = OutcomePdfParams(
+                teamAName: actaTeamAName,
+                teamBName: actaTeamBName,
+                tournamentName: tournamentData?.name ?? '',
+                categoryName: tournamentData?.category ?? '',
+                tournamentLogoUrl: tournamentData?.logoUrl ?? '',
+                refereeLogoUrl: tournamentData?.refereeLogoUrl ?? '',
+                venueName: match.venueName ?? '',
+                mainReferee: actaMainReferee,
+                auxReferee: actaAuxReferee,
+                scorekeeper: actaScorekeeper,
+                coachA: teamA?.coachName ?? '',
+                coachB: teamB?.coachName ?? '',
+                captainAId: capA != null ? int.tryParse(capA.playerId) : null,
+                captainBId: capB != null ? int.tryParse(capB.playerId) : null,
+                matchDate: actaMatchDate,
+                mainRefSignature: refSignatures.main,
+                auxRefSignature: refSignatures.aux,
+                tournamentId: actaTournamentId,
+              );
+
+              // 8. Navegar.
+              if (!context.mounted) return;
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ChangeOutcomeScreen(
+                  matchId: actaMatchId,
+                  teamAName: actaTeamAName,
+                  teamBName: actaTeamBName,
+                  pdfParams: pdfParams,
+                ),
+              ));
+            },
             ),
           ],
         ),

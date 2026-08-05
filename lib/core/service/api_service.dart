@@ -787,5 +787,31 @@ class ApiService {
       throw Exception('Error obteniendo marcador real: $e');
     }
   }
+
+
+  /// Obtiene los datos del acta de un partido desde el backend.
+  /// Se usa cuando la tabla matches local no tiene la fila (partido jugado
+  /// en otro dispositivo). Retorna un Map con los campos del acta.
+  Future<Map<String, dynamic>> getMatchDetails(String matchId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl?action=get_match_details&match_id=$matchId'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+
+        if (jsonResponse['status'] == 'success') {
+          return jsonResponse['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception('API Error: ${jsonResponse['message']}');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error obteniendo datos del acta: $e');
+    }
+  }
   
 }
