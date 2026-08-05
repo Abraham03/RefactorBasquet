@@ -485,6 +485,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   mainReferee: actaMainReferee,
                   auxReferee: actaAuxReferee,
                   scorekeeper: actaScorekeeper,
+                  markFinished: true,
                 );
               }
 

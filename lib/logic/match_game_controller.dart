@@ -314,8 +314,9 @@ Future<void> restoreFromDatabase({
   required String mainReferee,
   required String auxReferee,
   required String scorekeeper,
+   bool markFinished = false,
 }) async {
-  
+    _isFinished = markFinished;
   // 1. Inicializar usando los starters que vienen del widget (los que elegiste en la pantalla de selección)
   // Si startersA viene vacío desde el calendario, entonces el problema está en el paso de datos del FixtureList.
   initializeNewMatch(
