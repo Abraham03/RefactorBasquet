@@ -1168,6 +1168,7 @@ void _applyRestoreSub({
       mainReferee,
       auxReferee,
       scorekeeper,
+      markInProgress: !_isFinished,
     );
     final Map<String, PlayerStats> initialStats = {};
     final List<String> courtA = [];

@@ -62,8 +62,9 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     int teamBId,
     String mainRef,
     String auxRef,
-    String scorek,
-  ) async {
+    String scorek, {
+    bool markInProgress = true, // ← false al reabrir un partido FINALIZADO
+  }) async {
     await (update(matches)..where((t) => t.id.equals(matchId))).write(
       MatchesCompanion(
         teamAId: Value(teamAId),
@@ -75,18 +76,21 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
       ),
     );
 
-    // Vinculamos localmente el partido con el calendario para que 
-    // cuando regrese el internet, el proceso de Sync sepa a qué fixture pertenece.
     if (fixtureId != null) {
+      // Vinculamos el partido con el calendario. Solo marcamos IN_PROGRESS al
+      // INICIAR un partido; al reabrir uno finalizado (cambio de desenlace)
+      // NO tocamos el status para no revertir el FINISHED del calendario.
       await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
-        FixturesCompanion(
-          matchId: Value(matchId),
-          status: const Value('IN_PROGRESS'), // Opcional: marcarlo en curso localmente
-        ),
+        markInProgress
+            ? FixturesCompanion(
+                matchId: Value(matchId),
+                status: const Value('IN_PROGRESS'),
+              )
+            : FixturesCompanion(
+                matchId: Value(matchId),
+              ),
       );
     }
-  
-
   }
 
   // Agrega también el campo para la firma
