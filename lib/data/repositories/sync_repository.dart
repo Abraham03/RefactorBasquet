@@ -441,7 +441,7 @@ class SyncRepository {
           "player_number": roster?.jerseyNumber ?? 0,
           "points_scored": points,
           "score_after": currentScore,
-          "type": rawType,
+          "type": event.type,
         };
 
         int pId = 0;

@@ -813,5 +813,30 @@ class ApiService {
       throw Exception('Error obteniendo datos del acta: $e');
     }
   }
+
+  /// Obtiene los eventos (score_logs) de un partido desde el backend.
+  /// Se usa para hidratar gameEvents cuando el partido se jugó en otro dispositivo.
+  Future<List<Map<String, dynamic>>> getMatchEvents(String matchId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl?action=get_match_events&match_id=$matchId'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+
+        if (jsonResponse['status'] == 'success') {
+          final List<dynamic> data = jsonResponse['data'] as List<dynamic>;
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          throw Exception('API Error: ${jsonResponse['message']}');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error obteniendo eventos: $e');
+    }
+  }
   
 }
