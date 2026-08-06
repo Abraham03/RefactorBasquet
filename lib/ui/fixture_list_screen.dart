@@ -18,6 +18,7 @@ import '../ui/manual_fixture_builder_screen.dart';
 import '../ui/widgets/tournament_rules_dialog.dart';
 import 'change_outcome_screen.dart';           // ChangeOutcomeScreen
 import '../domain/services/outcome_changer.dart'; // OutcomePdfParams
+import '../core/network/connectivity_helper.dart';
 
 // Provider REACTIVO para leer el fixture local de un torneo específico
 final localFixtureProvider = StreamProvider.family<Map<String, List<Fixture>>, String>((ref, tournamentId) {
@@ -430,7 +431,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   actaVenueId = details['venue_id']?.toString();
                 } catch (e) {
                   if (context.mounted) {
-                    context.showError("No se pudo obtener el acta: $e");
+                    context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudo obtener el acta: $e"));
                   }
                   return;
                 }
@@ -497,7 +498,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   rostersForActa = await (db.select(db.matchRosters)
                         ..where((t) => t.matchId.equals(actaMatchId))).get();
                 } catch (e) {
-                  if (context.mounted) context.showError("No se pudo traer el roster: $e");
+                  if (context.mounted) context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudo traer el roster: $e"));
                 }
               }
 
@@ -582,7 +583,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                     );
                   }
                 } catch (e) {
-                  if (context.mounted) context.showError("No se pudieron traer los eventos: $e");
+                  if (context.mounted) context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudieron traer los eventos: $e"));
                   // Se continúa: el PDF saldría con marcador pero sin jugadas.
                 }
               }

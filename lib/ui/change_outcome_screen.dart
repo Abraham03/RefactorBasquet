@@ -7,7 +7,7 @@ import '../core/di/dependency_injection.dart';
 import '../domain/services/outcome_changer.dart';
 import '../logic/match_game_controller.dart';
 import 'widgets/app_feedback.dart';
-
+import '../core/network/connectivity_helper.dart';
 class ChangeOutcomeScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String teamAName;
@@ -113,14 +113,18 @@ class _ChangeOutcomeScreenState extends ConsumerState<ChangeOutcomeScreen> {
       context.showSuccess("Resultado actualizado");
       Navigator.pop(context, true);
     } else {
-      context.showError(result.message ?? "No se pudo actualizar el resultado.");
+      
+      final msg = result.message ?? "No se pudo actualizar el resultado.";
+      context.showError(ConnectivityHelper.isNetworkError(Exception(msg))
+          ? ConnectivityHelper.friendlyMessage(Exception(msg))
+          : msg);
     }
     } catch (e) {
       // El cambio de desenlace es online-only: si no hay red (o falla el
       // PDF/marcador), liberamos la UI y avisamos en vez de colgarnos.
       if (!mounted) return;
       setState(() => _saving = false);
-      context.showError("No se pudo actualizar (¿sin conexión?): $e");
+      context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudo actualizar el resultado: $e"));
     }
     
   }
