@@ -467,6 +467,65 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                     auxRefereeName: actaAuxReferee,
                   );
 
+              // --- PARTE 2: hidratar eventos desde la nube si no hay locales ---
+              // Solo aplica a partidos jugados en OTRO dispositivo (sin gameEvents local).
+              final localEvents = await (db.select(db.gameEvents)
+                    ..where((t) => t.matchId.equals(actaMatchId))).get();
+
+              if (localEvents.isEmpty) {
+                // 1. Asegurar la fila matches local: FK de gameEvents + metadata de restore.
+                //    Se inserta como FINISHED para no alterar el estado del calendario.
+                await db.into(db.matches).insertOnConflictUpdate(
+                  MatchesCompanion.insert(
+                    id: drift.Value(actaMatchId),
+                    teamAName: actaTeamAName,
+                    teamBName: actaTeamBName,
+                    status: const drift.Value('FINISHED'),
+                    tournamentId: drift.Value(actaTournamentId),
+                    venueId: drift.Value(actaVenueId),
+                    teamAId: drift.Value(actaTeamAId),
+                    teamBId: drift.Value(actaTeamBId),
+                    mainReferee: drift.Value(actaMainReferee),
+                    auxReferee: drift.Value(actaAuxReferee),
+                    scorekeeper: drift.Value(actaScorekeeper),
+                    matchDate: drift.Value(actaMatchDate),
+                    isSynced: const drift.Value(true),
+                  ),
+                );
+
+                // 2. Traer eventos de la nube e insertarlos en gameEvents (restore los reproducirá).
+                try {
+                  final apiEvents = ref.read(apiServiceProvider);
+                  final cloudEvents = await apiEvents.getMatchEvents(actaMatchId);
+                  final base = DateTime.now();
+
+                  for (var i = 0; i < cloudEvents.length; i++) {
+                    final e = cloudEvents[i];
+                    final rawType = e['event_type']?.toString() ?? '';
+                    final pts = int.tryParse(e['points_scored']?.toString() ?? '0') ?? 0;
+                    // Fallback para eventos viejos sin event_type: al menos la anotación.
+                    final type = rawType.isNotEmpty ? rawType : (pts > 0 ? 'POINT_$pts' : 'OTROS');
+                    final pidRaw = e['player_id']?.toString();
+                    final pid = (pidRaw == null || pidRaw.isEmpty || pidRaw == '0') ? null : pidRaw;
+
+                    await db.into(db.gameEvents).insert(
+                      GameEventsCompanion.insert(
+                        matchId: actaMatchId,
+                        type: type,
+                        period: int.tryParse(e['period']?.toString() ?? '1') ?? 1,
+                        clockTime: '00:00', // la nube no guarda el reloj de juego
+                        playerId: drift.Value(pid),
+                        createdAt: drift.Value(base.add(Duration(milliseconds: i))), // preserva el orden
+                        isSynced: const drift.Value(true),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) context.showError("No se pudieron traer los eventos: $e");
+                  // Se continúa: el PDF saldría con marcador pero sin jugadas.
+                }
+              }    
+
               // 6. Restaurar estado del partido en el controller (scoreLog, eventos).
               final controller = ref.read(matchGameProvider.notifier);
               final currentState = ref.read(matchGameProvider);
