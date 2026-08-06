@@ -572,7 +572,9 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                         matchId: actaMatchId,
                         type: type,
                         period: int.tryParse(e['period']?.toString() ?? '1') ?? 1,
-                        clockTime: '00:00', // la nube no guarda el reloj de juego
+                        clockTime: e['clock_time']?.toString().isNotEmpty == true
+                            ? e['clock_time'].toString()
+                            : '00:00',
                         playerId: drift.Value(pid),
                         createdAt: drift.Value(base.add(Duration(milliseconds: i))), // preserva el orden
                         isSynced: const drift.Value(true),
@@ -587,9 +589,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
 
               // 6. Restaurar estado del partido en el controller (scoreLog, eventos).
               final controller = ref.read(matchGameProvider.notifier);
-              final currentState = ref.read(matchGameProvider);
-              if (currentState.matchId != actaMatchId) {
-                await controller.restoreFromDatabase(
+              await controller.restoreFromDatabase(
                   matchId: actaMatchId,
                   fixtureId: match.id,
                   rosterA: rosterA,
@@ -605,7 +605,6 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   scorekeeper: actaScorekeeper,
                   markFinished: true,
                 );
-              }
 
               // 7. OutcomePdfParams con coaches + firmas.
               final pdfParams = OutcomePdfParams(

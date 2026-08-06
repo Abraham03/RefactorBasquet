@@ -812,6 +812,7 @@ void _applyRestoreSub({
         "points_scored": points,
         "score_after": currentScore,
         "type": event.type, // type ORIGINAL completo (con sufijo) para reconstrucción fiel
+        "clock_time": event.clockTime,
       };
     }).toList();
 

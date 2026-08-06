@@ -442,6 +442,7 @@ class SyncRepository {
           "points_scored": points,
           "score_after": currentScore,
           "type": event.type,
+          "clock_time": event.clockTime,
         };
 
         int pId = 0;
