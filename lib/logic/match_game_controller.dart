@@ -758,29 +758,60 @@ void _applyRestoreSub({
     }
     //
 
-    final eventsList = state.scoreLog.map((e) {
-      final currentStats = state.playerStats[e.playerId];
-      final updatedNumber = currentStats?.playerNumber ?? e.playerNumber;
-      String? parsedPlayerId = (e.dbPlayerId <= 0)
-        ? null
-        : e.dbPlayerId.toString();
+    // Fuente COMPLETA de eventos: tabla gameEvents (incluye posesión, tiempos
+    // fuera y cambios), no solo state.scoreLog (que trae anotación/faltas).
+    final eventRows = await (_dao.db.select(_dao.db.gameEvents).join([
+      drift.leftOuterJoin(
+        _dao.db.matchRosters,
+        _dao.db.matchRosters.matchId.equalsExp(_dao.db.gameEvents.matchId) &
+            _dao.db.matchRosters.playerId.equalsExp(_dao.db.gameEvents.playerId),
+      ),
+      drift.leftOuterJoin(
+        _dao.db.players,
+        _dao.db.players.id.equalsExp(_dao.db.gameEvents.playerId),
+      ),
+    ])
+          ..where(_dao.db.gameEvents.matchId.equals(state.matchId))
+          ..orderBy([drift.OrderingTerm.asc(_dao.db.gameEvents.createdAt)]))
+        .get();
 
-      // OBTENEMOS EL NOMBRE REAL DEL JUGADOR
-      // Si currentStats existe, usamos su playerName (ej. "ABRAHAM CHVEZ")
-      // Si no existe (caso raro), caemos al e.playerId original.
-      final realPlayerName = currentStats != null && currentStats.playerName.isNotEmpty 
-          ? currentStats.playerName 
-          : e.playerId;
+    int runA = 0, runB = 0;
+    final eventsList = eventRows.map((row) {
+      final event = row.readTable(_dao.db.gameEvents);
+      final roster = row.readTableOrNull(_dao.db.matchRosters);
+      final player = row.readTableOrNull(_dao.db.players);
+
+      String rawType = event.type;
+      String teamSide = roster?.teamSide ?? 'A';
+      if (rawType.endsWith('_A')) { teamSide = 'A'; rawType = rawType.replaceAll('_A', ''); }
+      else if (rawType.endsWith('_B')) { teamSide = 'B'; rawType = rawType.replaceAll('_B', ''); }
+
+      int points = 0;
+      if (rawType == 'POINT_1' || rawType == 'FREE_THROW') points = 1;
+      if (rawType == 'POINT_2') points = 2;
+      if (rawType == 'POINT_3') points = 3;
+      final isA = teamSide == 'A';
+      if (points > 0) { if (isA) {
+        runA += points;
+      } else {
+        runB += points;
+      } }
+      final currentScore = isA ? runA : runB;
+
+      int pId = 0;
+      if (event.playerId != null && event.playerId!.isNotEmpty && event.playerId != '-1') {
+        pId = int.tryParse(event.playerId!) ?? 0;
+      }
 
       return {
-        "period": e.period,
-        "team_side": e.teamId,
-        "player_name": realPlayerName,
-        "player_id": parsedPlayerId,
-        "player_number": updatedNumber,
-        "points_scored": e.points,
-        "score_after": e.scoreAfter,
-        "type": e.type,
+        "period": event.period,
+        "team_side": teamSide,
+        "player_name": player?.name ?? '',
+        "player_id": (pId > 0) ? pId : null,
+        "player_number": roster?.jerseyNumber ?? 0,
+        "points_scored": points,
+        "score_after": currentScore,
+        "type": event.type, // type ORIGINAL completo (con sufijo) para reconstrucción fiel
       };
     }).toList();
 

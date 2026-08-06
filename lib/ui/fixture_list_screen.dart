@@ -461,6 +461,18 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
               final teamB = await (db.select(db.teams)
                     ..where((t) => t.id.equals(actaTeamBId.toString()))).getSingleOrNull();
 
+              // Titulares reales desde matchRosters → X con círculo en el PDF.
+              final startersAIds = dbRosters
+                  .where((r) => r.teamSide == 'A' && r.isStarter)
+                  .map((r) => int.tryParse(r.playerId) ?? -1)
+                  .where((id) => id > 0)
+                  .toSet();
+              final startersBIds = dbRosters
+                  .where((r) => r.teamSide == 'B' && r.isStarter)
+                  .map((r) => int.tryParse(r.playerId) ?? -1)
+                  .where((id) => id > 0)
+                  .toSet();      
+
               // 5. Firmas de árbitros.
               final refSignatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
                     mainRefereeName: actaMainReferee,
@@ -535,8 +547,8 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   fixtureId: match.id,
                   rosterA: rosterA,
                   rosterB: rosterB,
-                  startersA: const {},
-                  startersB: const {},
+                  startersA: startersAIds,
+                  startersB: startersBIds,
                   tournamentId: int.tryParse(actaTournamentId ?? '0') ?? 0,
                   venueId: int.tryParse(actaVenueId ?? '0') ?? 0,
                   teamAId: actaTeamAId,
