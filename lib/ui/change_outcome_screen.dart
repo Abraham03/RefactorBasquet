@@ -97,7 +97,8 @@ class _ChangeOutcomeScreenState extends ConsumerState<ChangeOutcomeScreen> {
     final outcomeForRule = _selected == 'PROTEST' ? 'NONE' : _selected;
 
     final changer = ref.read(outcomeChangerProvider);
-    final result = await changer.change(
+    try {
+      final result = await changer.change(
       controller: controller,
       newOutcome: outcomeForRule,
       signature: signature,
@@ -114,6 +115,14 @@ class _ChangeOutcomeScreenState extends ConsumerState<ChangeOutcomeScreen> {
     } else {
       context.showError(result.message ?? "No se pudo actualizar el resultado.");
     }
+    } catch (e) {
+      // El cambio de desenlace es online-only: si no hay red (o falla el
+      // PDF/marcador), liberamos la UI y avisamos en vez de colgarnos.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      context.showError("No se pudo actualizar (¿sin conexión?): $e");
+    }
+    
   }
 
   @override
