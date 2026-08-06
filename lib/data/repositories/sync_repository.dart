@@ -480,6 +480,7 @@ class SyncRepository {
         return {
           "player_id": pIdInt,
           "team_side": r.teamSide,
+          "is_starter": r.isStarter ? 1 : 0,
           "jersey_number": r.jerseyNumber,
           "is_captain": r.isCaptain ? 1 : 0,
           "played": hasPlayed ? 1 : 0,

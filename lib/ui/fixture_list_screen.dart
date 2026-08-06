@@ -451,27 +451,74 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
                   .toList();
 
-              // 4. Capitanes y coaches.
+              // 4. Roster del acta (capitanes y titulares).
               final dbRosters = await (db.select(db.matchRosters)
                     ..where((t) => t.matchId.equals(actaMatchId))).get();
-              final capA = dbRosters.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
-              final capB = dbRosters.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
+
+              // --- PARTE 3: hidratar matchRosters desde la nube si no hay local ---
+              // (partido jugado en OTRO dispositivo: capitanes/titulares no están locales).
+              var rostersForActa = dbRosters;
+              if (rostersForActa.isEmpty) {
+                // Asegurar la fila matches (FK de matchRosters).
+                await db.into(db.matches).insertOnConflictUpdate(
+                  MatchesCompanion.insert(
+                    id: drift.Value(actaMatchId),
+                    teamAName: actaTeamAName,
+                    teamBName: actaTeamBName,
+                    status: const drift.Value('FINISHED'),
+                    tournamentId: drift.Value(actaTournamentId),
+                    venueId: drift.Value(actaVenueId),
+                    teamAId: drift.Value(actaTeamAId),
+                    teamBId: drift.Value(actaTeamBId),
+                    mainReferee: drift.Value(actaMainReferee),
+                    auxReferee: drift.Value(actaAuxReferee),
+                    scorekeeper: drift.Value(actaScorekeeper),
+                    matchDate: drift.Value(actaMatchDate),
+                    isSynced: const drift.Value(true),
+                  ),
+                );
+                try {
+                  final apiR = ref.read(apiServiceProvider);
+                  final cloudRosters = await apiR.getMatchRosters(actaMatchId);
+                  for (final r in cloudRosters) {
+                    await db.into(db.matchRosters).insertOnConflictUpdate(
+                      MatchRostersCompanion.insert(
+                        matchId: actaMatchId,
+                        playerId: r['player_id'].toString(),
+                        teamSide: r['team_side'].toString(),
+                        jerseyNumber: int.tryParse(r['jersey_number']?.toString() ?? '0') ?? 0,
+                        isCaptain: drift.Value((r['is_captain']?.toString() ?? '0') == '1'),
+                        isStarter: drift.Value((r['is_starter']?.toString() ?? '0') == '1'),
+                        attended: drift.Value((r['attended']?.toString() ?? '0') == '1'),
+                      ),
+                    );
+                  }
+                  // Recargar para capitanes/titulares ya hidratados.
+                  rostersForActa = await (db.select(db.matchRosters)
+                        ..where((t) => t.matchId.equals(actaMatchId))).get();
+                } catch (e) {
+                  if (context.mounted) context.showError("No se pudo traer el roster: $e");
+                }
+              }
+
+              final capA = rostersForActa.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
+              final capB = rostersForActa.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
               final teamA = await (db.select(db.teams)
                     ..where((t) => t.id.equals(actaTeamAId.toString()))).getSingleOrNull();
               final teamB = await (db.select(db.teams)
                     ..where((t) => t.id.equals(actaTeamBId.toString()))).getSingleOrNull();
 
               // Titulares reales desde matchRosters → X con círculo en el PDF.
-              final startersAIds = dbRosters
+              final startersAIds = rostersForActa
                   .where((r) => r.teamSide == 'A' && r.isStarter)
                   .map((r) => int.tryParse(r.playerId) ?? -1)
                   .where((id) => id > 0)
                   .toSet();
-              final startersBIds = dbRosters
+              final startersBIds = rostersForActa
                   .where((r) => r.teamSide == 'B' && r.isStarter)
                   .map((r) => int.tryParse(r.playerId) ?? -1)
                   .where((id) => id > 0)
-                  .toSet();      
+                  .toSet();
 
               // 5. Firmas de árbitros.
               final refSignatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
@@ -536,7 +583,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   if (context.mounted) context.showError("No se pudieron traer los eventos: $e");
                   // Se continúa: el PDF saldría con marcador pero sin jugadas.
                 }
-              }    
+              }
 
               // 6. Restaurar estado del partido en el controller (scoreLog, eventos).
               final controller = ref.read(matchGameProvider.notifier);
