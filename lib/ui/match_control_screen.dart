@@ -14,10 +14,10 @@ import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/ui/protest_signature_screen.dart';
 import 'package:myapp/ui/pdf_preview_screen.dart';
 
-import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_widget.dart';
 
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 
 import 'package:myapp/data/models/match_finalize_params.dart';

@@ -9,9 +9,9 @@ import 'package:myapp/logic/catalog_provider.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/ui/team_detail_screen.dart';
 import 'package:myapp/core/di/providers.dart' as di;
-import 'package:myapp/ui/widgets/app_background.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
-import 'package:myapp/ui/widgets/app_network_image.dart';
+import 'package:myapp/shared/widgets/app_background.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_network_image.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;

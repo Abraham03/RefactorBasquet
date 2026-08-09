@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:printing/printing.dart';
 import 'package:myapp/core/utils/pdf_generator.dart';
 import 'package:myapp/logic/match_game_controller.dart';

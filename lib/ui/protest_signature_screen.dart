@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:signature/signature.dart';
 
 class ProtestSignatureScreen extends StatefulWidget {

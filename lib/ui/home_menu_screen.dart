@@ -19,8 +19,8 @@ import 'package:myapp/ui/match_setup_screen.dart';
 import 'package:myapp/ui/team_management_screen.dart';
 
 
-import 'package:myapp/ui/widgets/glass_dashboard_card.dart';
-import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/shared/widgets/glass_dashboard_card.dart';
+import 'package:myapp/shared/widgets/app_background.dart';
 
 import 'package:drift_db_viewer/drift_db_viewer.dart';
 import 'package:share_plus/share_plus.dart';
@@ -28,7 +28,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 

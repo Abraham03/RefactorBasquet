@@ -6,7 +6,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/domain/services/outcome_changer.dart';
 import 'package:myapp/logic/match_game_controller.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/network/connectivity_helper.dart';
 class ChangeOutcomeScreen extends ConsumerStatefulWidget {
   final String matchId;

@@ -14,8 +14,8 @@ import 'package:myapp/logic/tournament_provider.dart';
 import 'package:myapp/ui/starters_selection_screen.dart';
 
 import 'package:myapp/core/utils/image_url_resolver.dart';
-import 'package:myapp/ui/widgets/app_background.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_background.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 class MatchSetupScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   final db.Fixture? preSelectedFixture; 

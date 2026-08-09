@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
-import 'package:myapp/ui/widgets/app_background.dart';
-import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/shared/widgets/app_background.dart';
+import 'package:myapp/shared/widgets/app_feedback.dart';
 
 /// Diagnóstico del marcador: qué IP dictar, en qué puerto está escuchando,
 /// cuántas pantallas hay enganchadas y en qué estado está la TV externa.

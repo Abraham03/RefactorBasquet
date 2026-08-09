@@ -5,7 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
-import 'package:myapp/core/service/image_loader_service.dart';
+import 'package:myapp/shared/services/image_loader_service.dart';
 
 class PdfCoords {
 
