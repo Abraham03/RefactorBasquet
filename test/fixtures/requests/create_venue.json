@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=create_venue",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "name": "Gimnasio Municipal",
+    "address": "Av. Reforma 742"
+  }
+}

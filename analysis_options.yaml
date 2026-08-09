@@ -1,28 +1,44 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# Configuración del analizador estático.
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# Fase 0 del "Plan Estructura Limpia.md": red de seguridad.
+#
+# CRITERIO: la Fase 0 debe dejar un semáforo verde/rojo CONFIABLE. Una regla
+# que arranca en rojo con cientos de issues no es una red de seguridad, es
+# ruido que oculta las regresiones reales. Por eso aquí solo entran reglas
+# que están en 0 hoy, o que son la lista de trabajo explícita de una fase.
+#
+# DIFERIDO A LA FASE 9 (medido el 2026-08-09, no re-discutir sin volver a medir):
+#   strict-casts: true      -> 119 ERRORES. El `List<dynamic> fixturesRaw` de
+#                              catalog_models se propaga por toda la app. Entra
+#                              cuando la Fase 4 tipe los modelos.
+#   strict-raw-types        -> mismo origen.
+#   avoid_dynamic_calls     -> mismo origen.
+#   prefer_final_locals     -> 155 issues cosméticos. Arreglarlos en la Fase 1
+#                              contaminaría el diff de "solo mover archivos".
+#   directives_ordering     -> 49 issues; se reordenan solos en la Fase 1.A.
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
-linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
-  rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "build/**"
+  errors:
+    todo: ignore
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+linter:
+  rules:
+    # Lista de trabajo explícita de la Fase 1.A: 136 issues hoy -> 0 al cerrar.
+    # Con imports absolutos, mover un archivo es un reemplazo textual
+    # determinista en vez de recalcular cada `../`.
+    - always_use_package_imports
+
+    # Clase de bug real (fire-and-forget async): 12 issues hoy.
+    - unawaited_futures
+
+    # 1 issue hoy (matches_dao.dart:292).
+    - avoid_print
+
+    # En 0 hoy: entran como candado para que no aparezcan.
+    - depend_on_referenced_packages
+    - use_super_parameters

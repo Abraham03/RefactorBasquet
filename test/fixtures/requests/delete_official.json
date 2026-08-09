@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=delete_official",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": 7
+  }
+}

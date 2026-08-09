@@ -1,0 +1,46 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=sync_match",
+  "headers": {},
+  "fields": {
+    "data": {
+      "match_id": "M1",
+      "tournament_id": "T1",
+      "team_a_id": 1,
+      "team_b_id": 2,
+      "score_a": 55,
+      "score_b": 48,
+      "status": "FINISHED",
+      "events": [
+        {
+          "type": "POINT_2",
+          "player_id": "9",
+          "team_side": "A",
+          "period": 1
+        },
+        {
+          "type": "P",
+          "player_id": "11",
+          "team_side": "B",
+          "period": 2
+        }
+      ],
+      "rosters": [
+        {
+          "player_id": "9",
+          "team_side": "A",
+          "played": 1,
+          "attended": 1
+        }
+      ]
+    }
+  },
+  "files": [
+    {
+      "field": "pdf_report",
+      "filename": "match_report.pdf",
+      "contentType": "application/pdf",
+      "length": 16
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=create_team",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "name": "Lobos",
+    "shortName": "LOB",
+    "coachName": "Coach Ruiz"
+  }
+}

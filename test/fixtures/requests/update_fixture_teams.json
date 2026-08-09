@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=update_fixture_teams",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "fixture_id": 10,
+    "new_team_a_id": 1,
+    "new_team_b_id": 2
+  }
+}

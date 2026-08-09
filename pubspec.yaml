@@ -57,11 +57,16 @@ dependencies:
 
 
 dev_dependencies:
-  flutter_test:    
-    sdk: flutter   
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^3.0.0
   drift_dev: ^2.14.0
   build_runner: ^2.4.6
+  # --- Fase 0 del "Plan Estructura Limpia.md" ---
+  mocktail: ^1.0.4     # mocks sin codegen (mockito exige build_runner: descartado)
+  fake_async: ^1.3.1   # control del Timer de MatchGameController (Fase 8)
+  # MockClient para testear la capa de red ya viene con `http`
+  # (package:http/testing.dart): no hace falta dependencia extra.
 
 # IMPORTANTE: Registra la imagen
 flutter:

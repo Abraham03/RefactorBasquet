@@ -1,0 +1,13 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=update_official",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "7",
+    "name": "Juan Pérez",
+    "role": "ARBITRO_AUXILIAR",
+    "signature": "iVBORw0KGgo="
+  }
+}

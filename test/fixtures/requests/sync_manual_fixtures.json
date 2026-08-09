@@ -1,0 +1,17 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=sync_manual_fixtures",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "tournament_id": "T1",
+    "fixtures": [
+      {
+        "round_order": 1,
+        "team_a_id": 1,
+        "team_b_id": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=add_player",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "teamId": 3,
+    "name": "Pedro Gómez",
+    "number": 12
+  }
+}

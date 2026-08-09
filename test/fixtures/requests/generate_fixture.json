@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "action": "generate_fixture",
+    "tournament_id": "T1"
+  }
+}

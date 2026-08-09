@@ -1,0 +1,6 @@
+{
+  "method": "GET",
+  "url": "https://vanball.com.mx/api.php?action=get_match_events&match_id=M1",
+  "headers": {},
+  "body": ""
+}

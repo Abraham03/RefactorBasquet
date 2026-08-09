@@ -1,0 +1,11 @@
+# Los goldens del contrato con el backend (test/fixtures/requests/) y el dump
+# de esquema (schema/) se generan con LF. Si git los convierte a CRLF en el
+# checkout, el diff contra el golden falla sin que el contrato haya cambiado.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.keystore binary
+*.jks binary

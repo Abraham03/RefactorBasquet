@@ -1,0 +1,24 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=update_match_outcome",
+  "headers": {},
+  "fields": {
+    "data": {
+      "match_id": "M1",
+      "forfeit_status": "NONE",
+      "observaciones": "Sin novedad.",
+      "signature_data": "iVBORw0KGgo=",
+      "score_a": 55,
+      "score_b": 48,
+      "tournament_id": "T1"
+    }
+  },
+  "files": [
+    {
+      "field": "pdf_report",
+      "filename": "match_M1.pdf",
+      "contentType": "application/octet-stream",
+      "length": 16
+    }
+  ]
+}

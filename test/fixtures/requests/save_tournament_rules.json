@@ -1,0 +1,19 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "action": "save_tournament_rules",
+    "tournament_id": "T1",
+    "config": {
+      "matchups_per_pair": 2,
+      "points_win": 2,
+      "points_draw": 0,
+      "points_loss": 1,
+      "points_forfeit_win": 2,
+      "points_forfeit_loss": 0
+    }
+  }
+}

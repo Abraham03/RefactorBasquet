@@ -1,0 +1,17 @@
+{
+  "method": "POST",
+  "url": "https://vanball.com.mx/api.php?action=update_match_outcome",
+  "headers": {},
+  "fields": {
+    "data": {
+      "match_id": "M1",
+      "forfeit_status": "TEAM_B",
+      "observaciones": "Inasistencia del equipo B.",
+      "signature_data": null,
+      "score_a": 20,
+      "score_b": 0,
+      "tournament_id": "T1"
+    }
+  },
+  "files": []
+}

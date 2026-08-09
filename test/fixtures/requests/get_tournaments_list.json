@@ -1,0 +1,6 @@
+{
+  "method": "GET",
+  "url": "https://vanball.com.mx/api.php?action=get_tournaments_list",
+  "headers": {},
+  "body": ""
+}
