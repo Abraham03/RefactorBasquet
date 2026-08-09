@@ -12,6 +12,7 @@ import '../core/database/app_database.dart';
 import '../logic/tournament_provider.dart';
 import '../logic/catalog_provider.dart';
 import 'client_scoreboard_screen.dart';
+import 'scoreboard_server_screen.dart';
 import 'fixture_list_screen.dart';
 import '../ui/match_setup_screen.dart';
 import 'team_management_screen.dart';
@@ -178,9 +179,22 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
   }
 
   Future<void> _disconnectExternalDisplay() async {
-    await ExternalDisplayService.instance.hideScoreboard();
+    await ExternalDisplayService.instance.disable();
     if (mounted) {
-      context.showInfo("Pantalla externa desconectada. Se reconectará al abrir un partido.");
+      context.showInfo("Pantalla externa desconectada. Vuelve a activarla desde este menú.");
+    }
+  }
+
+  Future<void> _reconnectExternalDisplay() async {
+    await ExternalDisplayService.instance.requestShow(force: true);
+    if (!mounted) return;
+    final status = ExternalDisplayService.instance.status;
+    if (status == ExternalDisplayStatus.showing) {
+      context.showSuccess("Marcador visible en la pantalla externa.");
+    } else {
+      context.showInfo(
+        "No se detectó pantalla externa. Se seguirá intentando en segundo plano.",
+      );
     }
   }
 
@@ -243,6 +257,15 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
         break;
       case 'disconnect_display':
         _disconnectExternalDisplay();
+        break;
+      case 'reconnect_display':
+        _reconnectExternalDisplay();
+        break;
+      case 'scoreboard_status':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ScoreboardServerScreen()),
+        );
         break;
     }
   }
@@ -459,8 +482,20 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                                             const PopupMenuDivider(),
                                             _buildMenuHeader("Configuración"),
                                             _buildMenuItem(
-                                              value: 'disconnect_display',
+                                              value: 'scoreboard_status',
+                                              icon: Icons.wifi_tethering,
+                                              iconColor: Colors.greenAccent,
+                                              label: "Estado del marcador",
+                                            ),
+                                            _buildMenuItem(
+                                              value: 'reconnect_display',
                                               icon: Icons.cast_connected,
+                                              iconColor: Colors.lightBlueAccent,
+                                              label: "Reconectar pantalla",
+                                            ),
+                                            _buildMenuItem(
+                                              value: 'disconnect_display',
+                                              icon: Icons.cast_outlined,
                                               iconColor: Colors.blueGrey,
                                               label: "Desconectar pantalla",
                                             ),

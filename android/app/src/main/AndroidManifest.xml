@@ -3,8 +3,8 @@
     <application
         android:label="Van Ball"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
-        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

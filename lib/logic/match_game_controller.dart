@@ -283,6 +283,20 @@ class MatchState {
   }
 }
 
+/// Faltas de equipo en el período en curso.
+///
+/// Función pura sobre [MatchState]: la difusión del marcador la necesita y no
+/// debe depender del notifier, que puede estar ya destruido tras un
+/// `ref.invalidate(matchGameProvider)`.
+int teamFoulsOf(MatchState state, String teamId) {
+  return state.scoreLog.where((e) {
+    return e.teamId == teamId &&
+        e.period == state.currentPeriod &&
+        e.points == 0 &&
+        EventType.isPlayerFoul(e.type);
+  }).length;
+}
+
 class MatchGameController extends StateNotifier<MatchState> {
   final MatchesDao _dao;
   Timer? _timer;
@@ -291,14 +305,7 @@ class MatchGameController extends StateNotifier<MatchState> {
 
   MatchGameController(this._dao) : super(const MatchState());
 
-  int getTeamFouls(String teamId) {
-    return state.scoreLog.where((e) {
-      return e.teamId == teamId &&
-          e.period == state.currentPeriod &&
-          e.points == 0 &&
-          EventType.isPlayerFoul(e.type);
-    }).length;
-  }
+  int getTeamFouls(String teamId) => teamFoulsOf(state, teamId);
 
 Future<void> restoreFromDatabase({
   required String matchId,

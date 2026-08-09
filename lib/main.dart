@@ -1,26 +1,27 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/service/external_display_service.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:myapp/ui/app_bootstrap.dart';
+import 'package:myapp/ui/secondary_display_app.dart';
 
-import 'ui/home_menu_screen.dart'; 
-import 'logic/match_game_controller.dart';
-import 'ui/widgets/tv_scoreboard_widget.dart';
+import 'ui/home_menu_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(const ProviderScope(child: AppBootstrap(child: MyApp())));
 }
 
-// ---> PUNTO DE ENTRADA PARA EL ANYCAST (HDMI) <---
+/// Punto de entrada del isolate de la pantalla externa (HDMI / AnyCast).
+///
+/// Debe quedarse en `main.dart`: el plugin nativo lo invoca con
+/// `DartExecutor.DartEntrypoint(path, "secondaryDisplayMain")` sin URI de
+/// librería, así que el motor lo busca en la librería raíz. Moverlo a otro
+/// archivo (o solo reexportarlo) rompe la resolución y la TV se queda negra.
+/// El `@pragma` evita que el tree-shaking de release lo elimine.
 @pragma('vm:entry-point')
 void secondaryDisplayMain() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: AnycastDisplayScreen(),
-  ));
+  runApp(const ProviderScope(child: SecondaryDisplayApp()));
 }
 
 class MyApp extends StatefulWidget {
@@ -37,11 +38,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Al arrancar la app, intenta mostrar el scoreboard si ya hay pantalla
-    // conectada (p.ej. el cliente reabrió la app con el HDMI puesto).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ExternalDisplayService.instance.showScoreboard();
-    });
+    // El servicio queda vigilando el DisplayManager: cubre tanto el HDMI ya
+    // puesto al abrir la app como el dongle AnyCast que enlaza 20 s después.
+    ExternalDisplayService.instance.start();
   }
 
   @override
@@ -50,7 +49,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _wasPaused = true;
     } else if (state == AppLifecycleState.resumed && _wasPaused) {
       _wasPaused = false;
-      ExternalDisplayService.instance.showScoreboard();
+      ExternalDisplayService.instance.requestShow();
     }
   }
 
@@ -89,96 +88,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       ),
       home: const HomeMenuScreen(),
-    );
-  }
-}
-
-// ---> PANTALLA INVISIBLE DEL MONITOR CON RECONEXIÓN AUTOMÁTICA <---
-class AnycastDisplayScreen extends StatefulWidget {
-  const AnycastDisplayScreen({super.key});
-
-  @override
-  State<AnycastDisplayScreen> createState() => _AnycastDisplayScreenState();
-}
-
-class _AnycastDisplayScreenState extends State<AnycastDisplayScreen> {
-  WebSocketChannel? _channel;
-  MatchState? _currentState;
-  String _teamAName = "Equipo A";
-  String _teamBName = "Equipo B";
-  int _teamAFouls = 0;
-  int _teamBFouls = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _connectToLocalhost();
-  }
-
-  // Se conecta a sí mismo y si se cae, vuelve a intentar
-  void _connectToLocalhost() {
-    try {
-      _channel = WebSocketChannel.connect(Uri.parse('ws://127.0.0.1:8080'));
-      _channel!.stream.listen(
-        (message) {
-          if (mounted) {
-            final Map<String, dynamic> data = jsonDecode(message);
-            setState(() {
-               if (data.containsKey("state")) {
-                 _currentState = MatchState.fromJson(data["state"]);
-                 _teamAName = data["teamAName"] ?? "Equipo A";
-                 _teamBName = data["teamBName"] ?? "Equipo B";
-                 _teamAFouls = data["teamAFouls"] ?? 0;
-                 _teamBFouls = data["teamBFouls"] ?? 0;
-               } else {
-                 _currentState = MatchState.fromJson(data);
-               }
-            });
-          }
-        },
-        onDone: () => _retryConnection(),
-        onError: (e) => _retryConnection(),
-      );
-    } catch (e) {
-      _retryConnection();
-    }
-  }
-
-  // Función mágica que reconecta la pantalla cuando sales de un partido a otro
-  void _retryConnection() {
-    if (mounted) {
-      Future.delayed(const Duration(seconds: 1), () {
-        _connectToLocalhost();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _channel?.sink.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_currentState == null) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Colors.orangeAccent)),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: TvScoreboardWidget(
-          state: _currentState!,
-          teamAName: _teamAName,
-          teamBName: _teamBName,
-          teamAFouls: _teamAFouls,
-          teamBFouls: _teamBFouls,
-        ),
-      ),
     );
   }
 }

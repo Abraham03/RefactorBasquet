@@ -4,15 +4,14 @@ import 'dart:ui' hide Display;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:network_info_plus/network_info_plus.dart';
-import 'dart:convert';
+import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
+import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
 
 import '../core/di/dependency_injection.dart';
 import '../core/models/catalog_models.dart';
 import '../logic/match_game_controller.dart';
 import '../ui/protest_signature_screen.dart';
 import '../ui/pdf_preview_screen.dart';
-import '../core/network/websocket_server.dart'; 
 
 import '../ui/widgets/app_background.dart';
 import '../ui/widgets/scoreboard_widget.dart';
@@ -22,7 +21,7 @@ import '../core/constants/app_colors.dart';
 
 import '../data/models/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
-import '../core/service/external_display_service.dart';
+
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String? fixtureId;
@@ -86,7 +85,6 @@ class MatchControlScreen extends ConsumerStatefulWidget {
 class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   Uint8List? _capturedSignature;
   bool _isFinished = false;
-  String _localIp = "Buscando IP...";
 
   String? _playerToSubstituteId; // Guarda el nombre del jugador que inició el cambio
   String? _teamOfSubstitution;  // Guarda el equipo 'A' o 'B'
@@ -95,9 +93,17 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
 void initState() {
   super.initState();
 
-  LocalWebSocketServer.instance.startServer();
-  ExternalDisplayService.instance.showScoreboard();
-  _fetchLocalIp();
+  // Esta pantalla ya no posee el servidor ni difunde: solo declara qué partido
+  // está en curso. El ScoreboardBroadcaster, a nivel de app, se encarga del
+  // resto escuchando matchGameProvider.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    ref.read(scoreboardMetaProvider.notifier).state = ScoreboardMeta(
+      teamAName: widget.teamAName,
+      teamBName: widget.teamBName,
+      matchId: widget.matchId,
+    );
+  });
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     final controller = ref.read(matchGameProvider.notifier);
@@ -133,28 +139,8 @@ void initState() {
     }
     
     
-    final finalState = ref.read(matchGameProvider);
-    _broadcastFastUpdate(finalState, controller);
   });
 }
-
-  void _broadcastFastUpdate(MatchState state, MatchGameController controller) {
-    // No emitir si el widget se desmontó o el partido ya finalizó: tras
-    // ref.invalidate el controller se destruye y usarlo lanzaría error.
-    if (!mounted || _isFinished) return;
-    try {
-      final payload = jsonEncode({
-        "state": state.toJson(),
-        "teamAName": widget.teamAName,
-        "teamBName": widget.teamBName,
-        "teamAFouls": controller.getTeamFouls('A'),
-        "teamBFouls": controller.getTeamFouls('B'),
-      });
-      LocalWebSocketServer.instance.broadcast(payload);
-    } catch (e) {
-      debugPrint("Error broadcast: $e");
-    }
-  }
 
   @override
     void dispose() {
@@ -164,21 +150,6 @@ void initState() {
     // usuario realmente termina de usar el marcador (Escenario 2).
     super.dispose();
   }
-
-  Future<void> _fetchLocalIp() async {
-    try {
-      final info = NetworkInfo();
-      final ip = await info.getWifiIP();
-      if (mounted) {
-        setState(() => _localIp = ip ?? "IP no disponible");
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _localIp = "Error de red");
-      }
-    }
-  }
-
 
 
   bool _isNumberTaken(String teamSide, String newNumber, String currentPlayerName) {
@@ -230,8 +201,8 @@ void initState() {
     final controller = ref.read(matchGameProvider.notifier);
 
     ref.listen<MatchState>(matchGameProvider, (previous, next) {
-      _broadcastFastUpdate(next, controller);
-
+      // La difusión ya no se hace aquí: la lleva ScoreboardBroadcaster a nivel
+      // de app. Este listener solo se ocupa de los avisos de la UI.
       next.playerStats.forEach((playerId, stats) {
         final previousFouls = previous?.playerStats[playerId]?.fouls ?? 0;
         if (stats.fouls == 5 && previousFouls == 4) {
@@ -302,7 +273,7 @@ void initState() {
               _isFinished ? "FINALIZADO" : "CONTROL DE JUEGO", 
               style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2.0, fontSize: 13, color: _isFinished ? Colors.redAccent : Colors.white)
             ),
-            Text("IP: $_localIp", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+            const _ScoreboardNetworkChip(),
           ],
         ),
         centerTitle: true,
@@ -1300,6 +1271,11 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
         }
 
         if (autoShow) _goToPdfPreview(context, state, signature);
+
+        // Cerrar el partido en el marcador: sin metadatos, el broadcaster
+        // limpia el último payload y una pantalla que conecte después no verá
+        // el marcador de este partido.
+        ref.read(scoreboardMetaProvider.notifier).state = null;
         ref.invalidate(matchGameProvider);
       }
     } catch (e) {
@@ -1827,4 +1803,36 @@ class _TeamViewData {
         possession,
         relevantStats.length,
       );
+}
+
+/// Chip de red del AppBar: IP local, puerto efectivo y cuántas pantallas hay
+/// realmente enganchadas. Lee del publisher, no de estado local del widget.
+class _ScoreboardNetworkChip extends ConsumerWidget {
+  const _ScoreboardNetworkChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ip = ref.watch(localIpProvider).valueOrNull;
+    final status = ref.watch(publisherStatusProvider).valueOrNull;
+
+    if (ip == null) {
+      return const Text(
+        "Buscando IP...",
+        style: TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.bold),
+      );
+    }
+
+    final port = status?.port;
+    final clients = status?.clientCount ?? 0;
+    final address = port == null ? ip : "$ip:$port";
+
+    return Text(
+      clients > 0 ? "IP: $address  ·  $clients pantalla(s)" : "IP: $address",
+      style: TextStyle(
+        fontSize: 12,
+        color: clients > 0 ? Colors.greenAccent : Colors.amberAccent,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
 }
