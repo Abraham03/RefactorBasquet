@@ -11,12 +11,23 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+/// Localiza `app_database.dart` por nombre en vez de por ruta fija, para que
+/// el guard sobreviva a los movimientos de archivos del refactor.
+Future<String> _appDatabaseSource() async {
+  final file = Directory('lib')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .firstWhere(
+        (f) => f.path.replaceAll(r'\', '/').endsWith('/app_database.dart'),
+        orElse: () => throw StateError('No se encontró app_database.dart'),
+      );
+  return file.readAsString();
+}
+
 void main() {
   group('Guard del esquema local (I3)', () {
     test('schemaVersion sigue en 4', () async {
-      final source = await File(
-        'lib/core/database/app_database.dart',
-      ).readAsString();
+      final source = await _appDatabaseSource();
 
       final match = RegExp(
         r'int get schemaVersion => (\d+);',
@@ -38,9 +49,7 @@ void main() {
     });
 
     test('el archivo de base de datos conserva su nombre', () async {
-      final source = await File(
-        'lib/core/database/app_database.dart',
-      ).readAsString();
+      final source = await _appDatabaseSource();
 
       expect(
         source,

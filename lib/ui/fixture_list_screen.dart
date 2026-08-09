@@ -11,7 +11,7 @@ import 'package:myapp/ui/attendance_edit_screen.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart'; 
 import 'package:myapp/core/models/catalog_models.dart' as catalog;
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/ui/match_setup_screen.dart';
 import 'package:myapp/ui/match_control_screen.dart';

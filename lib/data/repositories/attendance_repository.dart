@@ -1,7 +1,7 @@
 import 'package:myapp/core/models/catalog_models.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
-import 'package:myapp/core/service/api_service.dart';
-import 'package:myapp/core/network/api_result.dart';
+import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/core/network/result.dart';
 
 /// Corrección de asistencia de partidos finalizados. Persiste localmente y
 /// sincroniza a la nube. Reusa el DAO de asistencia de la Fase 1 (DRY).

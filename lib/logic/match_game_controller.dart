@@ -4,12 +4,12 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
-import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/models/catalog_models.dart' as models;
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/api_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:myapp/core/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:flutter/foundation.dart';
 class ScoreEvent {
   final int period;

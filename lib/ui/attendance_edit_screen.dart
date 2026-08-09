@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/models/catalog_models.dart';
 import 'package:myapp/core/constants/app_colors.dart';
-import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart';
 
 class AttendanceEditScreen extends ConsumerStatefulWidget {

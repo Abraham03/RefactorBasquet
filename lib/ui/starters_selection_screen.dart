@@ -9,7 +9,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart';
 
 import 'package:myapp/core/database/app_database.dart' as db;
-import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/models/catalog_models.dart' as catalog;
 import 'package:myapp/ui/match_control_screen.dart';
 import 'package:myapp/ui/widgets/app_background.dart';

@@ -19,7 +19,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/api_service.dart';
 
 import '../../support/request_recorder.dart';
 
@@ -443,9 +443,15 @@ void main() {
   });
 
   test('el golden cubre las 30 acciones del backend', () async {
-    final source = await File(
-      'lib/core/service/api_service.dart',
-    ).readAsString();
+    // Se escanea TODO lib/ en vez de un archivo concreto: así el test
+    // sobrevive tanto al movimiento de archivos de la Fase 1 como a la
+    // división de ApiService en 5 datasources de la Fase 3.
+    final source = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart') && !f.path.endsWith('.g.dart'))
+        .map((f) => f.readAsStringSync())
+        .join('\n');
 
     // Acciones en la query string (`?action=x`) y en el body (`"action": "x"`).
     final actions = <String>{

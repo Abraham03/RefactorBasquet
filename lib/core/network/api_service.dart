@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:myapp/core/constants/api_constants.dart';
 import 'package:myapp/core/models/catalog_models.dart';
-import 'package:myapp/core/network/api_result.dart';
+import 'package:myapp/core/network/result.dart';
 
 class ApiService {
 

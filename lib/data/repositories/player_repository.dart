@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/api_service.dart';
 
 /// Resultado de guardar un jugador: si se sincronizó a la nube y con qué ID
 /// quedó (real si hubo red, temporal negativo si fue offline).

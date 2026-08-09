@@ -8,7 +8,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/core/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 void main() {
   group('TeamSide', () {

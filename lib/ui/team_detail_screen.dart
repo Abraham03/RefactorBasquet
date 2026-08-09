@@ -7,7 +7,7 @@ import 'package:myapp/data/repositories/player_repository.dart';
 
 import 'package:myapp/core/models/catalog_models.dart';
 import 'package:myapp/core/database/app_database.dart' as db_app;
-import 'package:myapp/core/di/dependency_injection.dart' as di;
+import 'package:myapp/core/di/providers.dart' as di;
 import 'package:myapp/ui/widgets/app_background.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart';
 

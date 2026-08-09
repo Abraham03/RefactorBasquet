@@ -3,7 +3,7 @@ import 'package:myapp/data/repositories/player_repository.dart';
 import 'package:myapp/domain/services/outcome_changer.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/data/repositories/sync_repository.dart';
 import 'package:myapp/data/repositories/official_repository.dart';
 import 'package:myapp/domain/services/match_finalizer.dart';

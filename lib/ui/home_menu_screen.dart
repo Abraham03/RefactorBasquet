@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:myapp/core/di/dependency_injection.dart' show  syncRepositoryProvider;
+import 'package:myapp/core/di/providers.dart' show  syncRepositoryProvider;
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 

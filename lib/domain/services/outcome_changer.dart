@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:myapp/core/network/api_result.dart';
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/result.dart';
+import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/core/utils/pdf_generator.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 

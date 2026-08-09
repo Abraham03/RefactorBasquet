@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 
-import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/models/catalog_models.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/ui/protest_signature_screen.dart';

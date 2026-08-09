@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/core/utils/pdf_generator.dart';
 import 'package:myapp/data/repositories/official_repository.dart';
 import 'package:myapp/data/models/match_finalize_params.dart';
