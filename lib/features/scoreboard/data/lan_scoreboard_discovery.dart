@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:myapp/core/scoreboard/scoreboard_endpoint.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/data/scoreboard_endpoint.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:web_socket_channel/io.dart';
 

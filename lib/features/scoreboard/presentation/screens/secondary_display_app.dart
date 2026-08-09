@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/core/scoreboard/scoreboard_endpoint.dart';
-import 'package:myapp/ui/widgets/scoreboard_feed_view.dart';
+import 'package:myapp/features/scoreboard/data/scoreboard_endpoint.dart';
+import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_feed_view.dart';
 
 /// App que corre en la pantalla externa (HDMI / dongle AnyCast).
 ///

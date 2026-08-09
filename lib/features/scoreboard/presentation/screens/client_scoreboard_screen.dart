@@ -5,12 +5,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/lan_scoreboard_discovery.dart';
-import 'package:myapp/core/scoreboard/scoreboard_endpoint.dart';
+import 'package:myapp/features/scoreboard/data/lan_scoreboard_discovery.dart';
+import 'package:myapp/features/scoreboard/data/scoreboard_endpoint.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart';
 
 import 'package:myapp/ui/widgets/app_background.dart';
-import 'package:myapp/ui/widgets/scoreboard_feed_view.dart';
+import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_feed_view.dart';
 
 /// Marcador remoto para una tablet en la misma red que la mesa de control.
 ///

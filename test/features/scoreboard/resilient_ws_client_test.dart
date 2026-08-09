@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/core/scoreboard/resilient_ws_client.dart';
+import 'package:myapp/features/scoreboard/data/resilient_ws_client.dart';
 
 void main() {
   group('ResilientWsClient', () {

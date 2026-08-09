@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/scoreboard_broadcaster.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
-import 'package:myapp/core/scoreboard/scoreboard_transport.dart';
-import 'package:myapp/core/service/external_display_service.dart';
+import 'package:myapp/features/scoreboard/data/scoreboard_broadcaster.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_transport.dart';
+import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 

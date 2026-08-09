@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
-import 'package:myapp/core/service/external_display_service.dart';
+import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
+import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 import 'package:myapp/ui/widgets/app_background.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart';
 

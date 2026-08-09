@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
+import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 
 /// Instancia al arrancar los servicios que deben vivir tanto como la app.
 ///

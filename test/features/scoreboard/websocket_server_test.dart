@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/core/network/websocket_server.dart';
+import 'package:myapp/features/scoreboard/data/websocket_server.dart';
 import 'package:web_socket_channel/io.dart';
 
 void main() {

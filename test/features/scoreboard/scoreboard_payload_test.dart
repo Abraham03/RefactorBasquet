@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 
 void main() {

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:myapp/core/constants/app_colors.dart';
-import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
+import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/ui/attendance_edit_screen.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart'; 
 import 'package:myapp/core/models/catalog_models.dart' as catalog;

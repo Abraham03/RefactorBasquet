@@ -5,8 +5,8 @@ import 'dart:ui' hide Display;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
-import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 
 import 'package:myapp/core/di/dependency_injection.dart';
 import 'package:myapp/core/models/catalog_models.dart';
@@ -15,7 +15,7 @@ import 'package:myapp/ui/protest_signature_screen.dart';
 import 'package:myapp/ui/pdf_preview_screen.dart';
 
 import 'package:myapp/ui/widgets/app_background.dart';
-import 'package:myapp/ui/widgets/scoreboard_widget.dart';
+import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_widget.dart';
 
 import 'package:myapp/ui/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';

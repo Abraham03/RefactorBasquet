@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:myapp/core/network/websocket_server.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/data/websocket_server.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 
-export 'package:myapp/core/network/websocket_server.dart' show PublisherStatus;
+export 'package:myapp/features/scoreboard/data/websocket_server.dart' show PublisherStatus;
 
 /// Emite el marcador hacia donde sea (LAN, y mañana BLE, Nearby o lo que haga
 /// falta) sin que la UI sepa por qué medio viaja.

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/core/scoreboard/scoreboard_endpoint.dart';
+import 'package:myapp/features/scoreboard/data/scoreboard_endpoint.dart';
 
 void main() {
   group('ScoreboardEndpoint.parseUserInput', () {

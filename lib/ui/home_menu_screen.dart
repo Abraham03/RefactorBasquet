@@ -12,8 +12,8 @@ import 'dart:io';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/logic/tournament_provider.dart';
 import 'package:myapp/logic/catalog_provider.dart';
-import 'package:myapp/ui/client_scoreboard_screen.dart';
-import 'package:myapp/ui/scoreboard_server_screen.dart';
+import 'package:myapp/features/scoreboard/presentation/screens/client_scoreboard_screen.dart';
+import 'package:myapp/features/scoreboard/presentation/screens/scoreboard_server_screen.dart';
 import 'package:myapp/ui/fixture_list_screen.dart';
 import 'package:myapp/ui/match_setup_screen.dart';
 import 'package:myapp/ui/team_management_screen.dart';
@@ -30,7 +30,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:myapp/ui/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
-import 'package:myapp/core/service/external_display_service.dart';
+import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});

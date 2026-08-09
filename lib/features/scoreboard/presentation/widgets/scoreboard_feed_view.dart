@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
-import 'package:myapp/core/scoreboard/scoreboard_transport.dart';
-import 'package:myapp/core/scoreboard/ws_scoreboard_subscriber.dart';
-import 'package:myapp/ui/widgets/tv_scoreboard_widget.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
+import 'package:myapp/features/scoreboard/domain/scoreboard_transport.dart';
+import 'package:myapp/features/scoreboard/data/ws_scoreboard_subscriber.dart';
+import 'package:myapp/features/scoreboard/presentation/widgets/tv_scoreboard_widget.dart';
 
 /// Un feed por lista de endpoints. `autoDispose` cierra el socket al salir de
 /// la pantalla sin necesidad de un `dispose` manual en cada consumidor.
