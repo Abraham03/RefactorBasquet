@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -220,11 +221,11 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     }
 
     if (!mounted) return;
-    showDialog(
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orangeAccent)),
-    );
+    ));
 
     try {
       final api = ref.read(apiServiceProvider);
@@ -626,14 +627,14 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
 
               // 8. Navegar.
               if (!context.mounted) return;
-              Navigator.push(context, MaterialPageRoute(
+              unawaited(Navigator.push(context, MaterialPageRoute(
                 builder: (_) => ChangeOutcomeScreen(
                   matchId: actaMatchId,
                   teamAName: actaTeamAName,
                   teamBName: actaTeamBName,
                   pdfParams: pdfParams,
                 ),
-              ));
+              )));
             },
             ),
           ],
@@ -977,7 +978,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                 final capB = dbRosters.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
 
                 if (context.mounted) {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => MatchControlScreen(
+                  unawaited(Navigator.push(context, MaterialPageRoute(builder: (_) => MatchControlScreen(
                     matchId: localMatch.id,
                     fixtureId: match.id,
                     teamAName: localMatch.teamAName,
@@ -1002,17 +1003,17 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                     coachA: '', coachB: '',
                     captainAId: capA != null ? int.tryParse(capA.playerId) : null,
                     captainBId: capB != null ? int.tryParse(capB.playerId) : null,
-                  )));
+                  ))));
                 }
                 return;
               }
 
               // --- 3. SI ES PARTIDO NUEVO, IR A SETUP ---
               if (context.mounted) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => MatchSetupScreen(
+                unawaited(Navigator.push(context, MaterialPageRoute(builder: (_) => MatchSetupScreen(
                   tournamentId: widget.tournamentId,
                   preSelectedFixture: match,
-                )));
+                ))));
               }
             } : () {
               context.showInfo("Partido en estado: ${match.status}");

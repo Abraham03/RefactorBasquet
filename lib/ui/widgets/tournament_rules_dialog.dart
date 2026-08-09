@@ -63,9 +63,9 @@ class _TournamentRulesDialogState extends State<TournamentRulesDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1), 
+                    color: Colors.redAccent.withValues(alpha: 0.1), 
                     borderRadius: BorderRadius.circular(10), 
-                    border: Border.all(color: Colors.redAccent.withOpacity(0.3))
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3))
                   ),
                   child: const Row(
                     children: [

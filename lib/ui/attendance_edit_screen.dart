@@ -110,7 +110,7 @@ class _AttendanceEditScreenState extends ConsumerState<AttendanceEditScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
+            color: color.withValues(alpha: 0.12),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
             border: Border(left: BorderSide(color: color, width: 3)),
           ),

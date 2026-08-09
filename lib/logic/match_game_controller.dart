@@ -1017,7 +1017,7 @@ void _applyRestoreSub({
       state = state.copyWith(scoreA: a, scoreB: b, forfeitStatus: 'NONE');
     }
     if (observaciones != null) setObservaciones(observaciones);
-    _saveToDatabase();
+    unawaited(_saveToDatabase());
     return state; // ← el orquestador usa este retorno, no accede a state directo
   }
 
@@ -1808,7 +1808,7 @@ void undoLastSubstitution() {
       teamBBench: freshBenchB,
     );
 
-    _saveToDatabase();
+    unawaited(_saveToDatabase());
   }
 
   // =========================================================================

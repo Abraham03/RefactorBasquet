@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:myapp/core/database/app_database.dart'; // Importa tu DB
 import 'package:myapp/core/database/tables/app_tables.dart';
 import 'package:myapp/core/models/catalog_models.dart';
@@ -289,7 +290,7 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
           // Ignoramos el error para que el bucle siga intentando con otros jugadores
           // Si este falla, el partido que depende de él también fallará la subida,
           // pero el usuario podrá intentarlo de nuevo más tarde.
-          print("Fallo al sincronizar jugador offline: ${p.name}");
+          debugPrint("Fallo al sincronizar jugador offline: ${p.name}");
         }
       }
     }

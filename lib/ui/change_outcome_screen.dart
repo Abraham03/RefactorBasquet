@@ -211,7 +211,7 @@ class _ChangeOutcomeScreenState extends ConsumerState<ChangeOutcomeScreen> {
   Widget _option(String value, String title, String subtitle, IconData icon) {
     final selected = _selected == value;
     return Card(
-      color: selected ? AppColors.primary.withOpacity(0.15) : AppColors.surfaceVariant,
+      color: selected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceVariant,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: selected ? AppColors.primary : Colors.transparent, width: 1.5),

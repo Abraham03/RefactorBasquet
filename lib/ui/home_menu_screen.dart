@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1027,7 +1028,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         
-        showDialog(
+        unawaited(showDialog(
           context: context,
           builder: (_) => AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1065,7 +1066,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
               ),
             ],
           ),
-        );
+        ));
       }
     }
   }
@@ -1101,7 +1102,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
     } catch (e) {
       if (context.mounted) {
         loading.close();
-        showDialog(
+        unawaited(showDialog(
           context: context,
           builder: (_) => AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1138,7 +1139,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
               ),
             ],
           ),
-        );
+        ));
       }
     }
   }
@@ -1328,7 +1329,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
@@ -1375,7 +1376,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   void _confirmSyncData(String syncId, String name) {

@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'dart:ui' hide Display; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1226,13 +1227,13 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
     bool autoShow = true,
   }) async {
     // Loader
-    showDialog(
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
       builder: (c) => const Center(
         child: CircularProgressIndicator(color: Colors.orangeAccent),
       ),
-    );
+    ));
 
     try {
       final params = MatchFinalizeParams(
@@ -1298,7 +1299,7 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
 
     // 3. Navegar
     if (context.mounted) {
-      Navigator.push(
+      unawaited(Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PdfPreviewScreen(
@@ -1323,7 +1324,7 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
             auxRefSignature: auxSignBytes,   
           ),
         ),
-      );
+      ));
     }
   }
   

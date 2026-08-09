@@ -1,6 +1,7 @@
 // lib/ui/screens/starters_selection_screen.dart
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
@@ -668,7 +669,7 @@ Widget _buildPlaceholderIcon() {
       ref.invalidate(selectedCaptainsProvider(widget.matchId));
 
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MatchControlScreen(
+      unawaited(Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MatchControlScreen(
         matchId: widget.matchId,
         fixtureId: widget.fixtureId,
         teamAName: widget.teamA.name,
@@ -694,7 +695,7 @@ Widget _buildPlaceholderIcon() {
         captainAId: _captainAId,
         captainBId: _captainBId,
         matchDate: matchDate,
-      )));
+      ))));
     } catch (e) {
       setState(() => _isCreating = false);
       context.showError("Error: $e");
