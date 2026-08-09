@@ -5,8 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 // Importamos las tablas y DAOs
-import 'tables/app_tables.dart';
-import 'daos/matches_dao.dart';
+import 'package:myapp/core/database/tables/app_tables.dart';
+import 'package:myapp/core/database/daos/matches_dao.dart';
 
 part 'app_database.g.dart'; // Archivo generado automáticamente
 

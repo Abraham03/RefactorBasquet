@@ -1,12 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../core/database/app_database.dart';
-import '../../core/service/api_service.dart';
-import '../../core/utils/pdf_generator.dart';
-import '../../data/repositories/official_repository.dart';
-import '../../data/models/match_finalize_params.dart';
-import '../../logic/match_game_controller.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/utils/pdf_generator.dart';
+import 'package:myapp/data/repositories/official_repository.dart';
+import 'package:myapp/data/models/match_finalize_params.dart';
+import 'package:myapp/logic/match_game_controller.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera
 /// firmas y logo, genera el acta en PDF, sincroniza a la nube y marca el

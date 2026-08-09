@@ -7,15 +7,15 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/ui/protest_signature_screen.dart';
-import '../core/database/app_database.dart' as db;
-import '../core/models/catalog_models.dart' as model;
-import '../logic/catalog_provider.dart';
-import '../logic/tournament_provider.dart';
-import 'starters_selection_screen.dart';
+import 'package:myapp/core/database/app_database.dart' as db;
+import 'package:myapp/core/models/catalog_models.dart' as model;
+import 'package:myapp/logic/catalog_provider.dart';
+import 'package:myapp/logic/tournament_provider.dart';
+import 'package:myapp/ui/starters_selection_screen.dart';
 
-import '../core/utils/image_url_resolver.dart';
-import '../ui/widgets/app_background.dart';
-import '../ui/widgets/app_feedback.dart';
+import 'package:myapp/core/utils/image_url_resolver.dart';
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
 class MatchSetupScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   final db.Fixture? preSelectedFixture; 

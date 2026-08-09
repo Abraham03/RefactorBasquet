@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Importamos app_database.dart donde se genera la clase Tournament
-import '../core/database/app_database.dart';
+import 'package:myapp/core/database/app_database.dart';
 
 // 1. Provider para obtener la base de datos
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());

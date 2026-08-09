@@ -4,7 +4,7 @@ import 'package:myapp/core/service/external_display_service.dart';
 import 'package:myapp/ui/app_bootstrap.dart';
 import 'package:myapp/ui/secondary_display_app.dart';
 
-import 'ui/home_menu_screen.dart';
+import 'package:myapp/ui/home_menu_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

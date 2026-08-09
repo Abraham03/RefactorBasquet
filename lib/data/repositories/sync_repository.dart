@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
-import '../../core/database/app_database.dart';
-import '../../core/database/daos/matches_dao.dart';
-import '../../core/service/api_service.dart';
-import '../models/sync_result.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/core/database/daos/matches_dao.dart';
+import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/data/models/sync_result.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///

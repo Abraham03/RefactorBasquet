@@ -1,7 +1,7 @@
 // lib/ui/widgets/app_network_image.dart
 import 'package:flutter/material.dart';
 
-import '../../core/utils/image_url_resolver.dart';
+import 'package:myapp/core/utils/image_url_resolver.dart';
 
 /// Imagen remota del backend con resolución de ruta y fallback garantizados.
 ///

@@ -5,12 +5,12 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 
-import '../ui/widgets/app_background.dart';
-import '../../core/di/dependency_injection.dart';
-import '../core/database/app_database.dart';
-import '../ui/widgets/tournament_rules_dialog.dart';
-import '../ui/widgets/app_feedback.dart';
-import '../logic/head_to_head_counter.dart';
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/ui/widgets/tournament_rules_dialog.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/logic/head_to_head_counter.dart';
 class ManualFixtureBuilderScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   const ManualFixtureBuilderScreen({super.key, required this.tournamentId});

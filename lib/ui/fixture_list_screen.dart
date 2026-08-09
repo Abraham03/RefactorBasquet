@@ -9,19 +9,19 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
 import 'package:myapp/ui/attendance_edit_screen.dart';
 import 'package:myapp/ui/widgets/app_feedback.dart'; 
-import '../core/models/catalog_models.dart' as catalog;
-import '../core/database/app_database.dart';
-import '../core/di/dependency_injection.dart';
-import '../logic/match_game_controller.dart';
-import 'match_setup_screen.dart';
-import 'match_control_screen.dart';
-import '../ui/widgets/app_background.dart';
-import '../ui/widgets/app_network_image.dart';
-import '../ui/manual_fixture_builder_screen.dart';
-import '../ui/widgets/tournament_rules_dialog.dart';
-import 'change_outcome_screen.dart';           // ChangeOutcomeScreen
-import '../domain/services/outcome_changer.dart'; // OutcomePdfParams
-import '../core/network/connectivity_helper.dart';
+import 'package:myapp/core/models/catalog_models.dart' as catalog;
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/ui/match_setup_screen.dart';
+import 'package:myapp/ui/match_control_screen.dart';
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/app_network_image.dart';
+import 'package:myapp/ui/manual_fixture_builder_screen.dart';
+import 'package:myapp/ui/widgets/tournament_rules_dialog.dart';
+import 'package:myapp/ui/change_outcome_screen.dart';           // ChangeOutcomeScreen
+import 'package:myapp/domain/services/outcome_changer.dart'; // OutcomePdfParams
+import 'package:myapp/core/network/connectivity_helper.dart';
 
 // Provider REACTIVO para leer el fixture local de un torneo específico
 final localFixtureProvider = StreamProvider.family<Map<String, List<Fixture>>, String>((ref, tournamentId) {

@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../logic/match_game_controller.dart';
+import 'package:myapp/logic/match_game_controller.dart';
 
 // <div class="table-actions"></div>
 

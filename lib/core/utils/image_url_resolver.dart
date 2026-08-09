@@ -1,5 +1,5 @@
 // lib/core/utils/image_url_resolver.dart
-import '../constants/api_constants.dart';
+import 'package:myapp/core/constants/api_constants.dart';
 
 /// Punto único de resolución de rutas de imagen provenientes del backend.
 ///

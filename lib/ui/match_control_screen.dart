@@ -8,19 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/scoreboard/scoreboard_payload.dart';
 import 'package:myapp/core/scoreboard/scoreboard_providers.dart';
 
-import '../core/di/dependency_injection.dart';
-import '../core/models/catalog_models.dart';
-import '../logic/match_game_controller.dart';
-import '../ui/protest_signature_screen.dart';
-import '../ui/pdf_preview_screen.dart';
+import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/ui/protest_signature_screen.dart';
+import 'package:myapp/ui/pdf_preview_screen.dart';
 
-import '../ui/widgets/app_background.dart';
-import '../ui/widgets/scoreboard_widget.dart';
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/scoreboard_widget.dart';
 
-import '../ui/widgets/app_feedback.dart';
-import '../core/constants/app_colors.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 
-import '../data/models/match_finalize_params.dart';
+import 'package:myapp/data/models/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
 
 class MatchControlScreen extends ConsumerStatefulWidget {

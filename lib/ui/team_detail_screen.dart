@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/data/repositories/player_repository.dart';
 
-import '../core/models/catalog_models.dart';
-import '../core/database/app_database.dart' as db_app;
-import '../core/di/dependency_injection.dart' as di;
-import '../ui/widgets/app_background.dart';
-import '../ui/widgets/app_feedback.dart';
+import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/core/database/app_database.dart' as db_app;
+import 'package:myapp/core/di/dependency_injection.dart' as di;
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
 
 
 class TeamDetailScreen extends ConsumerWidget {

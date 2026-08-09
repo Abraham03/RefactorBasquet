@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import '../constants/api_constants.dart';
-import '../models/catalog_models.dart';
-import '../network/api_result.dart';
+import 'package:myapp/core/constants/api_constants.dart';
+import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/core/network/api_result.dart';
 
 class ApiService {
 

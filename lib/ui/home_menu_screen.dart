@@ -9,18 +9,18 @@ import 'package:myapp/core/di/dependency_injection.dart' show  syncRepositoryPro
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 
-import '../core/database/app_database.dart';
-import '../logic/tournament_provider.dart';
-import '../logic/catalog_provider.dart';
-import 'client_scoreboard_screen.dart';
-import 'scoreboard_server_screen.dart';
-import 'fixture_list_screen.dart';
-import '../ui/match_setup_screen.dart';
-import 'team_management_screen.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/logic/tournament_provider.dart';
+import 'package:myapp/logic/catalog_provider.dart';
+import 'package:myapp/ui/client_scoreboard_screen.dart';
+import 'package:myapp/ui/scoreboard_server_screen.dart';
+import 'package:myapp/ui/fixture_list_screen.dart';
+import 'package:myapp/ui/match_setup_screen.dart';
+import 'package:myapp/ui/team_management_screen.dart';
 
 
-import '../ui/widgets/glass_dashboard_card.dart';
-import '../ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/glass_dashboard_card.dart';
+import 'package:myapp/ui/widgets/app_background.dart';
 
 import 'package:drift_db_viewer/drift_db_viewer.dart';
 import 'package:share_plus/share_plus.dart';
@@ -28,9 +28,9 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../ui/widgets/app_feedback.dart';
-import '../core/constants/app_colors.dart';
-import '../core/service/external_display_service.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/core/constants/app_colors.dart';
+import 'package:myapp/core/service/external_display_service.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});

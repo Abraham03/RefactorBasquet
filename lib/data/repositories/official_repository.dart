@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
-import '../../core/database/app_database.dart';
-import '../models/referee_signatures.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/data/models/referee_signatures.dart';
 
 /// Acceso a datos de oficiales (árbitros).
 ///

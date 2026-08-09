@@ -3,9 +3,9 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import '../../logic/match_game_controller.dart';
-import '../constants/match_constants.dart';
-import '../service/image_loader_service.dart';
+import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/core/constants/match_constants.dart';
+import 'package:myapp/core/service/image_loader_service.dart';
 
 class PdfCoords {
 

@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:pdf/widgets.dart' as pw;
 
-import '../utils/image_format.dart';
-import '../utils/image_url_resolver.dart';
+import 'package:myapp/core/utils/image_format.dart';
+import 'package:myapp/core/utils/image_url_resolver.dart';
 
 /// Fallo al obtener o decodificar una imagen remota destinada al PDF.
 /// Lleva siempre la URL para que el log sea accionable.

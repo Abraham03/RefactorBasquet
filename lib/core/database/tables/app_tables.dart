@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'base_table.dart';
+import 'package:myapp/core/database/tables/base_table.dart';
 
 // Tabla de Partidos
 @DataClassName('BasketballMatch')

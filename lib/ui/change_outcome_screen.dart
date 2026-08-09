@@ -2,12 +2,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:signature/signature.dart';
-import '../core/constants/app_colors.dart';
-import '../core/di/dependency_injection.dart';
-import '../domain/services/outcome_changer.dart';
-import '../logic/match_game_controller.dart';
-import 'widgets/app_feedback.dart';
-import '../core/network/connectivity_helper.dart';
+import 'package:myapp/core/constants/app_colors.dart';
+import 'package:myapp/core/di/dependency_injection.dart';
+import 'package:myapp/domain/services/outcome_changer.dart';
+import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/core/network/connectivity_helper.dart';
 class ChangeOutcomeScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String teamAName;

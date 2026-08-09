@@ -2,10 +2,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 
-import '../core/models/catalog_models.dart' as model;
-import '../core/models/catalog_models.dart';
-import '../core/service/api_service.dart';
-import '../logic/tournament_provider.dart';
+import 'package:myapp/core/models/catalog_models.dart' as model;
+import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/logic/tournament_provider.dart';
 
 // Provider que instancia el servicio API
 final apiServiceProvider = Provider((ref) => ApiService());

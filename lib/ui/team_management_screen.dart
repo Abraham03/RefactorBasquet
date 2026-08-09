@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 
-import '../logic/catalog_provider.dart';
-import '../core/database/app_database.dart';
-import 'team_detail_screen.dart';
-import '../core/di/dependency_injection.dart' as di;
-import '../ui/widgets/app_background.dart';
-import '../ui/widgets/app_feedback.dart';
-import '../ui/widgets/app_network_image.dart';
+import 'package:myapp/logic/catalog_provider.dart';
+import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/ui/team_detail_screen.dart';
+import 'package:myapp/core/di/dependency_injection.dart' as di;
+import 'package:myapp/ui/widgets/app_background.dart';
+import 'package:myapp/ui/widgets/app_feedback.dart';
+import 'package:myapp/ui/widgets/app_network_image.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;

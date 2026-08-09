@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import '../../core/network/api_result.dart';
-import '../../core/service/api_service.dart';
-import '../../core/utils/pdf_generator.dart';
-import '../../logic/match_game_controller.dart';
+import 'package:myapp/core/network/api_result.dart';
+import 'package:myapp/core/service/api_service.dart';
+import 'package:myapp/core/utils/pdf_generator.dart';
+import 'package:myapp/logic/match_game_controller.dart';
 
 /// Cambia el desenlace de un partido finalizado: aplica la regla de marcador,
 /// regenera el PDF y sincroniza los 5 campos. SRP: orquesta, no decide la
