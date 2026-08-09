@@ -6,12 +6,12 @@ import 'dart:ui';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/ui/protest_signature_screen.dart';
+import 'package:myapp/features/match/presentation/screens/protest_signature_screen.dart';
 import 'package:myapp/core/database/app_database.dart' as db;
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
-import 'package:myapp/logic/catalog_provider.dart';
-import 'package:myapp/logic/tournament_provider.dart';
-import 'package:myapp/ui/starters_selection_screen.dart';
+import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart';
+import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
+import 'package:myapp/features/match/presentation/screens/starters_selection_screen.dart';
 
 import 'package:myapp/core/utils/image_url_resolver.dart';
 import 'package:myapp/shared/widgets/app_background.dart';

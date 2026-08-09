@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 import 'package:myapp/features/match/domain/services/outcome_changer.dart';
-import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';

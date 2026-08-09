@@ -5,7 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/network/api_service.dart';
-import 'package:myapp/logic/tournament_provider.dart';
+import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
 
 // Provider que instancia el servicio API
 final apiServiceProvider = Provider((ref) => ApiService());

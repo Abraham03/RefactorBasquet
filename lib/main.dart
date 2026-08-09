@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
-import 'package:myapp/ui/app_bootstrap.dart';
+import 'package:myapp/app/app_bootstrap.dart';
 import 'package:myapp/features/scoreboard/presentation/screens/secondary_display_app.dart';
 
-import 'package:myapp/ui/home_menu_screen.dart';
+import 'package:myapp/features/home/presentation/screens/home_menu_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

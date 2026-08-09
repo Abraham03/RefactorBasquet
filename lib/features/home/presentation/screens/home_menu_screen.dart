@@ -10,13 +10,13 @@ import 'package:uuid/uuid.dart';
 import 'dart:io';
 
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/logic/tournament_provider.dart';
-import 'package:myapp/logic/catalog_provider.dart';
+import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
+import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:myapp/features/scoreboard/presentation/screens/client_scoreboard_screen.dart';
 import 'package:myapp/features/scoreboard/presentation/screens/scoreboard_server_screen.dart';
-import 'package:myapp/ui/fixture_list_screen.dart';
-import 'package:myapp/ui/match_setup_screen.dart';
-import 'package:myapp/ui/team_management_screen.dart';
+import 'package:myapp/features/fixture/presentation/screens/fixture_list_screen.dart';
+import 'package:myapp/features/match/presentation/screens/match_setup_screen.dart';
+import 'package:myapp/features/teams/presentation/screens/team_management_screen.dart';
 
 
 import 'package:myapp/shared/widgets/glass_dashboard_card.dart';

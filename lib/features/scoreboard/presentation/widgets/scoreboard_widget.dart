@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
 class ScoreboardWidget extends StatelessWidget {
   final MatchState state;

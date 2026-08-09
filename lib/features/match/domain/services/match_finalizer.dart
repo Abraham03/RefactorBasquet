@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/network/api_service.dart';
-import 'package:myapp/core/utils/pdf_generator.dart';
+import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
-import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera
 /// firmas y logo, genera el acta en PDF, sincroniza a la nube y marca el

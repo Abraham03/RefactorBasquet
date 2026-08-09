@@ -10,9 +10,9 @@ import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_prov
 
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
-import 'package:myapp/logic/match_game_controller.dart';
-import 'package:myapp/ui/protest_signature_screen.dart';
-import 'package:myapp/ui/pdf_preview_screen.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/screens/protest_signature_screen.dart';
+import 'package:myapp/features/reports/presentation/screens/pdf_preview_screen.dart';
 
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_widget.dart';

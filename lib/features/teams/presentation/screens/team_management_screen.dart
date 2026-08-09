@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 
-import 'package:myapp/logic/catalog_provider.dart';
+import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/ui/team_detail_screen.dart';
+import 'package:myapp/features/teams/presentation/screens/team_detail_screen.dart';
 import 'package:myapp/core/di/providers.dart' as di;
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';

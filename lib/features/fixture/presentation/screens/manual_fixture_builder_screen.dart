@@ -8,7 +8,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/ui/widgets/tournament_rules_dialog.dart';
+import 'package:myapp/features/fixture/presentation/widgets/tournament_rules_dialog.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/features/match/domain/services/head_to_head_counter.dart';
 class ManualFixtureBuilderScreen extends ConsumerStatefulWidget {

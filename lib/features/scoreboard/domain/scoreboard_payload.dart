@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
 /// Metadatos del partido que [MatchState] no transporta pero el marcador de TV
 /// necesita. La pantalla de control solo los escribe; la difusión los lee.

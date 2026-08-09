@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/features/scoreboard/data/scoreboard_broadcaster.dart';
 import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 import 'package:myapp/features/scoreboard/domain/scoreboard_transport.dart';
-import 'package:myapp/logic/match_game_controller.dart';
+import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
 class _FakePublisher implements ScoreboardPublisher {
   final List<ScoreboardPayload> published = [];
