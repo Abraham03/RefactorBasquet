@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/core/di/providers.dart';
-import 'package:myapp/core/models/catalog_models.dart' as models;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as models;
 import 'package:myapp/core/network/api_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';

@@ -9,7 +9,7 @@ import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 
 import 'package:myapp/core/di/providers.dart';
-import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/ui/protest_signature_screen.dart';
 import 'package:myapp/ui/pdf_preview_screen.dart';
@@ -20,7 +20,7 @@ import 'package:myapp/features/scoreboard/presentation/widgets/scoreboard_widget
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 
-import 'package:myapp/data/models/match_finalize_params.dart';
+import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
 
 class MatchControlScreen extends ConsumerStatefulWidget {

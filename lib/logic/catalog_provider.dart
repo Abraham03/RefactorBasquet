@@ -2,8 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 
-import 'package:myapp/core/models/catalog_models.dart' as model;
-import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/logic/tournament_provider.dart';
 

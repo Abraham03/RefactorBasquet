@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:myapp/core/database/app_database.dart'; // Importa tu DB
 import 'package:myapp/core/database/tables/app_tables.dart';
-import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 
 part 'matches_dao.g.dart'; // Drift generará esto
 

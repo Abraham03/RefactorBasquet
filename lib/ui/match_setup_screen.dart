@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/ui/protest_signature_screen.dart';
 import 'package:myapp/core/database/app_database.dart' as db;
-import 'package:myapp/core/models/catalog_models.dart' as model;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
 import 'package:myapp/logic/catalog_provider.dart';
 import 'package:myapp/logic/tournament_provider.dart';
 import 'package:myapp/ui/starters_selection_screen.dart';

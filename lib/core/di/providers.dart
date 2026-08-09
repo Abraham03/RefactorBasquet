@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/data/repositories/player_repository.dart';
-import 'package:myapp/domain/services/outcome_changer.dart';
+import 'package:myapp/features/teams/data/repositories/player_repository.dart';
+import 'package:myapp/features/match/domain/services/outcome_changer.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/network/api_service.dart';
-import 'package:myapp/data/repositories/sync_repository.dart';
-import 'package:myapp/data/repositories/official_repository.dart';
-import 'package:myapp/domain/services/match_finalizer.dart';
-import 'package:myapp/data/repositories/attendance_repository.dart';
+import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
+import 'package:myapp/features/match/data/repositories/official_repository.dart';
+import 'package:myapp/features/match/domain/services/match_finalizer.dart';
+import 'package:myapp/features/match/data/repositories/attendance_repository.dart';
 
 
 // Provider de la Base de Datos (Singleton)

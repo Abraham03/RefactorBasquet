@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/network/api_service.dart';
 import 'package:myapp/core/utils/pdf_generator.dart';
-import 'package:myapp/data/repositories/official_repository.dart';
-import 'package:myapp/data/models/match_finalize_params.dart';
+import 'package:myapp/features/match/data/repositories/official_repository.dart';
+import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
 import 'package:myapp/logic/match_game_controller.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera

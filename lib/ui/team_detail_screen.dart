@@ -3,9 +3,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/data/repositories/player_repository.dart';
+import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 
-import 'package:myapp/core/models/catalog_models.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/database/app_database.dart' as db_app;
 import 'package:myapp/core/di/providers.dart' as di;
 import 'package:myapp/shared/widgets/app_background.dart';

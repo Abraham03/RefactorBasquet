@@ -9,7 +9,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/ui/attendance_edit_screen.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart'; 
-import 'package:myapp/core/models/catalog_models.dart' as catalog;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as catalog;
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/logic/match_game_controller.dart';
@@ -20,7 +20,7 @@ import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/ui/manual_fixture_builder_screen.dart';
 import 'package:myapp/ui/widgets/tournament_rules_dialog.dart';
 import 'package:myapp/ui/change_outcome_screen.dart';           // ChangeOutcomeScreen
-import 'package:myapp/domain/services/outcome_changer.dart'; // OutcomePdfParams
+import 'package:myapp/features/match/domain/services/outcome_changer.dart'; // OutcomePdfParams
 import 'package:myapp/core/network/connectivity_helper.dart';
 
 // Provider REACTIVO para leer el fixture local de un torneo específico
