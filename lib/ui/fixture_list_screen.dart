@@ -14,6 +14,7 @@ import '../logic/match_game_controller.dart';
 import 'match_setup_screen.dart';
 import 'match_control_screen.dart';
 import '../ui/widgets/app_background.dart';
+import '../ui/widgets/app_network_image.dart';
 import '../ui/manual_fixture_builder_screen.dart';
 import '../ui/widgets/tournament_rules_dialog.dart';
 import 'change_outcome_screen.dart';           // ChangeOutcomeScreen
@@ -50,13 +51,6 @@ class FixtureListScreen extends ConsumerStatefulWidget {
 class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
   // Lo dejamos nulo inicialmente para poder asignarle la Jornada 1 de forma automática al cargar
   String? _selectedRound;
-
-  // --- HELPER PARA RESOLVER LA RUTA DEL LOGO ---
-  String _resolveLogoUrl(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    return path.replaceAll('../', 'https://vanball.com.mx/');
-  }
 
   // --- HELPER PARA TEXTO DE ENFRENTAMIENTO ---
   String _getEncounterText(int count) {
@@ -872,7 +866,6 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
 
   // --- WIDGET HELPER PARA LOGOS ---
   Widget _buildTeamLogo(String? logoPath, String teamName) {
-    final String resolvedUrl = _resolveLogoUrl(logoPath);
     final String initial = teamName.isNotEmpty ? teamName[0].toUpperCase() : '?';
 
     return Container(
@@ -884,17 +877,13 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         border: Border.all(color: Colors.white24, width: 1.5),
       ),
       child: ClipOval(
-        child: resolvedUrl.isNotEmpty
-            ? Image.network(
-                resolvedUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white70)),
-                ),
-              )
-            : Center(
-                child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white70)),
-              ),
+        child: AppNetworkImage(
+          rawPath: logoPath,
+          displayWidth: 55,
+          fallbackBuilder: (context) => Center(
+            child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white70)),
+          ),
+        ),
       ),
     );
   }

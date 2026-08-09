@@ -41,6 +41,8 @@ dependencies:
   pdf: ^3.10.4
   printing: ^5.11.0
   http: ^1.2.0
+  image: ^4.5.4        # decodificado/reescalado de imágenes para el PDF (WebP, PNG, etc.)
+  http_parser: ^4.0.2  # MediaType del multipart de PDF (antes importado sin declarar)
   signature: ^5.4.0
   intl: ^0.20.0
   # --- NUEVAS DEPENDENCIAS PARA RED LOCAL Y PANTALLAS ---
