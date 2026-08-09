@@ -2,14 +2,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-// ignore: depend_on_referenced_packages
-import 'package:http_parser/http_parser.dart'; 
+import 'package:http_parser/http_parser.dart';
+import '../constants/api_constants.dart';
 import '../models/catalog_models.dart';
 import '../network/api_result.dart';
 
 class ApiService {
-  
-  static const String _baseUrl = 'https://vanball.com.mx/api.php';
+
+  static const String _baseUrl = kApiEndpoint;
 
   Future<bool> saveTournamentRules({
     required String tournamentId,

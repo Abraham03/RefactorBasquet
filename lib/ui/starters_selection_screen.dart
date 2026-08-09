@@ -12,6 +12,7 @@ import '../core/di/dependency_injection.dart';
 import '../core/models/catalog_models.dart' as catalog;
 import 'match_control_screen.dart';
 import '../ui/widgets/app_background.dart';
+import '../ui/widgets/app_network_image.dart';
 import '../../logic/starters_persistence_provider.dart';
 
 class StartersSelectionScreen extends ConsumerStatefulWidget {
@@ -378,11 +379,6 @@ class _StartersSelectionScreenState
       final isSelected = selectedIds.contains(player.id);
       final isCaptain = isTeamA ? _captainAId == player.id : _captainBId == player.id;
 
-      String? resolvedPhotoUrl;
-      if (player.photoUrl != null && player.photoUrl!.isNotEmpty) {
-        resolvedPhotoUrl = player.photoUrl!.replaceAll('../', 'https://vanball.com.mx/');
-      }
-
       return GestureDetector(
         onTap: () {
           setState(() {
@@ -425,23 +421,13 @@ class _StartersSelectionScreenState
               fit: StackFit.expand,
               children: [
                 // FOTO DEL JUGADOR
-                resolvedPhotoUrl != null
-                    ? Image.network(
-                        resolvedPhotoUrl,
-                        fit: BoxFit.cover, 
-                        alignment: Alignment.topCenter, 
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: SizedBox(
-                              width: 24, height: 24,
-                              child: CircularProgressIndicator(color: themeColor.withOpacity(0.5), strokeWidth: 2),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) => _buildPlaceholderIcon(),
-                      )
-                    : _buildPlaceholderIcon(),
+                AppNetworkImage(
+                  rawPath: player.photoUrl,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  loadingColor: themeColor.withOpacity(0.5),
+                  fallbackBuilder: (context) => _buildPlaceholderIcon(),
+                ),
 
                 // DEGRADADO INFERIOR
                 Positioned.fill(

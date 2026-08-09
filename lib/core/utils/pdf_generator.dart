@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../logic/match_game_controller.dart';
 import '../constants/match_constants.dart';
+import '../service/image_loader_service.dart';
 
 class PdfCoords {
 
@@ -141,6 +142,21 @@ class PdfCoords {
 }
 
 class PdfGenerator {
+  /// Carga un logo remoto sin tumbar la generación del acta si falla.
+  ///
+  /// El acta debe salir igual (sin logo) ante un 404 o un timeout, pero el
+  /// fallo se registra con URL y causa concreta — antes se perdía el motivo
+  /// porque nunca se validaba el `statusCode`.
+  static Future<pw.ImageProvider?> _loadLogo(String url, String label) async {
+    if (url.isEmpty) return null;
+    try {
+      return await PdfImageLoader.fromNetwork(url);
+    } catch (e) {
+      debugPrint('[PDF] Logo de $label no cargó -> $e');
+      return null;
+    }
+  }
+
   static String _createFileName(String teamA, String teamB) {
     final sanitizedA = teamA.replaceAll(" ", "_");
     final sanitizedB = teamB.replaceAll(" ", "_");
@@ -338,37 +354,9 @@ class PdfGenerator {
         ? "${matchDate.hour.toString().padLeft(2, '0')}:${matchDate.minute.toString().padLeft(2, '0')}"
         : "";
 
-    //  CARGA DE LOGO TORNEO 
-    pw.ImageProvider? tournLogoProvider;
-    if (tournamentLogoUrl.isNotEmpty) {
-      try {
-        String finalUrl = tournamentLogoUrl;
-        if (finalUrl.startsWith('../')) {
-          finalUrl = finalUrl.replaceAll('../', 'https://vanball.com.mx/');
-        }
-        tournLogoProvider = await networkImage(finalUrl)
-            .timeout(const Duration(seconds: 8));
-      } catch (e) {
-        debugPrint("Logo torneo no cargó (timeout o red): $e");
-      }
-    } 
-
-    //  CARGA DE LOGO ÁRBITRO (DERECHA) ---
-    // --- NUEVO: CARGA DE LOGO ÁRBITRO (DERECHA) ---
-    pw.ImageProvider? refereeLogoProvider;
-    
-    // Si pasas el objeto tournament completo o la URL por parámetro:
-    if (refereeLogoUrl.isNotEmpty) {
-      try {
-        String finalUrl = refereeLogoUrl.startsWith('../') 
-          ? refereeLogoUrl.replaceAll('../', 'https://vanball.com.mx/') 
-          : refereeLogoUrl;
-        refereeLogoProvider = await networkImage(finalUrl)
-            .timeout(const Duration(seconds: 8));
-      } catch (e) {
-        debugPrint("Logo árbitro no cargó (timeout o red): $e");
-      }
-    }
+    // CARGA DE LOGOS REMOTOS (agnóstica al formato: WebP, PNG, JPEG...)
+    final tournLogoProvider = await _loadLogo(tournamentLogoUrl, 'torneo');
+    final refereeLogoProvider = await _loadLogo(refereeLogoUrl, 'árbitro');
 
     try {
       final imageBytes = await rootBundle.load(

@@ -13,6 +13,7 @@ import '../logic/catalog_provider.dart';
 import '../logic/tournament_provider.dart';
 import 'starters_selection_screen.dart';
 
+import '../core/utils/image_url_resolver.dart';
 import '../ui/widgets/app_background.dart';
 import '../ui/widgets/app_feedback.dart';
 class MatchSetupScreen extends ConsumerStatefulWidget {
@@ -650,15 +651,9 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     if (currentTourn != null) {
       finalCategory = currentTourn.category ?? 'LIBRE';
       
-      if (currentTourn.logoUrl != null && currentTourn.logoUrl!.isNotEmpty) {
-        resolvedTournLogo = currentTourn.logoUrl!.replaceAll('../', 'https://vanball.com.mx/');
-      }
-
-      // 2. Procesar Logo del Árbitro (MOVIDO AQUÍ ADENTRO)
-    if (currentTourn.refereeLogoUrl != null && currentTourn.refereeLogoUrl!.isNotEmpty) {
-      resolvedRefereeLogo = currentTourn.refereeLogoUrl!
-          .replaceAll('../', 'https://vanball.com.mx/');
-    }
+      resolvedTournLogo = ImageUrlResolver.resolveOrEmpty(currentTourn.logoUrl);
+      resolvedRefereeLogo =
+          ImageUrlResolver.resolveOrEmpty(currentTourn.refereeLogoUrl);
     }
 
     

@@ -11,6 +11,7 @@ import 'team_detail_screen.dart';
 import '../core/di/dependency_injection.dart' as di;
 import '../ui/widgets/app_background.dart';
 import '../ui/widgets/app_feedback.dart';
+import '../ui/widgets/app_network_image.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;
@@ -348,14 +349,6 @@ class _TeamCard extends ConsumerWidget {
   final String tournamentId;
   const _TeamCard({required this.team, required this.tournamentId});
 
-  String _resolveLogoUrl(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    String cleanPath = path.replaceAll('../', '').replaceAll('./', '');
-    if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
-    return 'https://vanball.com.mx/$cleanPath';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) { // <-- Aquí está la corrección (WidgetRef ref)
     bool isLocal = false;
@@ -371,7 +364,6 @@ class _TeamCard extends ConsumerWidget {
     } catch (_) {
       logoPath = null;
     }
-    final String resolvedUrl = _resolveLogoUrl(logoPath);
     final String initial = team.name.isNotEmpty
         ? team.name.substring(0, 1).toUpperCase()
         : '?';
@@ -448,14 +440,12 @@ class _TeamCard extends ConsumerWidget {
                       ],
                     ),
                     child: ClipOval(
-                      child: resolvedUrl.isNotEmpty
-                          ? Image.network(
-                              resolvedUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildInitials(initial, isLocal),
-                            )
-                          : _buildInitials(initial, isLocal),
+                      child: AppNetworkImage(
+                        rawPath: logoPath,
+                        displayWidth: 70,
+                        fallbackBuilder: (context) =>
+                            _buildInitials(initial, isLocal),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 18),
