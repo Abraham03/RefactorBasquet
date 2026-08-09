@@ -399,6 +399,47 @@ Get-ChildItem -Path lib,test -Recurse -Filter *.dart |
 
 **Rollback:** `git checkout main` y descartar la rama entera. Al ser solo renames, el revert es limpio.
 
+#### ✅ Resultado (2026-08-09)
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 153 info | **0 — "No issues found!"** |
+| `flutter test` | 83 verdes | 83 verdes |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Esquema drift (I3) | — | `diff` vacío |
+| Goldens de contrato (I2) | 34 ✔ | 34 ✔ |
+| Imports relativos | 136 | **0** |
+| Renames detectados por git | — | **61** (historia preservada) |
+
+**Commits** (uno por grupo, revertibles de forma independiente):
+
+| Commit | Contenido |
+|---|---|
+| `Fase 1.0` | Los 17 issues que no eran de imports, **antes** de mover nada |
+| `Fase 1.A` | 136 imports → `package:myapp/` vía `dart fix --apply` |
+| `1.B grupo 1` | scoreboard (canario) — 26 archivos |
+| `1.B grupo 2` | core estable — 23 archivos |
+| `1.B grupo 4` | shared — 20 archivos |
+| `1.B grupo 5` | domain + data → features — 24 archivos |
+| `1.B grupo 6` | presentation → features — 30 archivos |
+
+**Grupo 3 (database): sin movimientos.** Ya estaba en `lib/core/database/`, así que no hubo que regenerar `.g.dart` ni hubo riesgo para I3.
+
+**Verificación estructural, grupo por grupo:** `git diff -M --numstat` dio `added == deleted` en **todos** los archivos de **todos** los grupos, y el filtro de líneas que no son `import` dio 0. `main.dart` cambió exclusivamente sus 4 imports; `secondaryDisplayMain` no se tocó.
+
+**Lo que la Fase 1.0 tuvo que arreglar (aprendizaje aplicable a fases futuras):** dos tests leían **rutas de archivo literales** (`File('lib/core/service/api_service.dart')`), no imports, así que la reescritura automática no las tocaba y se rompieron al mover el archivo. Se corrigieron para localizar el archivo **escaneando `lib/`** en vez de por ruta fija; así el golden de cobertura sobrevivirá también a la división de `ApiService` en 5 datasources de la Fase 3.
+
+#### Línea base de las reglas de dependencia
+
+El movimiento **expone** las violaciones que ya existían; no las crea ni las corrige (Fase 1 no toca lógica). Números medidos al cerrar:
+
+| Regla | Violaciones | Dónde | Fase que la cierra |
+|---|---|---|---|
+| **R1** `features/X` no importa `features/Y/{data,presentation}` | *(medir en F4)* | — | 4 |
+| **R2** `core/`/`shared/` no importan `features/` | **3** | `core/di/providers.dart` (composition root: **excepción legítima**), `core/network/api_service.dart`, `core/database/daos/matches_dao.dart` | 3 y 4 |
+| **R3** `domain/` no importa flutter/drift/http | **3** | `match/domain/services/match_finalizer.dart`, `scoreboard/domain/scoreboard_{payload,transport}.dart` | 7 y 8 |
+| **R4** `presentation/` no importa `core/database` ni `api_service` | **10** | pantallas de fixture, home, match, teams | 5 |
+
 ---
 
 ### Fase 2 — Composition root único y muerte de los singletons
@@ -644,7 +685,7 @@ Se actualiza al cerrar cada fase.
 | Fase | Objetivo | Rama | Estado | `analyze` | `test` | Commit | Fecha |
 |---|---|---|---|---|---|---|---|
 | 0 | Red de seguridad + congelar contratos | `refactor/f0-safety-net` | ✅ Cerrada | 153 info / 0 err | 83 ✔ | — | 2026-08-09 |
-| 1 | Mover archivos | `refactor/f1-mover-archivos` | ⬜ Pendiente | — | — | — | — |
+| 1 | Mover archivos | `refactor/f1-mover-archivos` | 🟡 Verde, falta smoke en dispositivo | **0** | 83 ✔ | 7 commits | 2026-08-09 |
 | 2 | DI + singletons | `refactor/f2-di` | ⬜ Pendiente | — | — | — | — |
 | 3 | Capa de red | `refactor/f3-network` | ⬜ Pendiente | — | — | — | — |
 | 4 | Contratos de dominio | `refactor/f4-domain` | ⬜ Pendiente | — | — | — | — |
@@ -714,22 +755,23 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 
 | Métrica | Base | F0 | F1 | F3 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | | | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | | | | | 0 (disuelta) |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | | | | | 30 |
-| Providers duplicados | 2 | 2 | | | | | 0 |
-| Providers declarados en widgets | 3 | 3 | | | | | 0 |
-| Pantallas que importan `app_database` | 7 | 7 | | | | | 0 |
-| Pantallas que usan `apiServiceProvider` | 7 | 7 | | | | | 0 |
-| Bloques de código duplicados | 5 | 5 | | | | | 0 |
-| Imports relativos | 136 | 136 | 0 | | | | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | | | | | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | | | | | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | | | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | | | | | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | | | | | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | | | | | 0 |
-| `flutter analyze` — info | 5 | 153 | | | | | 0 |
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | | | | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | | | | 0 (disuelta) |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | | | | 30 |
+| Providers duplicados | 2 | 2 | 2 | | | | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | | | | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | | | | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | | | | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | | | | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | | | | 0 |
+| Imports relativos | 136 | 136 | **0** | | | | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | | | | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | | | | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | | | | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | | | | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | | | | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | | | | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | | | | 0 |
 
 ---
 
