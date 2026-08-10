@@ -8,7 +8,6 @@ import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/network/result.dart';
 
 class ApiService {
-
   static const String _baseUrl = kApiEndpoint;
 
   Future<bool> saveTournamentRules({
@@ -30,8 +29,8 @@ class ApiService {
           "points_draw": ptsEmpate,
           "points_loss": ptsDerrota,
           "points_forfeit_win": ptsForfeitWin,
-          "points_forfeit_loss": ptsForfeitLoss
-        }
+          "points_forfeit_loss": ptsForfeitLoss,
+        },
       };
 
       final response = await http.post(
@@ -58,17 +57,15 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=create_venue'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "name": name,
-          "address": address,
-        }),
+        body: jsonEncode({"name": name, "address": address}),
       );
-      
+
       _checkResponse(response);
       final jsonResponse = jsonDecode(response.body);
-      
-      if (jsonResponse['data'] != null && jsonResponse['data']['newId'] != null) {
-        return int.parse(jsonResponse['data']['newId'].toString()); 
+
+      if (jsonResponse['data'] != null &&
+          jsonResponse['data']['newId'] != null) {
+        return int.parse(jsonResponse['data']['newId'].toString());
       }
       throw Exception("ID de sede no recibido.");
     } catch (e) {
@@ -85,11 +82,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=update_venue'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "id": id,
-          "name": name,
-          "address": address,
-        }),
+        body: jsonEncode({"id": id, "name": name, "address": address}),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -105,7 +98,9 @@ class ApiService {
   // --- NUEVO: OBTENER LISTA DE TORNEOS DESDE LA NUBE ---
   Future<List<Map<String, dynamic>>> fetchCloudTournaments() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl?action=get_tournaments_list'));
+      final response = await http.get(
+        Uri.parse('$_baseUrl?action=get_tournaments_list'),
+      );
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonResponse = jsonDecode(response.body);
         if (jsonResponse['status'] == 'success') {
@@ -118,9 +113,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResult> generateFixture({
-    required String tournamentId,
-  }) async {
+  Future<ApiResult> generateFixture({required String tournamentId}) async {
     try {
       final payload = {
         "action": "generate_fixture",
@@ -143,7 +136,9 @@ class ApiService {
         return ApiResult.ok(message);
       }
       return ApiResult.fail(
-          message ?? "El servidor rechazó la solicitud (código ${response.statusCode}).");
+        message ??
+            "El servidor rechazó la solicitud (código ${response.statusCode}).",
+      );
     } catch (e) {
       return ApiResult.fail("Error de conexión: $e");
     }
@@ -183,10 +178,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=sync_manual_fixtures'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "tournament_id": tournamentId,
-          "fixtures": fixtures,
-        }),
+        body: jsonEncode({"tournament_id": tournamentId, "fixtures": fixtures}),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -199,9 +191,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResult> deleteFixture({
-    required String tournamentId,
-  }) async {
+  Future<ApiResult> deleteFixture({required String tournamentId}) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=delete_fixture'),
@@ -217,7 +207,9 @@ class ApiService {
         return ApiResult.ok(message);
       }
       return ApiResult.fail(
-          message ?? "No se pudo purgar el calendario (código ${response.statusCode}).");
+        message ??
+            "No se pudo purgar el calendario (código ${response.statusCode}).",
+      );
     } catch (e) {
       return ApiResult.fail("Error de conexión: $e");
     }
@@ -226,7 +218,9 @@ class ApiService {
   Future<CatalogData> fetchTournamentData(String tournamentId) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_tournament_data&tournament_id=$tournamentId'),
+        Uri.parse(
+          '$_baseUrl?action=get_tournament_data&tournament_id=$tournamentId',
+        ),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -236,10 +230,10 @@ class ApiService {
           final data = jsonResponse['data'];
 
           return CatalogData(
-            tournaments: [], 
+            tournaments: [],
             venues: (data['venues'] as List)
                 .map((e) => Venue.fromJson(e))
-                .toList(),      
+                .toList(),
             teams: (data['teams'] as List)
                 .map((e) => Team.fromJson(e))
                 .toList(),
@@ -249,7 +243,7 @@ class ApiService {
             relationships: (data['tournament_teams'] as List)
                 .map((e) => TournamentTeamRelation.fromJson(e))
                 .toList(),
-            officials: [],    
+            officials: [],
           );
         } else {
           throw Exception('API Error: ${jsonResponse['message']}');
@@ -264,7 +258,9 @@ class ApiService {
 
   Future<CatalogData> fetchCatalogs(String tournamentId) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl?action=get_sync_data&tournament_id=$tournamentId'));
+      final response = await http.get(
+        Uri.parse('$_baseUrl?action=get_sync_data&tournament_id=$tournamentId'),
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -289,10 +285,12 @@ class ApiService {
                 .map((e) => TournamentTeamRelation.fromJson(e))
                 .toList(),
             fixturesRaw: data['fixtures'] ?? [],
-            officials: data['officials'] != null 
-                ? (data['officials'] as List).map((e) => Official.fromJson(e)).toList() 
-                : [],  
-            finishedRosters: data['finished_rosters'] ?? [],      
+            officials: data['officials'] != null
+                ? (data['officials'] as List)
+                      .map((e) => Official.fromJson(e))
+                      .toList()
+                : [],
+            finishedRosters: data['finished_rosters'] ?? [],
           );
         } else {
           throw Exception('API Error: ${jsonResponse['message']}');
@@ -305,23 +303,23 @@ class ApiService {
     }
   }
 
-  Future<int> createOfficial(String name, String role, String? signature) async {
+  Future<int> createOfficial(
+    String name,
+    String role,
+    String? signature,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=create_official'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "name": name,
-          "role": role,
-          "signature": signature,
-        }),
+        body: jsonEncode({"name": name, "role": role, "signature": signature}),
       );
-      
+
       _checkResponse(response);
       final jsonResponse = jsonDecode(response.body);
-      
+
       if (jsonResponse['data'] != null && jsonResponse['data']['id'] != null) {
-        return int.parse(jsonResponse['data']['id'].toString()); 
+        return int.parse(jsonResponse['data']['id'].toString());
       }
       throw Exception("ID de oficial no recibido.");
     } catch (e) {
@@ -366,32 +364,33 @@ class ApiService {
   }
 
   Future<bool> updateOfficial({
-  required String id,
-  required String name,
-  required String role,
-  String? signature, // <--- Parámetro opcional
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse('$_baseUrl?action=update_official'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "id": id,
-        "name": name,
-        "role": role,
-        "signature": signature, // Se envía si existe, el servidor decidirá si actualizarla
-      }),
-    );
+    required String id,
+    required String name,
+    required String role,
+    String? signature, // <--- Parámetro opcional
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl?action=update_official'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "id": id,
+          "name": name,
+          "role": role,
+          "signature":
+              signature, // Se envía si existe, el servidor decidirá si actualizarla
+        }),
+      );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final body = jsonDecode(response.body);
-      return body['status'] == 'success';
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = jsonDecode(response.body);
+        return body['status'] == 'success';
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
-    return false;
-  } catch (e) {
-    return false;
   }
-}
 
   Future<Map<String, dynamic>> fetchFixture(String tournamentId) async {
     try {
@@ -402,7 +401,7 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['status'] == 'success') {
-          return jsonResponse['data']; 
+          return jsonResponse['data'];
         }
       }
       return {};
@@ -411,7 +410,12 @@ class ApiService {
     }
   }
 
-  Future<int> createTeam(String name, String shortName, String coach, {String? tournamentId}) async {
+  Future<int> createTeam(
+    String name,
+    String shortName,
+    String coach, {
+    String? tournamentId,
+  }) async {
     try {
       final bodyData = {
         "name": name,
@@ -419,30 +423,29 @@ class ApiService {
         "coachName": coach,
       };
 
-      if (tournamentId != null && 
-          tournamentId.isNotEmpty && 
-          tournamentId != "true" && 
+      if (tournamentId != null &&
+          tournamentId.isNotEmpty &&
+          tournamentId != "true" &&
           tournamentId != "false") {
-          bodyData["tournament_id"] = tournamentId;
+        bodyData["tournament_id"] = tournamentId;
       }
 
       final response = await http.post(
         Uri.parse('$_baseUrl?action=create_team'),
-        headers: {'Content-Type': 'application/json'}, 
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(bodyData),
       );
-      
+
       _checkResponse(response);
       final body = jsonDecode(response.body);
-      
+
       if (body['data'] != null && body['data']['newId'] != null) {
-        return int.parse(body['data']['newId'].toString()); 
+        return int.parse(body['data']['newId'].toString());
       } else if (body['newId'] != null) {
-        return int.parse(body['newId'].toString()); 
+        return int.parse(body['newId'].toString());
       } else {
         throw Exception("ID no recibido del servidor.");
       }
-
     } catch (e) {
       throw Exception('Error creando equipo: $e');
     }
@@ -453,25 +456,20 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=add_player'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "teamId": teamId,
-          "name": name,
-          "number": number,
-        }),
+        body: jsonEncode({"teamId": teamId, "name": name, "number": number}),
       );
-      
-      _checkResponse(response); 
-      
+
+      _checkResponse(response);
+
       final body = jsonDecode(response.body);
-      
+
       if (body['data'] != null && body['data']['newId'] != null) {
-        return int.parse(body['data']['newId'].toString()); 
+        return int.parse(body['data']['newId'].toString());
       } else if (body['newId'] != null) {
-        return int.parse(body['newId'].toString()); 
+        return int.parse(body['newId'].toString());
       } else {
         throw Exception("ID de jugador no recibido del servidor.");
       }
-      
     } catch (e) {
       throw Exception('Error agregando jugador: $e');
     }
@@ -505,7 +503,12 @@ class ApiService {
     }
   }
 
-  Future<bool> updatePlayer(String id, int teamId ,String name, int number) async {
+  Future<bool> updatePlayer(
+    String id,
+    int teamId,
+    String name,
+    int number,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=update_player'),
@@ -534,34 +537,39 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({"name": name, "category": category}),
     );
-    
+
     _checkResponse(response);
-    
+
     final jsonResponse = jsonDecode(response.body);
-    
+
     if (jsonResponse['status'] == 'success') {
-       if (jsonResponse['data'] != null && jsonResponse['data']['newId'] != null) {
-         return jsonResponse['data']['newId'].toString();
-       } 
-       else if (jsonResponse['newId'] != null) {
-         return jsonResponse['newId'].toString();
-       }
+      if (jsonResponse['data'] != null &&
+          jsonResponse['data']['newId'] != null) {
+        return jsonResponse['data']['newId'].toString();
+      } else if (jsonResponse['newId'] != null) {
+        return jsonResponse['newId'].toString();
+      }
     }
-    
+
     throw Exception("No se recibió el ID del torneo creado");
   }
 
   // Obtiene los equipos y su estatus para el constructor manual
-  Future<List<Map<String, dynamic>>> fetchTeamsSchedulingStatus(String tournamentId, int roundId) async {
+  Future<List<Map<String, dynamic>>> fetchTeamsSchedulingStatus(
+    String tournamentId,
+    int roundId,
+  ) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_team_scheduling_status&tournament_id=$tournamentId&round_id=$roundId'),
+        Uri.parse(
+          '$_baseUrl?action=get_team_scheduling_status&tournament_id=$tournamentId&round_id=$roundId',
+        ),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['status'] == 'success') {
-          return List<Map<String, dynamic>>.from(jsonResponse['data']); 
+          return List<Map<String, dynamic>>.from(jsonResponse['data']);
         }
       }
       return [];
@@ -606,9 +614,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=delete_single_fixture'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "fixture_id": fixtureId,
-        }),
+        body: jsonEncode({"fixture_id": fixtureId}),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -631,11 +637,11 @@ class ApiService {
       throw Exception(body['message']);
     }
   }
-  
+
   Future<bool> syncMatchData(Map<String, dynamic> matchPayload) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl?action=sync_match'), 
+        Uri.parse('$_baseUrl?action=sync_match'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(matchPayload),
       );
@@ -666,10 +672,10 @@ class ApiService {
       if (pdfBytes != null) {
         request.files.add(
           http.MultipartFile.fromBytes(
-            'pdf_report', 
+            'pdf_report',
             pdfBytes,
             filename: 'match_report.pdf',
-            contentType: MediaType('application', 'pdf'), 
+            contentType: MediaType('application', 'pdf'),
           ),
         );
       }
@@ -686,8 +692,7 @@ class ApiService {
     } catch (e) {
       return false;
     }
-  } 
-
+  }
 
   Future<ApiResult> updateMatchAttendance({
     required String matchId,
@@ -703,7 +708,9 @@ class ApiService {
       if ((response.statusCode == 200) && data['status'] == 'success') {
         return ApiResult.ok(data['message']?.toString());
       }
-      return ApiResult.fail(data['message']?.toString() ?? "No se pudo actualizar la asistencia.");
+      return ApiResult.fail(
+        data['message']?.toString() ?? "No se pudo actualizar la asistencia.",
+      );
     } catch (e) {
       return ApiResult.fail("Error de conexión: $e");
     }
@@ -735,9 +742,13 @@ class ApiService {
       });
 
       if (pdfBytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'pdf_report', pdfBytes, filename: 'match_$matchId.pdf',
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'pdf_report',
+            pdfBytes,
+            filename: 'match_$matchId.pdf',
+          ),
+        );
       }
 
       final streamed = await request.send();
@@ -747,7 +758,9 @@ class ApiService {
       if (streamed.statusCode == 200 && data['status'] == 'success') {
         return ApiResult.ok(data['message']?.toString());
       }
-      return ApiResult.fail(data['message']?.toString() ?? "No se pudo actualizar el resultado.");
+      return ApiResult.fail(
+        data['message']?.toString() ?? "No se pudo actualizar el resultado.",
+      );
     } catch (e) {
       return ApiResult.fail("Error de conexión: $e");
     }
@@ -787,7 +800,6 @@ class ApiService {
       throw Exception('Error obteniendo marcador real: $e');
     }
   }
-
 
   /// Obtiene los datos del acta de un partido desde el backend.
   /// Se usa cuando la tabla matches local no tiene la fila (partido jugado
@@ -863,5 +875,4 @@ class ApiService {
       throw Exception('Error obteniendo roster: $e');
     }
   }
-  
 }
