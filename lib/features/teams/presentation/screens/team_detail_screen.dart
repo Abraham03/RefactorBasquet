@@ -14,7 +14,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 
 
 class TeamDetailScreen extends ConsumerWidget {
-  final Team team;
+  final CatalogTeam team;
   const TeamDetailScreen({super.key, required this.team});
 
   @override

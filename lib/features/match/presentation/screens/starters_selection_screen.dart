@@ -10,7 +10,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 
 import 'package:myapp/core/database/app_database.dart' as db;
 import 'package:myapp/core/di/providers.dart';
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as catalog;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/features/match/presentation/screens/match_control_screen.dart';
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
@@ -20,10 +20,10 @@ import 'package:myapp/core/network/result.dart';
 class StartersSelectionScreen extends ConsumerStatefulWidget {
   final String matchId;
   final String? fixtureId;
-  final catalog.Team teamA;
-  final catalog.Team teamB;
-  final List<catalog.Player> rosterA;
-  final List<catalog.Player> rosterB;
+  final CatalogTeam teamA;
+  final CatalogTeam teamB;
+  final List<CatalogPlayer> rosterA;
+  final List<CatalogPlayer> rosterB;
   final int tournamentId;
   final int venueId;
   final String mainReferee;
@@ -69,8 +69,8 @@ class _StartersSelectionScreenState
   int? _captainBId;
   
   bool _isCreating = false;
-  late List<catalog.Player> _orderedRosterA;
-  late List<catalog.Player> _orderedRosterB;
+  late List<CatalogPlayer> _orderedRosterA;
+  late List<CatalogPlayer> _orderedRosterB;
 
   @override
   void initState() {
@@ -158,13 +158,13 @@ class _StartersSelectionScreenState
     final playersB = await (dbBase.select(dbBase.players)..where((p) => p.teamId.equals(widget.teamB.id))).get();
 
     setState(() {
-      _orderedRosterA = playersA.map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
-      _orderedRosterB = playersB.map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
+      _orderedRosterA = playersA.map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
+      _orderedRosterB = playersB.map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
       _sortRosters();
     });
   }
 
-  void _showPlayerFormDialog(bool isTeamA, {catalog.Player? playerToEdit}) {
+  void _showPlayerFormDialog(bool isTeamA, {CatalogPlayer? playerToEdit}) {
     final isEditing = playerToEdit != null;
     final nameController = TextEditingController(text: playerToEdit?.name ?? "");
     final numberController = TextEditingController(text: playerToEdit?.defaultNumber.toString() ?? "");
@@ -356,7 +356,7 @@ class _StartersSelectionScreenState
 
 
 
-  Widget _buildSelectionList(List<catalog.Player> roster, Set<int> selectedIds, Color themeColor, bool isTeamA) {
+  Widget _buildSelectionList(List<CatalogPlayer> roster, Set<int> selectedIds, Color themeColor, bool isTeamA) {
   if (roster.isEmpty) {
     return const Center(
       child: Text(

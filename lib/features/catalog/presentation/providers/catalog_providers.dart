@@ -2,8 +2,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart'
-    as model;
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/network/result.dart';
@@ -24,7 +22,7 @@ final catalogProvider = FutureProvider.family<CatalogData, String>((
 });
 
 final tournamentDataByIdProvider =
-    StreamProvider.family<model.CatalogData, String>((
+    StreamProvider.family<CatalogData, String>((
       ref,
       tournamentId,
     ) async* {
@@ -47,7 +45,7 @@ final tournamentDataByIdProvider =
 
         final localTeams = resultRows.map((row) {
           final teamRow = row.readTable(db.teams);
-          return model.Team(
+          return CatalogTeam(
             id: int.parse(teamRow.id),
             name: teamRow.name,
             shortName: teamRow.shortName ?? '',
@@ -65,7 +63,7 @@ final tournamentDataByIdProvider =
         final officialsRows = await db.select(db.officials).get();
         final localOfficials = officialsRows
             .map(
-              (row) => model.Official(
+              (row) => CatalogOfficial(
                 id: row.id, // Drift guarda ID como texto, lo pasamos a int
                 name: row.name,
                 role: row.role,
@@ -73,12 +71,12 @@ final tournamentDataByIdProvider =
             )
             .toList();
 
-        return model.CatalogData(
+        return CatalogData(
           tournaments: [],
           relationships: [],
           venues: localVenues
               .map(
-                (v) => model.Venue(
+                (v) => CatalogVenue(
                   id: int.parse(v.id),
                   name: v.name,
                   address: v.address ?? '',
@@ -88,7 +86,7 @@ final tournamentDataByIdProvider =
           teams: localTeams,
           players: localPlayers
               .map(
-                (p) => model.Player(
+                (p) => CatalogPlayer(
                   id: int.parse(p.id),
                   teamId: p.teamId,
                   name: p.name,

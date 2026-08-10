@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/features/match/presentation/screens/protest_signature_screen.dart';
 import 'package:myapp/core/database/app_database.dart' as db;
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
 import 'package:myapp/features/match/presentation/screens/starters_selection_screen.dart';
@@ -43,14 +43,14 @@ class MatchSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
-  model.Tournament? selectedTournament;
-  model.Venue? selectedVenue;
-  model.Team? selectedTeamA;
-  model.Team? selectedTeamB;
+  CatalogTournament? selectedTournament;
+  CatalogVenue? selectedVenue;
+  CatalogTeam? selectedTeamA;
+  CatalogTeam? selectedTeamB;
   
-  model.Official? selectedMainReferee;
-  model.Official? selectedAuxReferee;
-  model.Official? selectedScorekeeper;
+  CatalogOfficial? selectedMainReferee;
+  CatalogOfficial? selectedAuxReferee;
+  CatalogOfficial? selectedScorekeeper;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -197,7 +197,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _buildBottomSheetSelector<model.Venue>(
+                                  child: _buildBottomSheetSelector<CatalogVenue>(
                                     label: "Cancha",
                                     icon: Icons.location_on,
                                     value: selectedVenue,
@@ -236,7 +236,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                             _buildSectionTitle("Equipos a Enfrentarse", Icons.sports_basketball),
                             const SizedBox(height: 20),
 
-                            _buildBottomSheetSelector<model.Team>(
+                            _buildBottomSheetSelector<CatalogTeam>(
                               label: "Equipo Local (A)",
                               icon: Icons.shield,
                               value: selectedTeamA,
@@ -262,7 +262,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               ),
                             ),
 
-                            _buildBottomSheetSelector<model.Team>(
+                            _buildBottomSheetSelector<CatalogTeam>(
                               label: "Equipo Visitante (B)",
                               icon: Icons.shield_outlined,
                               value: selectedTeamB,
@@ -304,7 +304,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _buildBottomSheetSelector<model.Official>(
+                                  child: _buildBottomSheetSelector<CatalogOfficial>(
                                     label: "Árbitro Principal",
                                     icon: Icons.person,
                                     value: selectedMainReferee,
@@ -337,7 +337,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _buildBottomSheetSelector<model.Official>(
+                                  child: _buildBottomSheetSelector<CatalogOfficial>(
                                     label: "Árbitro Auxiliar",
                                     icon: Icons.person_outline,
                                     value: selectedAuxReferee,
@@ -370,7 +370,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _buildBottomSheetSelector<model.Official>(
+                                  child: _buildBottomSheetSelector<CatalogOfficial>(
                                     label: "Anotador (Mesa)",
                                     icon: Icons.edit_note,
                                     value: selectedScorekeeper,
@@ -635,7 +635,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  void _goToStarterSelection(model.CatalogData data, String tournamentName) {
+  void _goToStarterSelection(CatalogData data, String tournamentName) {
     if (selectedTeamA == null || selectedTeamB == null || selectedVenue == null) {
       context.showWarning("Selecciona todos los campos obligatorios.");
       return;
@@ -810,7 +810,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  void _showEditVenueDialog(model.Venue venue) {
+  void _showEditVenueDialog(CatalogVenue venue) {
     final nameCtrl = TextEditingController(text: venue.name);
     final addressCtrl = TextEditingController(text: venue.address);
     final formKey = GlobalKey<FormState>();
@@ -912,7 +912,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  void _confirmDeleteVenue(model.Venue venue) {
+  void _confirmDeleteVenue(CatalogVenue venue) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -947,7 +947,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  Future<void> _deleteVenue(model.Venue venue) async {
+  Future<void> _deleteVenue(CatalogVenue venue) async {
     final database = ref.read(databaseProvider);
     final api = ref.read(officialVenueApiProvider);
     
@@ -1161,7 +1161,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   );
 }
 
-  void _showEditOfficialDialog(model.Official official) {
+  void _showEditOfficialDialog(CatalogOfficial official) {
   final nameCtrl = TextEditingController(text: official.name);
   String selectedRole = official.role;
   Uint8List? newSignatureBytes; // Almacena la nueva firma si se captura
@@ -1329,7 +1329,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
   );
 }
 
-  void _confirmDeleteOfficial(model.Official official) {
+  void _confirmDeleteOfficial(CatalogOfficial official) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1364,7 +1364,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     );
   }
 
-  Future<void> _deleteOfficial(model.Official official) async {
+  Future<void> _deleteOfficial(CatalogOfficial official) async {
     final database = ref.read(databaseProvider);
     final api = ref.read(officialVenueApiProvider);
     

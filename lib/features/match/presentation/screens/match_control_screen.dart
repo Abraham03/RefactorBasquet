@@ -36,8 +36,8 @@ class MatchControlScreen extends ConsumerStatefulWidget {
   final String tournamentLogoUrl;
   final String refereeLogoUrl;
   final String venueName;
-  final List<Player> fullRosterA;
-  final List<Player> fullRosterB;
+  final List<CatalogPlayer> fullRosterA;
+  final List<CatalogPlayer> fullRosterB;
   final Set<int> startersAIds;
   final Set<int> startersBIds;
   final int tournamentId;

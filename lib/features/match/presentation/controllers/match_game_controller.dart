@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/core/di/providers.dart';
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as models;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
@@ -312,8 +312,8 @@ class MatchGameController extends StateNotifier<MatchState> {
 Future<void> restoreFromDatabase({
   required String matchId,
   String? fixtureId,
-  required List<models.Player> rosterA,
-  required List<models.Player> rosterB,
+  required List<CatalogPlayer> rosterA,
+  required List<CatalogPlayer> rosterB,
   required Set<int> startersA, // <--- Estos son los que el usuario eligió originalmente
   required Set<int> startersB,
   required int tournamentId,
@@ -1194,8 +1194,8 @@ void _applyRestoreSub({
   void initializeNewMatch({
     required String matchId,
     String? fixtureId,
-    required List<models.Player> rosterA,
-    required List<models.Player> rosterB,
+    required List<CatalogPlayer> rosterA,
+    required List<CatalogPlayer> rosterB,
     required Set<int> startersA,
     required Set<int> startersB,
     required int tournamentId,

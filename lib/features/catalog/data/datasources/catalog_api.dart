@@ -70,11 +70,11 @@ class CatalogApi {
         return CatalogData(
           tournaments: [],
           venues: (data['venues'] as List)
-              .map((e) => Venue.fromJson(e))
+              .map((e) => CatalogVenue.fromJson(e))
               .toList(),
-          teams: (data['teams'] as List).map((e) => Team.fromJson(e)).toList(),
+          teams: (data['teams'] as List).map((e) => CatalogTeam.fromJson(e)).toList(),
           players: (data['players'] as List)
-              .map((e) => Player.fromJson(e))
+              .map((e) => CatalogPlayer.fromJson(e))
               .toList(),
           relationships: (data['tournament_teams'] as List)
               .map((e) => TournamentTeamRelation.fromJson(e))
@@ -94,14 +94,14 @@ class CatalogApi {
         final data = raw! as Map;
         return CatalogData(
           tournaments: (data['tournaments'] as List)
-              .map((e) => Tournament.fromJson(e))
+              .map((e) => CatalogTournament.fromJson(e))
               .toList(),
           venues: (data['venues'] as List)
-              .map((e) => Venue.fromJson(e))
+              .map((e) => CatalogVenue.fromJson(e))
               .toList(),
-          teams: (data['teams'] as List).map((e) => Team.fromJson(e)).toList(),
+          teams: (data['teams'] as List).map((e) => CatalogTeam.fromJson(e)).toList(),
           players: (data['players'] as List)
-              .map((e) => Player.fromJson(e))
+              .map((e) => CatalogPlayer.fromJson(e))
               .toList(),
           relationships: (data['tournament_teams'] as List)
               .map((e) => TournamentTeamRelation.fromJson(e))
@@ -109,7 +109,7 @@ class CatalogApi {
           fixturesRaw: data['fixtures'] ?? [],
           officials: data['officials'] != null
               ? (data['officials'] as List)
-                    .map((e) => Official.fromJson(e))
+                    .map((e) => CatalogOfficial.fromJson(e))
                     .toList()
               : [],
           finishedRosters: data['finished_rosters'] ?? [],

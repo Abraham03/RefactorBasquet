@@ -1,4 +1,4 @@
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
+import 'package:myapp/core/database/daos/roster_with_name.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/core/network/result.dart';

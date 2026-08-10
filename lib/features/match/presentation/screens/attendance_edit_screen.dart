@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
+import 'package:myapp/core/database/daos/roster_with_name.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';

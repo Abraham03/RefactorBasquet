@@ -9,7 +9,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/features/match/presentation/screens/attendance_edit_screen.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart'; 
-import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as catalog;
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
@@ -441,11 +441,11 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
               final allDbPlayers = await db.select(db.players).get();
               final rosterA = allDbPlayers
                   .where((p) => p.teamId.toString() == actaTeamAId.toString())
-                  .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
+                  .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
                   .toList();
               final rosterB = allDbPlayers
                   .where((p) => p.teamId.toString() == actaTeamBId.toString())
-                  .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
+                  .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
                   .toList();
 
               // 4. Roster del acta (capitanes y titulares).
@@ -969,9 +969,9 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
 
                 final allDbPlayers = await dbBase.select(dbBase.players).get();
                 final rosterA = allDbPlayers.where((p) => p.teamId.toString() == match.teamAId)
-                    .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber)).toList();
+                    .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber)).toList();
                 final rosterB = allDbPlayers.where((p) => p.teamId.toString() == match.teamBId)
-                    .map((p) => catalog.Player(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber)).toList();
+                    .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber)).toList();
 
                 final dbRosters = await (dbBase.select(dbBase.matchRosters)..where((t) => t.matchId.equals(localMatch.id))).get();
                 final capA = dbRosters.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
