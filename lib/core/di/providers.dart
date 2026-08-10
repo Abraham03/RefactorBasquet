@@ -15,12 +15,16 @@ import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 import 'package:myapp/features/match/domain/services/outcome_changer.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/core/network/api_client.dart';
+import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
+import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
+import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/services/match_finalizer.dart';
 import 'package:myapp/features/match/data/repositories/attendance_repository.dart';
-
 
 /// Base de datos local. Su ciclo de vida cuelga del contenedor: al desecharse
 /// el `ProviderScope` se cierra la conexión.
@@ -35,18 +39,46 @@ final matchesDaoProvider = Provider<MatchesDao>((ref) {
   return ref.watch(databaseProvider).matchesDao;
 });
 
-/// Cliente del backend.
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+/// Transporte HTTP. Una sola instancia: comparte el pool de conexiones.
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final client = ApiClient();
+  ref.onDispose(client.close);
+  return client;
 });
 
+// --- Los cinco datasources en los que se dividió la vieja God class ---
+
+final catalogApiProvider = Provider<CatalogApi>(
+  (ref) => CatalogApi(ref.watch(apiClientProvider)),
+);
+
+final fixtureApiProvider = Provider<FixtureApi>(
+  (ref) => FixtureApi(ref.watch(apiClientProvider)),
+);
+
+final teamApiProvider = Provider<TeamApi>(
+  (ref) => TeamApi(ref.watch(apiClientProvider)),
+);
+
+final matchApiProvider = Provider<MatchApi>(
+  (ref) => MatchApi(ref.watch(apiClientProvider)),
+);
+
+final officialVenueApiProvider = Provider<OfficialVenueApi>(
+  (ref) => OfficialVenueApi(ref.watch(apiClientProvider)),
+);
 
 /// Repositorio de sincronización (orquesta la subida a la nube).
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {
-  final db = ref.watch(databaseProvider);
-  final api = ref.watch(apiServiceProvider);
-  final matchesDao = ref.watch(matchesDaoProvider);
-  return SyncRepository(db, api, matchesDao);
+  return SyncRepository(
+    ref.watch(databaseProvider),
+    ref.watch(matchesDaoProvider),
+    catalogApi: ref.watch(catalogApiProvider),
+    officialVenueApi: ref.watch(officialVenueApiProvider),
+    teamApi: ref.watch(teamApiProvider),
+    fixtureApi: ref.watch(fixtureApiProvider),
+    matchApi: ref.watch(matchApiProvider),
+  );
 });
 
 final officialRepositoryProvider = Provider<OfficialRepository>((ref) {
@@ -55,23 +87,29 @@ final officialRepositoryProvider = Provider<OfficialRepository>((ref) {
 });
 
 final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
-  final db = ref.watch(databaseProvider);
-  final api = ref.watch(apiServiceProvider);
-  final officialRepo = ref.watch(officialRepositoryProvider);
-  final controller = ref.watch(matchGameProvider.notifier);
-  return MatchFinalizer(db, api, officialRepo, controller);
+  return MatchFinalizer(
+    ref.watch(databaseProvider),
+    ref.watch(matchApiProvider),
+    ref.watch(teamApiProvider),
+    ref.watch(officialRepositoryProvider),
+    ref.watch(matchGameProvider.notifier),
+  );
 });
 
 final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
-  final db = ref.watch(databaseProvider);
-  final api = ref.watch(apiServiceProvider);
-  return PlayerRepository(db, api);
+  return PlayerRepository(
+    ref.watch(databaseProvider),
+    ref.watch(teamApiProvider),
+  );
 });
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
-  return AttendanceRepository(ref.watch(matchesDaoProvider), ref.watch(apiServiceProvider));
+  return AttendanceRepository(
+    ref.watch(matchesDaoProvider),
+    ref.watch(matchApiProvider),
+  );
 });
 
 final outcomeChangerProvider = Provider<OutcomeChanger>((ref) {
-  return OutcomeChanger(ref.watch(apiServiceProvider));
+  return OutcomeChanger(ref.watch(matchApiProvider));
 });

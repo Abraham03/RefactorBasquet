@@ -2,7 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/core/network/result.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
 
 /// Resultado de guardar un jugador: si se sincronizó a la nube y con qué ID
 /// quedó (real si hubo red, temporal negativo si fue offline).
@@ -13,13 +14,13 @@ class SavePlayerResult {
 }
 
 /// Acceso a datos de jugadores. Encapsula el CRUD y su reconciliación
-/// online/offline, para que la UI no toque ApiService ni la BD directamente.
+/// online/offline, para que la UI no toque la red ni la BD directamente.
 ///
 /// El repositorio NO decide UI (no muestra diálogos ni mensajes): devuelve
 /// datos/resultados y la pantalla presenta.
 class PlayerRepository {
   final AppDatabase _db;
-  final ApiService _api;
+  final TeamApi _api;
 
   PlayerRepository(this._db, this._api);
 
@@ -55,20 +56,28 @@ class PlayerRepository {
     final isRealDupId = (int.tryParse(duplicatePlayer.id) ?? 0) > 0;
 
     if (isRealDupId && !isTeamLocal) {
-      try {
-        if (freeUpFirstId != null && freeUpFirstName != null) {
-          await _api.updatePlayer(freeUpFirstId, teamId, freeUpFirstName, 9999);
-        }
-        synced = await _api.updatePlayer(
-            duplicatePlayer.id, teamId, duplicatePlayer.name, newNumber);
-      } catch (_) {}
+      if (freeUpFirstId != null && freeUpFirstName != null) {
+        // Movimiento intermedio al #9999 para esquivar el deadlock de dorsal
+        // único del backend. Si falla, el update siguiente fallará también y
+        // el jugador quedará marcado como no sincronizado.
+        await _api.updatePlayer(freeUpFirstId, teamId, freeUpFirstName, 9999);
+      }
+      synced = (await _api.updatePlayer(
+        duplicatePlayer.id,
+        teamId,
+        duplicatePlayer.name,
+        newNumber,
+      )).isOk;
     }
 
-    await (_db.update(_db.players)..where((p) => p.id.equals(duplicatePlayer.id)))
-        .write(PlayersCompanion(
-      defaultNumber: Value(newNumber),
-      isSynced: Value(synced),
-    ));
+    await (_db.update(
+      _db.players,
+    )..where((p) => p.id.equals(duplicatePlayer.id))).write(
+      PlayersCompanion(
+        defaultNumber: Value(newNumber),
+        isSynced: Value(synced),
+      ),
+    );
   }
 
   /// Actualiza un jugador existente (online si hay red, si no queda pendiente).
@@ -83,7 +92,7 @@ class PlayerRepository {
     bool synced = false;
 
     if (isRealId && !isTeamLocal) {
-      synced = await _api.updatePlayer(playerId, teamId, name, number);
+      synced = (await _api.updatePlayer(playerId, teamId, name, number)).isOk;
     }
 
     await (_db.update(_db.players)..where((t) => t.id.equals(playerId))).write(
@@ -111,23 +120,31 @@ class PlayerRepository {
       return _createOffline(teamId: teamId, name: name, number: number);
     }
 
-    try {
-      final newId = await _api.addPlayer(teamId, name, number);
-      await _db.into(_db.players).insert(
-            PlayersCompanion.insert(
-              id: Value(newId.toString()),
-              teamId: teamId,
-              name: name,
-              defaultNumber: Value(number),
-              active: const Value(true),
-              isSynced: const Value(true),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-      return SavePlayerResult(synced: true, playerId: newId.toString());
-    } catch (e) {
-      debugPrint("Creación online falló, guardando offline: $e");
-      return _createOffline(teamId: teamId, name: name, number: number);
+    switch (await _api.addPlayer(teamId, name, number)) {
+      case Ok(value: final newId):
+        await _db
+            .into(_db.players)
+            .insert(
+              PlayersCompanion.insert(
+                id: Value(newId.toString()),
+                teamId: teamId,
+                name: name,
+                defaultNumber: Value(number),
+                active: const Value(true),
+                isSynced: const Value(true),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+        return SavePlayerResult(synced: true, playerId: newId.toString());
+
+      case Err(:final error):
+        // Ahora se registra la CAUSA, no un `$e` opaco: distinguir "sin
+        // internet" de "el backend rechazó el dorsal" cambia qué hacer.
+        debugPrint(
+          'Creación online falló (${error.runtimeType}): '
+          '${error.message}. Guardando offline.',
+        );
+        return _createOffline(teamId: teamId, name: name, number: number);
     }
   }
 
@@ -137,7 +154,9 @@ class PlayerRepository {
     required int number,
   }) async {
     final tempId = (-DateTime.now().millisecondsSinceEpoch).toString();
-    await _db.into(_db.players).insert(
+    await _db
+        .into(_db.players)
+        .insert(
           PlayersCompanion.insert(
             id: Value(tempId),
             teamId: teamId,
@@ -157,9 +176,9 @@ class PlayerRepository {
     required int teamId,
     String? excludePlayerId,
   }) async {
-    final players = await (_db.select(_db.players)
-          ..where((p) => p.teamId.equals(teamId)))
-        .get();
+    final players = await (_db.select(
+      _db.players,
+    )..where((p) => p.teamId.equals(teamId))).get();
 
     final taken = <int>{};
     for (final p in players) {

@@ -20,8 +20,6 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     }
   }
 
-
-
   // --- ACTUALIZACIÓN (NUEVO) ---
   // Guardar el estado actual del partido (Persistencia Real)
   Future<void> updateMatchStatus(
@@ -40,9 +38,15 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
         scoreB: Value(scoreB),
         status: Value(status),
         clockTime: Value(clockTime),
-        currentPeriod: currentPeriod == null ? const Value.absent() : Value(currentPeriod),
-        forfeitStatus: forfeitStatus == null ? const Value.absent() : Value(forfeitStatus),
-        observaciones: observaciones == null ? const Value.absent() : Value(observaciones),
+        currentPeriod: currentPeriod == null
+            ? const Value.absent()
+            : Value(currentPeriod),
+        forfeitStatus: forfeitStatus == null
+            ? const Value.absent()
+            : Value(forfeitStatus),
+        observaciones: observaciones == null
+            ? const Value.absent()
+            : Value(observaciones),
         updatedAt: Value(DateTime.now()),
         isSynced: const Value(false),
       ),
@@ -51,8 +55,9 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
 
   /// Devuelve la fila del partido por su ID, o null si no existe.
   Future<BasketballMatch?> getMatchById(String matchId) {
-    return (select(matches)..where((t) => t.id.equals(matchId)))
-        .getSingleOrNull();
+    return (select(
+      matches,
+    )..where((t) => t.id.equals(matchId))).getSingleOrNull();
   }
 
   // Método para guardar metadatos del partido (Árbitros, IDs, etc.)
@@ -81,15 +86,15 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
       // Vinculamos el partido con el calendario. Solo marcamos IN_PROGRESS al
       // INICIAR un partido; al reabrir uno finalizado (cambio de desenlace)
       // NO tocamos el status para no revertir el FINISHED del calendario.
-      await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
+      await (db.update(
+        db.fixtures,
+      )..where((f) => f.id.equals(fixtureId))).write(
         markInProgress
             ? FixturesCompanion(
                 matchId: Value(matchId),
                 status: const Value('IN_PROGRESS'),
               )
-            : FixturesCompanion(
-                matchId: Value(matchId),
-              ),
+            : FixturesCompanion(matchId: Value(matchId)),
       );
     }
   }
@@ -98,12 +103,13 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
   Future<int> saveSignature(String matchId, String signatureBase64) async {
     // Convertimos a String explícitamente por seguridad
     final idStr = matchId.toString();
-      final rowAffected = await (update(matches)..where((t) => t.id.equals(idStr))).write(
-      MatchesCompanion(
-        signatureData: Value(signatureBase64),
-        isSynced: const Value(false),
-      ),
-    );
+    final rowAffected =
+        await (update(matches)..where((t) => t.id.equals(idStr))).write(
+          MatchesCompanion(
+            signatureData: Value(signatureBase64),
+            isSynced: const Value(false),
+          ),
+        );
 
     return rowAffected;
   }
@@ -111,9 +117,7 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
   // Marcar un partido como SINCRONIZADO
   Future<void> markAsSynced(String matchId) async {
     await (update(matches)..where((t) => t.id.equals(matchId))).write(
-      const MatchesCompanion(
-        isSynced: Value(true),
-      ),
+      const MatchesCompanion(isSynced: Value(true)),
     );
   }
 
@@ -136,14 +140,22 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
   }
 
   /// Marca la asistencia de un jugador en un partido concreto.
-  Future<void> setPlayerAttendance(String matchId, String playerId, bool attended) {
-    return (update(matchRosters)
-          ..where((r) => r.matchId.equals(matchId) & r.playerId.equals(playerId)))
+  Future<void> setPlayerAttendance(
+    String matchId,
+    String playerId,
+    bool attended,
+  ) {
+    return (update(matchRosters)..where(
+          (r) => r.matchId.equals(matchId) & r.playerId.equals(playerId),
+        ))
         .write(MatchRostersCompanion(attended: Value(attended)));
   }
 
   /// Marca en lote la asistencia de varios jugadores del partido.
-  Future<void> setAttendanceBatch(String matchId, Map<String, bool> byPlayerId) async {
+  Future<void> setAttendanceBatch(
+    String matchId,
+    Map<String, bool> byPlayerId,
+  ) async {
     await batch((b) {
       byPlayerId.forEach((playerId, attended) {
         b.update(
@@ -160,7 +172,9 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
 
   /// Devuelve el roster completo de un partido.
   Future<List<RosterEntry>> getRostersForMatch(String matchId) {
-    return (select(matchRosters)..where((r) => r.matchId.equals(matchId))).get();
+    return (select(
+      matchRosters,
+    )..where((r) => r.matchId.equals(matchId))).get();
   }
 
   /// Guarda localmente un jugador creado a mitad de un partido.
@@ -172,21 +186,24 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     required String name,
     required int number,
     required String teamSide,
-    bool isSynced = true, // <--- NUEVO: Por defecto true, pero en offline pasaremos false
+    bool isSynced =
+        true, // <--- NUEVO: Por defecto true, pero en offline pasaremos false
   }) async {
     try {
       await transaction(() async {
         // 1. Insertar en el catálogo global de Jugadores (Players)
-        await db.into(db.players).insert(
-          PlayersCompanion.insert(
-            id: Value(playerId.toString()), 
-            teamId: teamId,
-            name: name,
-            defaultNumber: Value(number),
-            isSynced: Value(isSynced), // <--- Dependerá de si hubo red o no
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
+        await db
+            .into(db.players)
+            .insert(
+              PlayersCompanion.insert(
+                id: Value(playerId.toString()),
+                teamId: teamId,
+                name: name,
+                defaultNumber: Value(number),
+                isSynced: Value(isSynced), // <--- Dependerá de si hubo red o no
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
 
         // 2. Vincular el jugador al partido actual (MatchRosters)
         await into(matchRosters).insert(
@@ -205,58 +222,66 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     }
   }
 
-   // =========================================================================
+  // =========================================================================
   // --- RECONCILIACIÓN OFFLINE-FIRST ---
   // =========================================================================
- 
+
   /// Intercambia el ID temporal (negativo) por el ID real de la nube.
-  /// Utiliza la estrategia Insertar -> Revincular -> Eliminar para evitar 
+  /// Utiliza la estrategia Insertar -> Revincular -> Eliminar para evitar
   /// violaciones de llaves foráneas (Foreign Key Constraints) en SQLite.
   Future<void> replaceTempPlayerId(String oldTempId, String newRealId) async {
     try {
       await transaction(() async {
         // 1. Obtener los datos completos del jugador temporal
-        final oldPlayer = await (db.select(db.players)..where((p) => p.id.equals(oldTempId))).getSingleOrNull();
-        
+        final oldPlayer = await (db.select(
+          db.players,
+        )..where((p) => p.id.equals(oldTempId))).getSingleOrNull();
+
         if (oldPlayer != null) {
           // 2. Insertar el "clon" del jugador, pero usando el ID real y marcado como sincronizado
-          await db.into(db.players).insert(
-            PlayersCompanion.insert(
-              id: Value(newRealId),
-              teamId: oldPlayer.teamId,
-              name: oldPlayer.name,
-              defaultNumber: Value(oldPlayer.defaultNumber),
-              active: Value(oldPlayer.active),
-              isSynced: const Value(true), // El nuevo ID siempre viene de la nube, ya está sincronizado
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
+          await db
+              .into(db.players)
+              .insert(
+                PlayersCompanion.insert(
+                  id: Value(newRealId),
+                  teamId: oldPlayer.teamId,
+                  name: oldPlayer.name,
+                  defaultNumber: Value(oldPlayer.defaultNumber),
+                  active: Value(oldPlayer.active),
+                  isSynced: const Value(
+                    true,
+                  ), // El nuevo ID siempre viene de la nube, ya está sincronizado
+                ),
+                mode: InsertMode.insertOrReplace,
+              );
         }
- 
+
         // 3. Revincular (Actualizar) todas las tablas hijas para que apunten al ID real
-        await (update(matchRosters)..where((t) => t.playerId.equals(oldTempId))).write(
-          MatchRostersCompanion(playerId: Value(newRealId)),
-        );
-        
-        await (update(gameEvents)..where((t) => t.playerId.equals(oldTempId))).write(
-          GameEventsCompanion(playerId: Value(newRealId)),
-        );
- 
+        await (update(matchRosters)..where((t) => t.playerId.equals(oldTempId)))
+            .write(MatchRostersCompanion(playerId: Value(newRealId)));
+
+        await (update(gameEvents)..where((t) => t.playerId.equals(oldTempId)))
+            .write(GameEventsCompanion(playerId: Value(newRealId)));
+
         // 3b. Revincular los IDs incrustados en el TEXTO del evento de cambio (SUB).
         //     Formato: 'SUB_A_OUT_<id>_IN_<id>'. El ID del SUB no vive en playerId
         //     (que es null), solo en 'type', por lo que el paso 3 no lo alcanzaba.
-        final subEvents = await (select(gameEvents)
-              ..where((e) => e.type.like('%$oldTempId%')))
-            .get();
+        final subEvents = await (select(
+          gameEvents,
+        )..where((e) => e.type.like('%$oldTempId%'))).get();
         for (final ev in subEvents) {
           await (update(gameEvents)..where((e) => e.id.equals(ev.id))).write(
-            GameEventsCompanion(type: Value(ev.type.replaceAll(oldTempId, newRealId))),
+            GameEventsCompanion(
+              type: Value(ev.type.replaceAll(oldTempId, newRealId)),
+            ),
           );
         }
- 
+
         // 4. Eliminar el jugador temporal original (ya no tiene hijos dependientes)
         if (oldPlayer != null) {
-          await (db.delete(db.players)..where((p) => p.id.equals(oldTempId))).go();
+          await (db.delete(
+            db.players,
+          )..where((p) => p.id.equals(oldTempId))).go();
         }
       });
     } catch (e) {
@@ -270,22 +295,32 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
 
   /// Se ejecuta ANTES de sincronizar los partidos atrasados.
   /// Busca todos los jugadores con ID negativo y los sube a la nube.
-  Future<void> syncOfflinePlayersBeforeMatches(dynamic api) async {
+  ///
+  /// Recibe la subida como callback en vez del datasource: así este DAO, que
+  /// es infraestructura de `core/`, no tiene que importar `features/`
+  /// (regla 2 del plan). Antes el parámetro era `dynamic`, que ocultaba el
+  /// acoplamiento y desactivaba toda comprobación de tipos.
+  /// [uploadPlayer] devuelve el id real, o `null` si la subida falló.
+  Future<void> syncOfflinePlayersBeforeMatches(
+    Future<int?> Function(int teamId, String name, int number) uploadPlayer,
+  ) async {
     // Buscamos jugadores que tengan isSynced en false
-    final offlinePlayers = await (select(db.players)..where((p) => p.isSynced.equals(false))).get();
+    final offlinePlayers = await (select(
+      db.players,
+    )..where((p) => p.isSynced.equals(false))).get();
 
     for (var p in offlinePlayers) {
       final int oldId = int.tryParse(p.id) ?? 0;
-      
+
       // Confirmamos que es un ID temporal generado por nosotros (Negativo)
-      if (oldId < 0) { 
+      if (oldId < 0) {
         try {
           // 1. Subimos a la nube
-          final int realId = await api.addPlayer(p.teamId, p.name, p.defaultNumber);
-          
+          final realId = await uploadPlayer(p.teamId, p.name, p.defaultNumber);
+          if (realId == null) continue;
+
           // 2. Usamos el método de Reconciliación para corregir la BD local
           await replaceTempPlayerId(p.id, realId.toString());
-          
         } catch (e) {
           // Ignoramos el error para que el bucle siga intentando con otros jugadores
           // Si este falla, el partido que depende de él también fallará la subida,
@@ -316,7 +351,4 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
       );
     }).toList();
   }
-
 }
-
-

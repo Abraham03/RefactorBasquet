@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:myapp/core/network/result.dart';
-import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
@@ -9,10 +9,10 @@ import 'package:myapp/features/match/presentation/controllers/match_game_control
 /// regenera el PDF y sincroniza los 5 campos. SRP: orquesta, no decide la
 /// regla (controller) ni persiste (API/DAO).
 class OutcomeChanger {
-  final ApiService _api;
+  final MatchApi _api;
   OutcomeChanger(this._api);
 
-  Future<ApiResult> change({
+  Future<Result<String?>> change({
     required MatchGameController controller,
     required String newOutcome, // 'NONE','TEAM_A','TEAM_B','BOTH'
     Uint8List? signature,

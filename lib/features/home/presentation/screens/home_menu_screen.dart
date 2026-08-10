@@ -5,13 +5,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:myapp/core/di/providers.dart' show  syncRepositoryProvider;
+import 'package:myapp/core/di/providers.dart'
+    show syncRepositoryProvider, catalogApiProvider;
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
-import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:myapp/features/scoreboard/presentation/screens/client_scoreboard_screen.dart';
 import 'package:myapp/features/scoreboard/presentation/screens/scoreboard_server_screen.dart';
 import 'package:myapp/features/fixture/presentation/screens/fixture_list_screen.dart';
@@ -32,6 +32,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
+import 'package:myapp/core/network/result.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});
@@ -60,12 +61,17 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
   }
 
   Future<void> _createNewTournament(String name, String category) async {
-    final api = ref.read(apiServiceProvider);
+    final api = ref.read(catalogApiProvider);
     final db = ref.read(databaseProvider);
     String finalId = "";
 
     try {
-      finalId = await api.createTournament(name, category);
+      finalId = switch (await api.createTournament(name, category)) {
+        Ok(:final value) => value,
+        // Se relanza para que el catch de abajo aplique la cascada offline,
+        // igual que antes; la diferencia es que ahora lleva la causa tipada.
+        Err(:final error) => throw error,
+      };
       await db
           .into(db.tournaments)
           .insert(
@@ -313,7 +319,10 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                   const Divider(color: Colors.white12, height: 1),
                   Expanded(
                     child: FutureBuilder<List<Map<String, dynamic>>>(
-                      future: ref.read(apiServiceProvider).fetchCloudTournaments(),
+                      future: ref
+                          .read(catalogApiProvider)
+                          .fetchCloudTournaments()
+                          .then((r) => r.valueOrNull ?? const []),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator(color: Colors.purpleAccent));
@@ -858,8 +867,11 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
     context.showInfo("Sincronizando datos... por favor espera.");
 
     try {
-      final api = ref.read(apiServiceProvider);
-      final catalogData = await api.fetchCatalogs(syncId);
+      final api = ref.read(catalogApiProvider);
+      final catalogData = switch (await api.fetchCatalogs(syncId)) {
+        Ok(:final value) => value,
+        Err(:final error) => throw error,
+      };
 
       await db.transaction(() async {
         // ====================================================================

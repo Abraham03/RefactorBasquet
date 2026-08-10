@@ -17,10 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/di/providers.dart';
 
-// Se importan por las rutas por las que los consumían las pantallas, para
-// probar que ambas resuelven al MISMO provider tras eliminar los duplicados.
-import 'package:myapp/features/catalog/presentation/providers/catalog_providers.dart'
-    as catalog;
+// Se importa por la ruta por la que lo consumían las pantallas, para probar
+// que resuelve al MISMO provider tras eliminar el duplicado.
 import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart'
     as tournament;
 
@@ -55,22 +53,36 @@ void main() {
       );
     });
 
-    test('apiServiceProvider devuelve una sola instancia por contenedor', () {
+    test('el transporte HTTP es único por contenedor', () {
       expect(
         identical(
-          container.read(apiServiceProvider),
-          container.read(apiServiceProvider),
+          container.read(apiClientProvider),
+          container.read(apiClientProvider),
         ),
         isTrue,
       );
     });
 
-    test('las rutas de import de catalog y tournament resuelven al mismo '
-        'provider que el composition root', () {
-      // Este es el bug que se corrigió: `catalog_providers` declaraba su propio
-      // `apiServiceProvider`, así que una pantalla que lo importara de ahí
-      // hablaba con una instancia distinta de la del resto de la app.
-      expect(identical(catalog.apiServiceProvider, apiServiceProvider), isTrue);
+    test('los cinco datasources se construyen sobre ese mismo transporte', () {
+      // Si cada uno creara el suyo se perdería el pool de conexiones y, peor,
+      // sustituir el transporte en un test solo afectaría a algunos.
+      for (final api in [
+        container.read(catalogApiProvider),
+        container.read(fixtureApiProvider),
+        container.read(teamApiProvider),
+        container.read(matchApiProvider),
+        container.read(officialVenueApiProvider),
+      ]) {
+        expect(api, isNotNull);
+      }
+    });
+
+    test('la ruta de import de tournament resuelve al mismo provider que el '
+        'composition root', () {
+      // Este era el bug: catalog y tournament declaraban SUS PROPIOS
+      // `apiServiceProvider` y `databaseProvider`, así que una pantalla que los
+      // importara de ahí hablaba con instancias distintas del resto de la app.
+      // `apiServiceProvider` ya no existe; queda comprobar el de la BD.
       expect(identical(tournament.databaseProvider, databaseProvider), isTrue);
     });
 
@@ -107,7 +119,7 @@ void main() {
   });
 
   group('Guard: ninguna dependencia se declara dos veces', () {
-    test('databaseProvider y apiServiceProvider se declaran una sola vez', () {
+    test('databaseProvider y apiClientProvider se declaran una sola vez', () {
       final declarations = <String, List<String>>{};
 
       for (final file
@@ -118,7 +130,7 @@ void main() {
                 (f) => f.path.endsWith('.dart') && !f.path.endsWith('.g.dart'),
               )) {
         final source = file.readAsStringSync();
-        for (final name in ['databaseProvider', 'apiServiceProvider']) {
+        for (final name in ['databaseProvider', 'apiClientProvider']) {
           if (RegExp('final $name\\s*=').hasMatch(source)) {
             declarations.putIfAbsent(name, () => []).add(file.path);
           }

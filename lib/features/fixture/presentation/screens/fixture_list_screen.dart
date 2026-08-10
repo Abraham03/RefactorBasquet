@@ -23,6 +23,18 @@ import 'package:myapp/features/match/presentation/screens/change_outcome_screen.
 import 'package:myapp/features/match/domain/services/outcome_changer.dart'; // OutcomePdfParams
 import 'package:myapp/core/network/connectivity_helper.dart';
 import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
+import 'package:myapp/core/errors/app_exception.dart';
+import 'package:myapp/core/network/result.dart';
+
+/// Desenvuelve un [Result] o relanza su error tipado.
+///
+/// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
+/// ese flujo y sustituye el viejo `Exception('texto')` por una `AppException`
+/// con su causa.
+T _unwrapOrThrow<T>(Result<T> result) => switch (result) {
+  Ok(:final value) => value,
+  Err(:final error) => throw error,
+};
 
 class FixtureListScreen extends ConsumerStatefulWidget {
   final String tournamentId;
@@ -209,10 +221,11 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     ));
 
     try {
-      final api = ref.read(apiServiceProvider);
+      final catalogApi = ref.read(catalogApiProvider);
+      final api = ref.read(fixtureApiProvider);
 
       // 1. Guardar reglas
-      final rulesSaved = await api.saveTournamentRules(
+      final rulesSaved = (await catalogApi.saveTournamentRules(
         tournamentId: widget.tournamentId,
         vueltas: rules['vueltas'],
         ptsVictoria: rules['win'],
@@ -220,27 +233,28 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         ptsEmpate: rules['draw'],
         ptsForfeitWin: rules['forfeitWin'],
         ptsForfeitLoss: rules['forfeitLoss'],
-      );
+      )).isOk;
       if (!rulesSaved) throw Exception("Error guardando las reglas del torneo");
 
       // 2. Si había calendario, purgamos en el servidor ANTES de regenerar.
       //    Esto evita el bloqueo "ya existen partidos" al dejar la tabla limpia.
       if (existing.isNotEmpty) {
         final purge = await api.deleteFixture(tournamentId: widget.tournamentId);
-        if (!purge.success) {
-          throw Exception(purge.message ?? "No se pudo purgar el calendario anterior");
+        if (purge case Err(:final error)) {
+          throw Exception(error.message);
         }
       }
 
       // 3. Generar
       final result = await api.generateFixture(tournamentId: widget.tournamentId);
-      if (!result.success) {
-        // Mensaje REAL del servidor (regla de negocio, etc.)
-        throw Exception(result.message ?? "El servidor rechazó la generación");
+      if (result case Err(:final error)) {
+        // Mensaje REAL del servidor (regla de negocio, etc.): ahora llega en
+        // ApiBusinessException.message sin pasar por un ApiResult a medida.
+        throw Exception(error.message);
       }
 
       // 4. Descargar y persistir localmente el nuevo calendario
-      final newFixtureData = await api.fetchFixture(widget.tournamentId);
+      final newFixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
       if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
         await (db.delete(db.fixtures)..where((f) => f.tournamentId.equals(widget.tournamentId))).go();
 
@@ -275,10 +289,15 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
       if (!mounted) return;
       Navigator.pop(context);
       context.showSuccess("Calendario generado con éxito");
+    } on AppException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      // El mensaje ya viene listo para el usuario. Antes habia que limpiar a
+      // mano el prefijo "Exception: " que Dart anade al envolver strings.
+      context.showError(e.message);
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      // Mostramos el mensaje real (viene del Exception que armamos con result.message)
       context.showError(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -393,8 +412,8 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                 // Sin acta local: traer del backend (online-only).
                 final remoteId = match.matchId ?? match.id;
                 try {
-                  final api = ref.read(apiServiceProvider);
-                  final details = await api.getMatchDetails(remoteId);
+                  final api = ref.read(matchApiProvider);
+                  final details = _unwrapOrThrow(await api.getMatchDetails(remoteId));
                   actaMatchId = details['id']?.toString() ?? remoteId;
                   actaTeamAName = details['team_a_name']?.toString() ?? match.teamAName;
                   actaTeamBName = details['team_b_name']?.toString() ?? match.teamBName;
@@ -456,8 +475,8 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                   ),
                 );
                 try {
-                  final apiR = ref.read(apiServiceProvider);
-                  final cloudRosters = await apiR.getMatchRosters(actaMatchId);
+                  final apiR = ref.read(matchApiProvider);
+                  final cloudRosters = _unwrapOrThrow(await apiR.getMatchRosters(actaMatchId));
                   for (final r in cloudRosters) {
                     await db.into(db.matchRosters).insertOnConflictUpdate(
                       MatchRostersCompanion.insert(
@@ -532,8 +551,8 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
 
                 // 2. Traer eventos de la nube e insertarlos en gameEvents (restore los reproducirá).
                 try {
-                  final apiEvents = ref.read(apiServiceProvider);
-                  final cloudEvents = await apiEvents.getMatchEvents(actaMatchId);
+                  final apiEvents = ref.read(matchApiProvider);
+                  final cloudEvents = _unwrapOrThrow(await apiEvents.getMatchEvents(actaMatchId));
                   final base = DateTime.now();
 
                   for (var i = 0; i < cloudEvents.length; i++) {

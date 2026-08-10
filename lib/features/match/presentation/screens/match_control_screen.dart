@@ -834,7 +834,7 @@ Widget _buildMiniFoulDots(int count) {
 
                       try {
                         // Leemos la API desde el Provider de Riverpod
-                        final api = ref.read(apiServiceProvider);
+                        final api = ref.read(teamApiProvider);
                         
                         // Llamamos al cerebro (Controller)
                         await controller.addNewPlayerToMatch(

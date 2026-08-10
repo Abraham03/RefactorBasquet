@@ -6,11 +6,13 @@ import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as models;
-import 'package:myapp/core/network/api_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:flutter/foundation.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
+import 'package:myapp/core/network/result.dart';
 class ScoreEvent {
   final int period;
   final String teamId;
@@ -698,7 +700,7 @@ void _applyRestoreSub({
   }
 
   Future<bool> finalizeAndSync(
-    ApiService api,
+    MatchApi api,
     Uint8List? signatureBytes,
     Uint8List? pdfBytes,
     String teamAName,
@@ -892,10 +894,10 @@ void _applyRestoreSub({
     };
 
     try {
-      final success = await api.syncMatchDataMultipart(
+      final success = (await api.syncMatchDataMultipart(
         matchData: payload,
         pdfBytes: pdfBytes,
-      );
+      )).isOk;
       if (success) {
         await _dao.markAsSynced(state.matchId);
         //if (localPdfPath != null) File(localPdfPath).delete();
@@ -991,7 +993,7 @@ void _applyRestoreSub({
   /// recalcula el marcador real desde score_logs en el backend (online-only).
   Future<MatchState> changeOutcome(
     String tipo,
-    ApiService api, {
+    MatchApi api, {
     Uint8List? signature,
     String? observaciones,
   }) async {
@@ -1009,7 +1011,13 @@ void _applyRestoreSub({
       } else {
         // forfeit→normal sin eventos locales (la descarga los borró):
         // el marcador real vive en score_logs del backend. Online-only.
-        final real = await api.getRealScores(state.matchId);
+        // Online-only: sin eventos locales el marcador real solo existe en
+        // score_logs del backend. Se relanza la AppException tipada para que
+        // la pantalla la capture y muestre su mensaje.
+        final real = switch (await api.getRealScores(state.matchId)) {
+          Ok(:final value) => value,
+          Err(:final error) => throw error,
+        };
         a = real.scoreA;
         b = real.scoreB;
       }
@@ -1735,7 +1743,7 @@ void undoLastSubstitution() {
     required String teamSide,
     required String name,
     required int number,
-    required ApiService api,
+    required TeamApi api,
   }) async {
     final teamId = teamSide == 'A' ? state.teamAId : state.teamBId;
     if (teamId == null) {
@@ -1760,7 +1768,10 @@ void undoLastSubstitution() {
     // 3. ESTRATEGIA DE ID NEGATIVO
     try {
       // Intentamos subirlo a la nube
-      newPlayerId = await api.addPlayer(teamId, name, number);
+      newPlayerId = switch (await api.addPlayer(teamId, name, number)) {
+        Ok(:final value) => value,
+        Err(:final error) => throw error,
+      };
       isOnlineSync = true;
     } catch (e) {
       // Si falla (no hay internet), creamos un ID negativo único local basado en el tiempo
@@ -1817,7 +1828,14 @@ void undoLastSubstitution() {
 
   /// Busca jugadores creados offline (ID negativo) y los sube a la nube.
   /// Luego intercambia el ID viejo por el nuevo en SQLite y en la RAM.
-  Future<void> reconcileOfflinePlayers(ApiService api) async {
+  /// Desenvuelve el id de un jugador recien subido o relanza el error.
+  /// El llamador ya envuelve la reconciliacion en un `try/catch`.
+  static int _unwrapPlayerId(Result<int> result) => switch (result) {
+    Ok(:final value) => value,
+    Err(:final error) => throw error,
+  };
+
+  Future<void> reconcileOfflinePlayers(TeamApi api) async {
     // Extraemos solo los jugadores que tienen un ID negativo
     final offlinePlayers = state.playerStats.values.where((p) => p.dbId < 0).toList();
     
@@ -1838,7 +1856,7 @@ void undoLastSubstitution() {
 
       try {
         // 1. Subir a la nube
-        final realId = await api.addPlayer(teamIdInt, offlinePlayer.playerName, int.parse(offlinePlayer.playerNumber));
+        final realId = _unwrapPlayerId(await api.addPlayer(teamIdInt, offlinePlayer.playerName, int.parse(offlinePlayer.playerNumber)));
         final realIdStr = realId.toString();
 
         // 2. Reconciliar SQLite (Capa de Datos)

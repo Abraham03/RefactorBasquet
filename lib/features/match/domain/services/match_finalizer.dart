@@ -2,7 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
@@ -17,11 +18,18 @@ import 'package:myapp/features/match/presentation/controllers/match_game_control
 /// testeable y evita duplicar la orquestación en cada punto de finalización.
 class MatchFinalizer {
   final AppDatabase _db;
-  final ApiService _api;
+  final MatchApi _matchApi;
+  final TeamApi _teamApi;
   final OfficialRepository _officialRepo;
   final MatchGameController _controller;
 
-  MatchFinalizer(this._db, this._api, this._officialRepo, this._controller);
+  MatchFinalizer(
+    this._db,
+    this._matchApi,
+    this._teamApi,
+    this._officialRepo,
+    this._controller,
+  );
 
   Future<FinalizeResult> finalize({
     required MatchState state,
@@ -31,15 +39,16 @@ class MatchFinalizer {
     // 1. Reconciliar jugadores offline (si no hay red, se ignora y se
     //    sincronizará después; el jugador queda con ID negativo local).
     try {
-      await _controller.reconcileOfflinePlayers(_api);
+      await _controller.reconcileOfflinePlayers(_teamApi);
     } catch (e) {
       debugPrint("Modo Offline Activo: Se sincronizará después.");
     }
 
     // 2. Logo del árbitro (vive en el torneo).
-    final tournamentObj = await (_db.select(_db.tournaments)
-          ..where((t) => t.id.equals(params.tournamentId.toString())))
-        .getSingleOrNull();
+    final tournamentObj =
+        await (_db.select(_db.tournaments)
+              ..where((t) => t.id.equals(params.tournamentId.toString())))
+            .getSingleOrNull();
     final String refereeLogoUrl = tournamentObj?.refereeLogoUrl ?? "";
 
     // 3. Firmas de árbitros (recuperadas y decodificadas por el repositorio).
@@ -73,7 +82,7 @@ class MatchFinalizer {
 
     // 5. Finalizar y sincronizar a la nube.
     final bool synced = await _controller.finalizeAndSync(
-      _api,
+      _matchApi,
       protestSignature,
       pdfBytes,
       params.teamAName,
@@ -81,16 +90,20 @@ class MatchFinalizer {
     );
 
     // 6. Marcar partido y fixture como FINISHED localmente.
-    await (_db.update(_db.matches)..where((tbl) => tbl.id.equals(state.matchId)))
+    await (_db.update(_db.matches)
+          ..where((tbl) => tbl.id.equals(state.matchId)))
         .write(const MatchesCompanion(status: Value('FINISHED')));
 
     if (state.fixtureId != null) {
-      await (_db.update(_db.fixtures)..where((tbl) => tbl.id.equals(state.fixtureId!)))
-          .write(FixturesCompanion(
-        status: const Value('FINISHED'),
-        scoreA: Value(state.scoreA),
-        scoreB: Value(state.scoreB),
-      ));
+      await (_db.update(
+        _db.fixtures,
+      )..where((tbl) => tbl.id.equals(state.fixtureId!))).write(
+        FixturesCompanion(
+          status: const Value('FINISHED'),
+          scoreA: Value(state.scoreA),
+          scoreB: Value(state.scoreB),
+        ),
+      );
     }
 
     return FinalizeResult(synced: synced, pdfBytes: pdfBytes);

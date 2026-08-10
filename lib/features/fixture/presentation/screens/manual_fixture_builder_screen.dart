@@ -168,12 +168,12 @@ class _ManualFixtureBuilderScreenState
 
   Future<void> _fetchTeamsStatus() async {
     try {
-      final api = ref.read(apiServiceProvider);
+      final api = ref.read(fixtureApiProvider);
       
-      final statusData = await api.fetchTeamsSchedulingStatus(
-          widget.tournamentId, _selectedRoundId);
+      final statusData = (await api.fetchTeamsSchedulingStatus(
+          widget.tournamentId, _selectedRoundId)).valueOrNull ?? [];
 
-      final fixtureData = await api.fetchFixture(widget.tournamentId);
+      final fixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
       
       // Recolectamos pares (idLocal, idVisitante); el conteo y la validación
       // viven en HeadToHeadCounter.fromPairs → una sola fuente de verdad (DRY).
@@ -338,8 +338,8 @@ Future<void> _loadCreatedMatchesLocally() async {
     if (rules != null && mounted) {
       setState(() => _isLoading = true);
       try {
-        final api = ref.read(apiServiceProvider);
-        final success = await api.saveTournamentRules(
+        final api = ref.read(catalogApiProvider);
+        final success = (await api.saveTournamentRules(
           tournamentId: widget.tournamentId,
           vueltas: rules['vueltas'] ?? 1,
           ptsVictoria: rules['win'],
@@ -347,7 +347,7 @@ Future<void> _loadCreatedMatchesLocally() async {
           ptsEmpate: rules['draw'],
           ptsForfeitWin: rules['forfeitWin'],
           ptsForfeitLoss: rules['forfeitLoss'],
-        );
+        )).isOk;
 
         if (mounted) {
           setState(() => _isLoading = false);
@@ -743,7 +743,7 @@ Future<void> _loadCreatedMatchesLocally() async {
     setState(() => _isLoading = true);
     try {
       final db = ref.read(databaseProvider);
-      final api = ref.read(apiServiceProvider);
+      final api = ref.read(fixtureApiProvider);
 
       final teamAData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == teamA);
       final teamBData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == teamB);
@@ -767,15 +767,15 @@ Future<void> _loadCreatedMatchesLocally() async {
       );
 
       try {
-        final newFixtureId = await api.addManualFixture(
+        final newFixtureId = (await api.addManualFixture(
           tournamentId: widget.tournamentId,
           roundOrder: _selectedRoundId,
           teamAId: teamA,
           teamBId: teamB,
-        );
+        )).valueOrNull;
 
         if (newFixtureId != null) {
-          final newFixtureData = await api.fetchFixture(widget.tournamentId);
+          final newFixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
 
           if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
             await (db.delete(db.fixtures)
@@ -830,7 +830,7 @@ Future<void> _loadCreatedMatchesLocally() async {
     setState(() => _isLoading = true);
     try {
       final db = ref.read(databaseProvider);
-      final api = ref.read(apiServiceProvider);
+      final api = ref.read(fixtureApiProvider);
 
       final teamAData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == newTeamA);
       final teamBData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == newTeamB);
@@ -854,11 +854,11 @@ Future<void> _loadCreatedMatchesLocally() async {
       
       if (numericId != null) {
         try {
-          final success = await api.updateFixtureTeams(
+          final success = (await api.updateFixtureTeams(
             fixtureId: numericId,
             newTeamAId: newTeamA,
             newTeamBId: newTeamB,
-          );
+          )).isOk;
 
           if (success) {
             // Si se subió con éxito, lo marcamos como sincronizado
@@ -925,14 +925,14 @@ Future<void> _loadCreatedMatchesLocally() async {
     setState(() => _isLoading = true);
     try {
       final db = ref.read(databaseProvider);
-      final api = ref.read(apiServiceProvider);
+      final api = ref.read(fixtureApiProvider);
 
       int? numericId = int.tryParse(fixtureId);
       
       if (numericId != null) {
         // El partido ya existía en la nube. Intentamos borrarlo.
         try {
-          final success = await api.deleteSingleFixture(numericId);
+          final success = (await api.deleteSingleFixture(numericId)).isOk;
           if (success) {
             // Se borró en la nube, lo borramos localmente por completo
             await (db.delete(db.fixtures)..where((f) => f.id.equals(fixtureId))).go();

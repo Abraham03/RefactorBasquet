@@ -15,6 +15,7 @@ import 'package:myapp/features/match/presentation/screens/match_control_screen.d
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/features/match/presentation/providers/starters_providers.dart';
+import 'package:myapp/core/network/result.dart';
 
 class StartersSelectionScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -108,7 +109,7 @@ class _StartersSelectionScreenState
  // FALLO 1: Diferenciar entre Editar (Swap) y Crear + Anti-Deadlock
   Future<void> _refreshRosters() async {
     final dbBase = ref.read(databaseProvider);
-    final api = ref.read(apiServiceProvider);
+    final api = ref.read(teamApiProvider);
 
     try {
       final pending = await (dbBase.select(dbBase.players)..where((p) => p.isSynced.equals(false))).get();
@@ -117,7 +118,7 @@ class _StartersSelectionScreenState
       for (var p in pending) {
         final isExistingPlayer = (int.tryParse(p.id) ?? 0) > 0;
         if (isExistingPlayer) {
-           try { await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber + 1000); } catch (_) {}
+           await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber + 1000);
         }
       }
 
@@ -127,7 +128,7 @@ class _StartersSelectionScreenState
 
         if (isExistingPlayer) {
           // Edición o Swap de un jugador existente
-          final success = await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber);
+          final success = (await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber)).isOk;
           if (success) {
             await (dbBase.update(dbBase.players)..where((tbl) => tbl.id.equals(p.id))).write(
               const db.PlayersCompanion(isSynced: drift.Value(true))
@@ -135,7 +136,10 @@ class _StartersSelectionScreenState
           }
         } else {
           // Jugador totalmente nuevo creado offline
-          final realId = await api.addPlayer(p.teamId, p.name, p.defaultNumber);
+          final realId = switch (await api.addPlayer(p.teamId, p.name, p.defaultNumber)) {
+            Ok(:final value) => value,
+            Err(:final error) => throw error,
+          };
           await dbBase.transaction(() async {
              await (dbBase.update(dbBase.players)..where((tbl) => tbl.id.equals(p.id))).write(
                db.PlayersCompanion(id: drift.Value(realId.toString()), isSynced: const drift.Value(true))

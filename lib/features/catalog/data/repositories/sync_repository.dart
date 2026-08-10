@@ -3,13 +3,18 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
-import 'package:myapp/core/network/api_service.dart';
+import 'package:myapp/core/network/result.dart';
+import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
+import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
+import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///
 /// Responsabilidad única: decidir QUÉ se sube y en QUÉ orden (las
-/// dependencias de IDs importan), delegando la ejecución a ApiService y
+/// dependencias de IDs importan), delegando la ejecución a los datasources y
 /// a la base de datos. No conoce la UI: devuelve un [SyncResult].
 ///
 /// El orden de subida respeta las dependencias de llaves foráneas:
@@ -17,17 +22,46 @@ import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
 /// fixtures → partidos → oficiales.
 class SyncRepository {
   final AppDatabase _db;
-  final ApiService _api;
   final MatchesDao _matchesDao;
+  final CatalogApi _catalogApi;
+  final OfficialVenueApi _officialVenueApi;
+  final TeamApi _teamApi;
+  final FixtureApi _fixtureApi;
+  final MatchApi _matchApi;
 
-  SyncRepository(this._db, this._api, this._matchesDao);
+  SyncRepository(
+    this._db,
+    this._matchesDao, {
+    required CatalogApi catalogApi,
+    required OfficialVenueApi officialVenueApi,
+    required TeamApi teamApi,
+    required FixtureApi fixtureApi,
+    required MatchApi matchApi,
+  }) : _catalogApi = catalogApi,
+       _officialVenueApi = officialVenueApi,
+       _teamApi = teamApi,
+       _fixtureApi = fixtureApi,
+       _matchApi = matchApi;
 
+  /// Desenvuelve o relanza.
+  ///
+  /// Cada bloque de subida ya vive dentro de un `try/catch` que registra y
+  /// sigue con el siguiente elemento, asi que relanzar preserva el
+  /// comportamiento. La diferencia es que ahora lo que viaja es una
+  /// `AppException` tipada, no un string opaco.
+  static T _unwrap<T>(Result<T> result) => switch (result) {
+    Ok(:final value) => value,
+    Err(:final error) => throw error,
+  };
 
   /// Punto de entrada único. Sube todo lo pendiente y devuelve el resumen.
   Future<SyncResult> uploadPendingData() async {
     // Reconcilia jugadores offline (IDs negativos) ANTES que nada, para
     // que ningún partido viaje con un playerId temporal.
-    await _matchesDao.syncOfflinePlayersBeforeMatches(_api);
+    await _matchesDao.syncOfflinePlayersBeforeMatches(
+      (teamId, name, number) async =>
+          (await _teamApi.addPlayer(teamId, name, number)).valueOrNull,
+    );
 
     var result = const SyncResult();
 
@@ -65,18 +99,24 @@ class SyncRepository {
   Future<int> _uploadTournaments() async {
     int uploaded = 0;
 
-    final pending = await (_db.select(_db.tournaments)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.tournaments,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final tourn in pending) {
       try {
-        final realIdString =
-            await _api.createTournament(tourn.name, tourn.category ?? 'Libre');
+        final realIdString = _unwrap(
+          await _catalogApi.createTournament(
+            tourn.name,
+            tourn.category ?? 'Libre',
+          ),
+        );
         final String oldUuid = tourn.id;
 
         await _db.transaction(() async {
-          await _db.into(_db.tournaments).insert(
+          await _db
+              .into(_db.tournaments)
+              .insert(
                 TournamentsCompanion.insert(
                   id: Value(realIdString),
                   name: tourn.name,
@@ -85,18 +125,20 @@ class SyncRepository {
                   isSynced: const Value(true),
                 ),
               );
-          await (_db.update(_db.tournamentTeams)
-                ..where((t) => t.tournamentId.equals(oldUuid)))
-              .write(TournamentTeamsCompanion(tournamentId: Value(realIdString)));
+          await (_db.update(
+            _db.tournamentTeams,
+          )..where((t) => t.tournamentId.equals(oldUuid))).write(
+            TournamentTeamsCompanion(tournamentId: Value(realIdString)),
+          );
           await (_db.update(_db.fixtures)
                 ..where((f) => f.tournamentId.equals(oldUuid)))
               .write(FixturesCompanion(tournamentId: Value(realIdString)));
           await (_db.update(_db.matches)
                 ..where((m) => m.tournamentId.equals(oldUuid)))
               .write(MatchesCompanion(tournamentId: Value(realIdString)));
-          await (_db.delete(_db.tournaments)
-                ..where((t) => t.id.equals(oldUuid)))
-              .go();
+          await (_db.delete(
+            _db.tournaments,
+          )..where((t) => t.id.equals(oldUuid))).go();
         });
 
         uploaded++;
@@ -115,9 +157,9 @@ class SyncRepository {
   Future<int> _uploadVenues() async {
     int uploaded = 0;
 
-    final pending = await (_db.select(_db.venues)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.venues,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final venue in pending) {
       try {
@@ -127,20 +169,29 @@ class SyncRepository {
         // 1. Borrado lógico
         if (venue.name.startsWith('[DEL]-')) {
           if (isExisting) {
-            final success = await _api.deleteVenue(numericId);
+            final success = (await _officialVenueApi.deleteVenue(
+              numericId,
+            )).isOk;
             if (success) {
-              await (_db.delete(_db.venues)..where((v) => v.id.equals(venue.id))).go();
+              await (_db.delete(
+                _db.venues,
+              )..where((v) => v.id.equals(venue.id))).go();
             }
           } else {
-            await (_db.delete(_db.venues)..where((v) => v.id.equals(venue.id))).go();
+            await (_db.delete(
+              _db.venues,
+            )..where((v) => v.id.equals(venue.id))).go();
           }
           continue;
         }
 
         // 2. Actualización de sede existente
         if (isExisting) {
-          final success = await _api.updateVenue(
-              id: venue.id, name: venue.name, address: venue.address ?? '');
+          final success = (await _officialVenueApi.updateVenue(
+            id: venue.id,
+            name: venue.name,
+            address: venue.address ?? '',
+          )).isOk;
           if (success) {
             await (_db.update(_db.venues)..where((v) => v.id.equals(venue.id)))
                 .write(const VenuesCompanion(isSynced: Value(true)));
@@ -149,11 +200,18 @@ class SyncRepository {
         }
         // 3. Sede nueva
         else {
-          final realIdInt = await _api.createVenue(venue.name, venue.address ?? '');
+          final realIdInt = _unwrap(
+            await _officialVenueApi.createVenue(
+              venue.name,
+              venue.address ?? '',
+            ),
+          );
           final String oldId = venue.id;
 
           await _db.transaction(() async {
-            await _db.into(_db.venues).insert(
+            await _db
+                .into(_db.venues)
+                .insert(
                   VenuesCompanion.insert(
                     id: Value(realIdInt.toString()),
                     name: venue.name,
@@ -162,11 +220,15 @@ class SyncRepository {
                   ),
                   mode: InsertMode.insertOrReplace,
                 );
-            await (_db.update(_db.fixtures)..where((f) => f.venueId.equals(oldId)))
+            await (_db.update(_db.fixtures)
+                  ..where((f) => f.venueId.equals(oldId)))
                 .write(FixturesCompanion(venueId: Value(realIdInt.toString())));
-            await (_db.update(_db.matches)..where((m) => m.venueId.equals(oldId)))
+            await (_db.update(_db.matches)
+                  ..where((m) => m.venueId.equals(oldId)))
                 .write(MatchesCompanion(venueId: Value(realIdInt.toString())));
-            await (_db.delete(_db.venues)..where((v) => v.id.equals(oldId))).go();
+            await (_db.delete(
+              _db.venues,
+            )..where((v) => v.id.equals(oldId))).go();
           });
           uploaded++;
         }
@@ -185,9 +247,9 @@ class SyncRepository {
   Future<int> _uploadTeams() async {
     int uploaded = 0;
 
-    final pending = await (_db.select(_db.teams)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.teams,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final team in pending) {
       try {
@@ -195,12 +257,12 @@ class SyncRepository {
 
         // 1. Actualización offline
         if (isExistingTeam) {
-          final success = await _api.updateTeam(
+          final success = (await _teamApi.updateTeam(
             id: team.id,
             name: team.name,
             shortName: team.shortName ?? '',
             coachName: team.coachName ?? '',
-          );
+          )).isOk;
           if (success) {
             await (_db.update(_db.teams)..where((t) => t.id.equals(team.id)))
                 .write(const TeamsCompanion(isSynced: Value(true)));
@@ -209,18 +271,24 @@ class SyncRepository {
         }
         // 2. Equipo nuevo creado offline
         else {
-          final relation = await (_db.select(_db.tournamentTeams)
-                ..where((t) => t.teamId.equals(team.id)))
-              .getSingleOrNull();
-          final realIdInt = await _api.createTeam(
-            team.name, team.shortName ?? '', team.coachName ?? '',
-            tournamentId: relation?.tournamentId,
+          final relation = await (_db.select(
+            _db.tournamentTeams,
+          )..where((t) => t.teamId.equals(team.id))).getSingleOrNull();
+          final realIdInt = _unwrap(
+            await _teamApi.createTeam(
+              team.name,
+              team.shortName ?? '',
+              team.coachName ?? '',
+              tournamentId: relation?.tournamentId,
+            ),
           );
           final String oldTeamId = team.id;
           final String newTeamIdString = realIdInt.toString();
 
           await _db.transaction(() async {
-            await _db.into(_db.teams).insert(
+            await _db
+                .into(_db.teams)
+                .insert(
                   TeamsCompanion.insert(
                     id: Value(newTeamIdString),
                     name: team.name,
@@ -229,18 +297,25 @@ class SyncRepository {
                     isSynced: const Value(true),
                   ),
                 );
-            await (_db.update(_db.tournamentTeams)
-                  ..where((t) => t.teamId.equals(oldTeamId)))
-                .write(TournamentTeamsCompanion(teamId: Value(newTeamIdString)));
-            await (_db.update(_db.fixtures)..where((f) => f.teamAId.equals(oldTeamId)))
+            await (_db.update(
+              _db.tournamentTeams,
+            )..where((t) => t.teamId.equals(oldTeamId))).write(
+              TournamentTeamsCompanion(teamId: Value(newTeamIdString)),
+            );
+            await (_db.update(_db.fixtures)
+                  ..where((f) => f.teamAId.equals(oldTeamId)))
                 .write(FixturesCompanion(teamAId: Value(newTeamIdString)));
-            await (_db.update(_db.fixtures)..where((f) => f.teamBId.equals(oldTeamId)))
+            await (_db.update(_db.fixtures)
+                  ..where((f) => f.teamBId.equals(oldTeamId)))
                 .write(FixturesCompanion(teamBId: Value(newTeamIdString)));
 
             final tempTeamIdInt = int.tryParse(oldTeamId) ?? 0;
-            await (_db.update(_db.players)..where((p) => p.teamId.equals(tempTeamIdInt)))
+            await (_db.update(_db.players)
+                  ..where((p) => p.teamId.equals(tempTeamIdInt)))
                 .write(PlayersCompanion(teamId: Value(realIdInt)));
-            await (_db.delete(_db.teams)..where((t) => t.id.equals(oldTeamId))).go();
+            await (_db.delete(
+              _db.teams,
+            )..where((t) => t.id.equals(oldTeamId))).go();
           });
           uploaded++;
         }
@@ -259,17 +334,21 @@ class SyncRepository {
   Future<int> _uploadPlayers() async {
     int uploaded = 0;
 
-    final pending = await (_db.select(_db.players)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.players,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     // Truco anti-deadlock: despeja dorsales a +1000 en la nube primero.
     for (final player in pending) {
       final isExistingPlayer = (int.tryParse(player.id) ?? 0) > 0;
       if (isExistingPlayer) {
         try {
-          await _api.updatePlayer(
-              player.id, player.teamId, player.name, player.defaultNumber + 1000);
+          await _teamApi.updatePlayer(
+            player.id,
+            player.teamId,
+            player.name,
+            player.defaultNumber + 1000,
+          );
         } catch (_) {}
       }
     }
@@ -279,20 +358,33 @@ class SyncRepository {
         final isExistingPlayer = (int.tryParse(player.id) ?? 0) > 0;
 
         if (isExistingPlayer) {
-          final success = await _api.updatePlayer(
-              player.id, player.teamId, player.name, player.defaultNumber);
+          final success = (await _teamApi.updatePlayer(
+            player.id,
+            player.teamId,
+            player.name,
+            player.defaultNumber,
+          )).isOk;
           if (success) {
-            await (_db.update(_db.players)..where((p) => p.id.equals(player.id)))
+            await (_db.update(_db.players)
+                  ..where((p) => p.id.equals(player.id)))
                 .write(const PlayersCompanion(isSynced: Value(true)));
             uploaded++;
           }
         } else {
-           // Creamos el jugador en la nube y delegamos TODA la reconciliación
+          // Creamos el jugador en la nube y delegamos TODA la reconciliación
           // (insertar ID real, revincular rosters/eventos/SUB, borrar temporal)
           // al DAO, que lo hace de forma atómica en un solo lugar.
-          final realPlayerId =
-              await _api.addPlayer(player.teamId, player.name, player.defaultNumber);
-          await _matchesDao.replaceTempPlayerId(player.id, realPlayerId.toString());
+          final realPlayerId = _unwrap(
+            await _teamApi.addPlayer(
+              player.teamId,
+              player.name,
+              player.defaultNumber,
+            ),
+          );
+          await _matchesDao.replaceTempPlayerId(
+            player.id,
+            realPlayerId.toString(),
+          );
           uploaded++;
         }
       } catch (e) {
@@ -312,9 +404,9 @@ class SyncRepository {
   Future<Map<String, String>> _uploadFixtures() async {
     final Map<String, String> fixtureMap = {};
 
-    final pending = await (_db.select(_db.fixtures)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.fixtures,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final fixture in pending) {
       try {
@@ -322,12 +414,18 @@ class SyncRepository {
 
         if (fixture.status == 'DELETED') {
           if (numericId != null) {
-            final success = await _api.deleteSingleFixture(numericId);
+            final success = (await _fixtureApi.deleteSingleFixture(
+              numericId,
+            )).isOk;
             if (success) {
-              await (_db.delete(_db.fixtures)..where((f) => f.id.equals(fixture.id))).go();
+              await (_db.delete(
+                _db.fixtures,
+              )..where((f) => f.id.equals(fixture.id))).go();
             }
           } else {
-            await (_db.delete(_db.fixtures)..where((f) => f.id.equals(fixture.id))).go();
+            await (_db.delete(
+              _db.fixtures,
+            )..where((f) => f.id.equals(fixture.id))).go();
           }
           continue;
         }
@@ -341,23 +439,24 @@ class SyncRepository {
         String? newRealFixtureId;
 
         if (numericId != null) {
-          final success = await _api.updateFixtureTeams(
+          final success = (await _fixtureApi.updateFixtureTeams(
             fixtureId: numericId,
             newTeamAId: int.tryParse(fixture.teamAId) ?? 0,
             newTeamBId: int.tryParse(fixture.teamBId) ?? 0,
-          );
+          )).isOk;
           if (success) {
             newRealFixtureId = fixture.id;
-            await (_db.update(_db.fixtures)..where((f) => f.id.equals(fixture.id)))
+            await (_db.update(_db.fixtures)
+                  ..where((f) => f.id.equals(fixture.id)))
                 .write(const FixturesCompanion(isSynced: Value(true)));
           }
         } else {
-          final realIdInt = await _api.addManualFixture(
+          final realIdInt = (await _fixtureApi.addManualFixture(
             tournamentId: fixture.tournamentId,
             roundOrder: roundOrder,
             teamAId: int.tryParse(fixture.teamAId) ?? 0,
             teamBId: int.tryParse(fixture.teamBId) ?? 0,
-          );
+          )).valueOrNull;
           if (realIdInt != null) {
             newRealFixtureId = realIdInt.toString();
           }
@@ -379,13 +478,15 @@ class SyncRepository {
   // =========================================================================
 
   /// Sube partidos pendientes. Devuelve (cuántos subió, lista de omitidos).
-  Future<(int, List<String>)> _uploadMatches(Map<String, String> fixtureMap) async {
+  Future<(int, List<String>)> _uploadMatches(
+    Map<String, String> fixtureMap,
+  ) async {
     int uploaded = 0;
     final List<String> skipped = [];
 
-    final pending = await (_db.select(_db.matches)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.matches,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final match in pending) {
       bool containsUnsyncedOfflinePlayers = false;
@@ -466,18 +567,24 @@ class SyncRepository {
         }
       }
 
-      final rosterRows = await (_db.select(_db.matchRosters)
-            ..where((r) => r.matchId.equals(match.id)))
-          .get();
-          
+      final rosterRows = await (_db.select(
+        _db.matchRosters,
+      )..where((r) => r.matchId.equals(match.id))).get();
+
       final rostersList = rosterRows.map((r) {
         final pIdInt = int.tryParse(r.playerId) ?? 0;
         if (pIdInt < 0) containsUnsyncedOfflinePlayers = true;
         // Un equipo en forfeit no jugó ni asistió: forzamos played = 0.
         final bool teamForfeited =
-            (r.teamSide == 'A' && (match.forfeitStatus == 'TEAM_A' || match.forfeitStatus == 'BOTH')) ||
-            (r.teamSide == 'B' && (match.forfeitStatus == 'TEAM_B' || match.forfeitStatus == 'BOTH'));
-        final hasPlayed = !teamForfeited && eventsList.any((event) => event["player_id"] == pIdInt);
+            (r.teamSide == 'A' &&
+                (match.forfeitStatus == 'TEAM_A' ||
+                    match.forfeitStatus == 'BOTH')) ||
+            (r.teamSide == 'B' &&
+                (match.forfeitStatus == 'TEAM_B' ||
+                    match.forfeitStatus == 'BOTH'));
+        final hasPlayed =
+            !teamForfeited &&
+            eventsList.any((event) => event["player_id"] == pIdInt);
         return {
           "player_id": pIdInt,
           "team_side": r.teamSide,
@@ -485,18 +592,20 @@ class SyncRepository {
           "jersey_number": r.jerseyNumber,
           "is_captain": r.isCaptain ? 1 : 0,
           "played": hasPlayed ? 1 : 0,
-          "attended": r.attended ? 1 : 0
+          "attended": r.attended ? 1 : 0,
         };
       }).toList();
 
       if (containsUnsyncedOfflinePlayers) {
         debugPrint(
-            "ESCUDO ACTIVO: omitido ${match.teamAName} vs ${match.teamBName} (jugadores no sincronizados).");
+          "ESCUDO ACTIVO: omitido ${match.teamAName} vs ${match.teamBName} (jugadores no sincronizados).",
+        );
         skipped.add("${match.teamAName} vs ${match.teamBName}");
         continue;
       }
 
-      final String? mappedFixtureId = fixtureMap[match.fixtureId] ?? match.fixtureId;
+      final String? mappedFixtureId =
+          fixtureMap[match.fixtureId] ?? match.fixtureId;
       final matchPayload = {
         "match_id": match.id,
         "fixture_id": mappedFixtureId,
@@ -520,15 +629,15 @@ class SyncRepository {
         "match_date": match.matchDate == null
             ? null
             : "${match.matchDate!.year}-${match.matchDate!.month.toString().padLeft(2, '0')}-${match.matchDate!.day.toString().padLeft(2, '0')} "
-              "${match.matchDate!.hour.toString().padLeft(2, '0')}:${match.matchDate!.minute.toString().padLeft(2, '0')}:${match.matchDate!.second.toString().padLeft(2, '0')}",
+                  "${match.matchDate!.hour.toString().padLeft(2, '0')}:${match.matchDate!.minute.toString().padLeft(2, '0')}:${match.matchDate!.second.toString().padLeft(2, '0')}",
         "events": eventsList,
         "rosters": rostersList,
       };
 
-      final success = await _api.syncMatchDataMultipart(
+      final success = (await _matchApi.syncMatchDataMultipart(
         matchData: matchPayload,
         pdfBytes: savedPdfBytes,
-      );
+      )).isOk;
       if (success) {
         await (_db.update(_db.matches)..where((tbl) => tbl.id.equals(match.id)))
             .write(const MatchesCompanion(isSynced: Value(true)));
@@ -546,9 +655,9 @@ class SyncRepository {
   Future<int> _uploadOfficials() async {
     int uploaded = 0;
 
-    final pending = await (_db.select(_db.officials)
-          ..where((tbl) => tbl.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.officials,
+    )..where((tbl) => tbl.isSynced.equals(false))).get();
 
     for (final official in pending) {
       try {
@@ -557,27 +666,29 @@ class SyncRepository {
 
         if (official.name.startsWith('[DEL]-')) {
           if (isExisting) {
-            final success = await _api.deleteOfficial(numericId);
+            final success = (await _officialVenueApi.deleteOfficial(
+              numericId,
+            )).isOk;
             if (success) {
-              await (_db.delete(_db.officials)
-                    ..where((o) => o.id.equals(official.id.toString())))
-                  .go();
+              await (_db.delete(
+                _db.officials,
+              )..where((o) => o.id.equals(official.id.toString()))).go();
             }
           } else {
-            await (_db.delete(_db.officials)
-                  ..where((o) => o.id.equals(official.id.toString())))
-                .go();
+            await (_db.delete(
+              _db.officials,
+            )..where((o) => o.id.equals(official.id.toString()))).go();
           }
           continue;
         }
 
         if (isExisting) {
-          final success = await _api.updateOfficial(
+          final success = (await _officialVenueApi.updateOfficial(
             id: official.id.toString(),
             name: official.name,
             role: official.role,
             signature: official.signatureData,
-          );
+          )).isOk;
           if (success) {
             await (_db.update(_db.officials)
                   ..where((o) => o.id.equals(official.id.toString())))
@@ -585,15 +696,19 @@ class SyncRepository {
             uploaded++;
           }
         } else {
-          final realIdInt = await _api.createOfficial(
-            official.name,
-            official.role,
-            official.signatureData ?? '',
+          final realIdInt = _unwrap(
+            await _officialVenueApi.createOfficial(
+              official.name,
+              official.role,
+              official.signatureData ?? '',
+            ),
           );
           final String oldId = official.id.toString();
 
           await _db.transaction(() async {
-            await _db.into(_db.officials).insert(
+            await _db
+                .into(_db.officials)
+                .insert(
                   OfficialsCompanion.insert(
                     id: realIdInt.toString(),
                     name: official.name,
@@ -604,7 +719,9 @@ class SyncRepository {
                   ),
                   mode: InsertMode.insertOrReplace,
                 );
-            await (_db.delete(_db.officials)..where((o) => o.id.equals(oldId))).go();
+            await (_db.delete(
+              _db.officials,
+            )..where((o) => o.id.equals(oldId))).go();
           });
           uploaded++;
         }
@@ -619,9 +736,9 @@ class SyncRepository {
   /// Sube las correcciones de asistencia pendientes (rosters con isSynced=false)
   /// agrupadas por partido, vía el endpoint de asistencia.
   Future<int> _uploadAttendanceCorrections() async {
-    final pending = await (_db.select(_db.matchRosters)
-          ..where((r) => r.isSynced.equals(false)))
-        .get();
+    final pending = await (_db.select(
+      _db.matchRosters,
+    )..where((r) => r.isSynced.equals(false))).get();
     if (pending.isEmpty) return 0;
 
     // Agrupar por match_id.
@@ -635,19 +752,19 @@ class SyncRepository {
 
     int synced = 0;
     for (final entry in byMatch.entries) {
-      final result = await _api.updateMatchAttendance(
+      final result = await _matchApi.updateMatchAttendance(
         matchId: entry.key,
         attendance: entry.value,
       );
-      if (result.success) {
+      if (result.isOk) {
         // Marcar esos rosters como sincronizados.
-        await (_db.update(_db.matchRosters)
-              ..where((r) => r.matchId.equals(entry.key) & r.isSynced.equals(false)))
+        await (_db.update(_db.matchRosters)..where(
+              (r) => r.matchId.equals(entry.key) & r.isSynced.equals(false),
+            ))
             .write(const MatchRostersCompanion(isSynced: Value(true)));
         synced++;
       }
     }
     return synced;
   }
-
 }

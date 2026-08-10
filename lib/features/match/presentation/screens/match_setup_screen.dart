@@ -16,6 +16,18 @@ import 'package:myapp/features/match/presentation/screens/starters_selection_scr
 import 'package:myapp/core/utils/image_url_resolver.dart';
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
+import 'package:myapp/core/di/providers.dart';
+import 'package:myapp/core/network/result.dart';
+/// Desenvuelve un [Result] o relanza su error tipado.
+///
+/// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
+/// ese flujo y sustituye el viejo `Exception('texto')` por una `AppException`
+/// con su causa.
+T _unwrapOrThrow<T>(Result<T> result) => switch (result) {
+  Ok(:final value) => value,
+  Err(:final error) => throw error,
+};
+
 class MatchSetupScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   final db.Fixture? preSelectedFixture; 
@@ -756,13 +768,13 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final database = ref.read(databaseProvider);
-                final api = ref.read(apiServiceProvider);
+                final api = ref.read(officialVenueApiProvider);
                 
                 String venueId;
                 bool isSyncedStatus = false;
 
                 try {
-                  final realIdInt = await api.createVenue(nameCtrl.text, addressCtrl.text);
+                  final realIdInt = _unwrapOrThrow(await api.createVenue(nameCtrl.text, addressCtrl.text));
                   venueId = realIdInt.toString();
                   isSyncedStatus = true; 
                 } catch (e) {
@@ -854,18 +866,18 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final database = ref.read(databaseProvider);
-                final api = ref.read(apiServiceProvider);
+                final api = ref.read(officialVenueApiProvider);
                 
                 bool isSyncedStatus = false;
                 int? numericId = int.tryParse(venue.id.toString());
                 
                 if (numericId != null && numericId > 0) {
                   try {
-                    isSyncedStatus = await api.updateVenue(
+                    isSyncedStatus = (await api.updateVenue(
                       id: venue.id.toString(),
                       name: nameCtrl.text,
                       address: addressCtrl.text
-                    );
+                    )).isOk;
                   } catch (e) {
                     isSyncedStatus = false;
                   }
@@ -937,13 +949,13 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
 
   Future<void> _deleteVenue(model.Venue venue) async {
     final database = ref.read(databaseProvider);
-    final api = ref.read(apiServiceProvider);
+    final api = ref.read(officialVenueApiProvider);
     
     try {
       int? numericId = int.tryParse(venue.id.toString());
       if (numericId != null && numericId > 0) {
         try {
-          final success = await api.deleteVenue(numericId);
+          final success = (await api.deleteVenue(numericId)).isOk;
           if (success) {
             await (database.delete(database.venues)..where((v) => v.id.equals(venue.id.toString()))).go();
           } else {
@@ -1102,14 +1114,14 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   }
 
                   final database = ref.read(databaseProvider);
-                  final api = ref.read(apiServiceProvider);
+                  final api = ref.read(officialVenueApiProvider);
                   final String signatureBase64 = base64Encode(signatureBytes!);
 
                   String officialId;
                   bool isSyncedStatus = false;
 
                   try {
-                    final realIdInt = await api.createOfficial(nameCtrl.text, selectedRole, signatureBase64);
+                    final realIdInt = _unwrapOrThrow(await api.createOfficial(nameCtrl.text, selectedRole, signatureBase64));
                     officialId = realIdInt.toString();
                     isSyncedStatus = true;
                   } catch (e) {
@@ -1258,7 +1270,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final database = ref.read(databaseProvider);
-                  final api = ref.read(apiServiceProvider);
+                  final api = ref.read(officialVenueApiProvider);
                   
                   String? signatureBase64;
                   if (newSignatureBytes != null) {
@@ -1270,12 +1282,12 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   
                   if (numericId != null && numericId > 0) {
                     try {
-                      isSyncedStatus = await api.updateOfficial(
+                      isSyncedStatus = (await api.updateOfficial(
                         id: official.id.toString(),
                         name: nameCtrl.text.toUpperCase(),
                         role: selectedRole,
                         signature: signatureBase64, 
-                      );
+                      )).isOk;
                     } catch (e) {
                       isSyncedStatus = false;
                     }
@@ -1354,13 +1366,13 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
 
   Future<void> _deleteOfficial(model.Official official) async {
     final database = ref.read(databaseProvider);
-    final api = ref.read(apiServiceProvider);
+    final api = ref.read(officialVenueApiProvider);
     
     try {
       int? numericId = int.tryParse(official.id.toString());
       if (numericId != null && numericId > 0) {
         try {
-          final success = await api.deleteOfficial(numericId);
+          final success = (await api.deleteOfficial(numericId)).isOk;
           if (success) {
             await (database.delete(database.officials)..where((o) => o.id.equals(official.id.toString()))).go();
           } else {

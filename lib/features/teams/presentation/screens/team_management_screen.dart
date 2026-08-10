@@ -12,6 +12,7 @@ import 'package:myapp/core/di/providers.dart' as di;
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
+import 'package:myapp/core/network/result.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;
@@ -142,7 +143,10 @@ class TeamManagementScreen extends ConsumerWidget {
                       itemCount: data.teams.length,
                       itemBuilder: (context, index) {
                         final team = data.teams[index];
-                        return _TeamCard(team: team, tournamentId: tournamentId);
+                        return _TeamCard(
+                          team: team,
+                          tournamentId: tournamentId,
+                        );
                       },
                     );
                   }
@@ -159,7 +163,10 @@ class TeamManagementScreen extends ConsumerWidget {
                       final team = data.teams[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 14.0),
-                        child: _TeamCard(team: team, tournamentId: tournamentId),
+                        child: _TeamCard(
+                          team: team,
+                          tournamentId: tournamentId,
+                        ),
                       );
                     },
                   );
@@ -236,7 +243,7 @@ class TeamManagementScreen extends ConsumerWidget {
               if (nameCtrl.text.isEmpty) return;
               Navigator.pop(ctx);
               final db = ref.read(di.databaseProvider);
-              final api = ref.read(di.apiServiceProvider);
+              final api = ref.read(di.teamApiProvider);
 
               // REGLA DE ORO: Si el torneo es local (ej. un UUID muy largo), forzamos offline para evitar crashear MySQL
               bool isTournamentLocal =
@@ -249,12 +256,17 @@ class TeamManagementScreen extends ConsumerWidget {
                   );
                 }
 
-                final newTeamId = await api.createTeam(
+                final newTeamId = switch (await api.createTeam(
                   nameCtrl.text,
                   shortCtrl.text,
                   coachCtrl.text,
                   tournamentId: tournamentId,
-                );
+                )) {
+                  Ok(:final value) => value,
+                  // Se relanza para que el catch de abajo haga la cascada
+                  // offline, igual que antes.
+                  Err(:final error) => throw error,
+                };
                 await db.transaction(() async {
                   await db
                       .into(db.teams)
@@ -350,7 +362,8 @@ class _TeamCard extends ConsumerWidget {
   const _TeamCard({required this.team, required this.tournamentId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) { // <-- Aquí está la corrección (WidgetRef ref)
+  Widget build(BuildContext context, WidgetRef ref) {
+    // <-- Aquí está la corrección (WidgetRef ref)
     bool isLocal = false;
     try {
       final idInt = int.parse(team.id.toString());
@@ -389,8 +402,8 @@ class _TeamCard extends ConsumerWidget {
             },
             // PRESIONAR LARGO PARA EDITAR ---
             onLongPress: () {
-               // Llamamos a la función de editar
-               _showEditTeamLocalDialog(context, ref, team, tournamentId);
+              // Llamamos a la función de editar
+              _showEditTeamLocalDialog(context, ref, team, tournamentId);
             },
             splashColor: Colors.orange.withOpacity(0.3),
             highlightColor: Colors.white.withOpacity(0.05),
@@ -585,106 +598,151 @@ class _TeamCard extends ConsumerWidget {
 }
 
 // Función global (fuera de las clases) para mostrar el Modal de edición de equipos
-void _showEditTeamLocalDialog(BuildContext context, WidgetRef ref, dynamic team, String tournamentId) {
-    final nameCtrl = TextEditingController(text: team.name);
-    final shortCtrl = TextEditingController(text: team.shortName);
-    final coachCtrl = TextEditingController(text: team.coachName);
-    final formKey = GlobalKey<FormState>();
+void _showEditTeamLocalDialog(
+  BuildContext context,
+  WidgetRef ref,
+  dynamic team,
+  String tournamentId,
+) {
+  final nameCtrl = TextEditingController(text: team.name);
+  final shortCtrl = TextEditingController(text: team.shortName);
+  final coachCtrl = TextEditingController(text: team.coachName);
+  final formKey = GlobalKey<FormState>();
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2432),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.edit, color: Colors.blueAccent),
-            SizedBox(width: 10),
-            Text("Editar Equipo", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
-          ],
-        ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Nombre del Equipo", labelStyle: const TextStyle(color: Colors.white54),
-                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  prefixIcon: const Icon(Icons.groups, color: Colors.white54),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: shortCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Abreviatura", labelStyle: const TextStyle(color: Colors.white54),
-                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  prefixIcon: const Icon(Icons.short_text, color: Colors.white54),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: coachCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Entrenador", labelStyle: const TextStyle(color: Colors.white54),
-                  filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  prefixIcon: const Icon(Icons.sports, color: Colors.white54),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar", style: TextStyle(color: Colors.grey))),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text("Actualizar", style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () async {
-              if (nameCtrl.text.isEmpty) return;
-              Navigator.pop(ctx);
-              
-              final db = ref.read(di.databaseProvider);
-              final api = ref.read(apiServiceProvider); // Corrección: Usar el provider correcto
-
-              bool isSyncedStatus = false;
-              final isRealId = (int.tryParse(team.id.toString()) ?? 0) > 0;
-
-              if (isRealId) {
-                try {
-                  final success = await api.updateTeam(
-                    id: team.id.toString(), name: nameCtrl.text, shortName: shortCtrl.text, coachName: coachCtrl.text,
-                  );
-                  isSyncedStatus = success;
-                } catch (e) { isSyncedStatus = false; }
-              }
-
-              await (db.update(db.teams)..where((t) => t.id.equals(team.id.toString()))).write(
-                TeamsCompanion(
-                  name: drift.Value(nameCtrl.text),
-                  shortName: drift.Value(shortCtrl.text),
-                  coachName: drift.Value(coachCtrl.text),
-                  isSynced: drift.Value(isSyncedStatus),
-                ),
-              );
-
-              if (context.mounted) {
-                ref.invalidate(tournamentDataByIdProvider(tournamentId));
-                if (isSyncedStatus){
-                  context.showSuccess("Equipo actualizado en la nube.");
-                }else{
-                  context.showWarning("Equipo guardado offline.");
-                }
-              }
-            },
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1E2432),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.edit, color: Colors.blueAccent),
+          SizedBox(width: 10),
+          Text(
+            "Editar Equipo",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 18,
+            ),
           ),
         ],
       ),
-    );
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: "Nombre del Equipo",
+                labelStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.groups, color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: shortCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: "Abreviatura",
+                labelStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.short_text, color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: coachCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: "Entrenador",
+                labelStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.sports, color: Colors.white54),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+        ),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.blueAccent,
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text(
+            "Actualizar",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          onPressed: () async {
+            if (nameCtrl.text.isEmpty) return;
+            Navigator.pop(ctx);
+
+            final db = ref.read(di.databaseProvider);
+            final api = ref.read(di.teamApiProvider);
+
+            bool isSyncedStatus = false;
+            final isRealId = (int.tryParse(team.id.toString()) ?? 0) > 0;
+
+            if (isRealId) {
+              try {
+                isSyncedStatus = (await api.updateTeam(
+                  id: team.id.toString(),
+                  name: nameCtrl.text,
+                  shortName: shortCtrl.text,
+                  coachName: coachCtrl.text,
+                )).isOk;
+              } catch (e) {
+                isSyncedStatus = false;
+              }
+            }
+
+            await (db.update(
+              db.teams,
+            )..where((t) => t.id.equals(team.id.toString()))).write(
+              TeamsCompanion(
+                name: drift.Value(nameCtrl.text),
+                shortName: drift.Value(shortCtrl.text),
+                coachName: drift.Value(coachCtrl.text),
+                isSynced: drift.Value(isSyncedStatus),
+              ),
+            );
+
+            if (context.mounted) {
+              ref.invalidate(tournamentDataByIdProvider(tournamentId));
+              if (isSyncedStatus) {
+                context.showSuccess("Equipo actualizado en la nube.");
+              } else {
+                context.showWarning("Equipo guardado offline.");
+              }
+            }
+          },
+        ),
+      ],
+    ),
+  );
 }
