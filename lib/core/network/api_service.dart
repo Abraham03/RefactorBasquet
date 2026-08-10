@@ -4,11 +4,42 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:myapp/core/constants/api_constants.dart';
+import 'package:myapp/core/network/api_client.dart';
+import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/network/result.dart';
 
+/// **Fachada en extinción.**
+///
+/// Era una God class de 30 métodos con `http.post` top-level (no inyectable) y
+/// tres convenciones de error incompatibles. La Fase 3 la vacía por dominios:
+/// cada método pasa a delegar en su datasource, que devuelve `Result`.
+///
+/// Se conserva la firma pública EXACTA de cada método (`Future<bool>`, `throw`,
+/// `ApiResult`) para no tocar las ~7 pantallas que la consumen: eso es la
+/// Fase 3.3. Patrón **Strangler Fig**: el código nuevo crece por dentro
+/// mientras la interfaz vieja sigue en pie.
 class ApiService {
+  ApiService({ApiClient? client}) : _client = client ?? ApiClient();
+
+  final ApiClient _client;
+
+  late final OfficialVenueApi _officialVenue = OfficialVenueApi(_client);
+
   static const String _baseUrl = kApiEndpoint;
+
+  /// Traduce un `Result` al viejo `Future<bool>`.
+  ///
+  /// Pierde la causa del fallo, igual que antes. Es deuda deliberada y
+  /// temporal: desaparece en la Fase 3.3, cuando los llamadores consuman
+  /// `Result` directamente.
+  static bool _asBool(Result<void> result) => result.isOk;
+
+  /// Traduce un `Result` al viejo `throw Exception('<contexto>: ...')`.
+  static T _orThrow<T>(Result<T> result, String context) => switch (result) {
+    Ok(:final value) => value,
+    Err(:final error) => throw Exception('$context: ${error.message}'),
+  };
 
   Future<bool> saveTournamentRules({
     required String tournamentId,
@@ -53,24 +84,10 @@ class ApiService {
   // --- FUNCIONES PARA SEDES (VENUES) ---
   // ==========================================
   Future<int> createVenue(String name, String address) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=create_venue'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"name": name, "address": address}),
-      );
-
-      _checkResponse(response);
-      final jsonResponse = jsonDecode(response.body);
-
-      if (jsonResponse['data'] != null &&
-          jsonResponse['data']['newId'] != null) {
-        return int.parse(jsonResponse['data']['newId'].toString());
-      }
-      throw Exception("ID de sede no recibido.");
-    } catch (e) {
-      throw Exception('Error creando sede: $e');
-    }
+    return _orThrow(
+      await _officialVenue.createVenue(name, address),
+      'Error creando sede',
+    );
   }
 
   Future<bool> updateVenue({
@@ -78,21 +95,9 @@ class ApiService {
     required String name,
     required String address,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_venue'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"id": id, "name": name, "address": address}),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _officialVenue.updateVenue(id: id, name: name, address: address),
+    );
   }
 
   // --- NUEVO: OBTENER LISTA DE TORNEOS DESDE LA NUBE ---
@@ -303,93 +308,35 @@ class ApiService {
     }
   }
 
-  Future<int> createOfficial(
-    String name,
-    String role,
-    String? signature,
-  ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=create_official'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"name": name, "role": role, "signature": signature}),
-      );
-
-      _checkResponse(response);
-      final jsonResponse = jsonDecode(response.body);
-
-      if (jsonResponse['data'] != null && jsonResponse['data']['id'] != null) {
-        return int.parse(jsonResponse['data']['id'].toString());
-      }
-      throw Exception("ID de oficial no recibido.");
-    } catch (e) {
-      throw Exception('Error creando oficial: $e');
-    }
+  Future<int> createOfficial(String name, String role, String? signature) async {
+    return _orThrow(
+      await _officialVenue.createOfficial(name, role, signature),
+      'Error creando oficial',
+    );
   }
 
   Future<bool> deleteVenue(int id) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=delete_venue'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"id": id}),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(await _officialVenue.deleteVenue(id));
   }
 
   Future<bool> deleteOfficial(int id) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=delete_official'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"id": id}),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(await _officialVenue.deleteOfficial(id));
   }
 
   Future<bool> updateOfficial({
     required String id,
     required String name,
     required String role,
-    String? signature, // <--- Parámetro opcional
+    String? signature,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_official'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "id": id,
-          "name": name,
-          "role": role,
-          "signature":
-              signature, // Se envía si existe, el servidor decidirá si actualizarla
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _officialVenue.updateOfficial(
+        id: id,
+        name: name,
+        role: role,
+        signature: signature,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> fetchFixture(String tournamentId) async {
