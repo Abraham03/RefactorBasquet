@@ -6,7 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:myapp/core/di/providers.dart'
-    show syncRepositoryProvider, catalogApiProvider;
+    show
+        syncRepositoryProvider,
+        catalogApiProvider,
+        catalogDownloadRepositoryProvider,
+        databaseProvider;
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 
@@ -813,285 +817,147 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
 
   // --- MODIFICADO: AHORA RECIBE EL ID DIRECTO DESDE EL MENÚ DE LA NUBE ---
   Future<void> _syncData(String syncId) async {
-    final db = ref.read(databaseProvider);
+    final repo = ref.read(catalogDownloadRepositoryProvider);
 
-    // ====================================================================
-    // --- 1. VERIFICACIÓN Y DIÁLOGO DE ADVERTENCIA ---
-    // ====================================================================
-    final pendingMatches = await (db.select(db.matches)..where((m) => m.isSynced.equals(false))).get();
-    
-    if (pendingMatches.isNotEmpty) {
-      // Mostrar diálogo de confirmación si hay datos en riesgo
-      final bool? confirm = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false, // Obliga al usuario a elegir una opción
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text("¡Peligro de pérdida de datos!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+    // 1. Avisar si la descarga va a destruir trabajo sin subir.
+    final pending = await repo.pendingMatches();
+    if (pending.isNotEmpty) {
+      final confirmed = await _confirmDataLoss();
+      if (confirmed != true) return;
+    }
+
+    // 2. Descargar. Toda la escritura ocurre en una transaccion dentro del
+    //    repositorio: si falla a mitad, la base queda como estaba.
+    if (!mounted) return;
+    context.showInfo("Sincronizando datos... por favor espera.");
+
+    final result = await repo.downloadAll(syncId);
+    if (!mounted) return;
+
+    switch (result) {
+      case Ok():
+        ref.read(selectedTournamentIdProvider.notifier).state = syncId;
+        ref.invalidate(tournamentsListProvider);
+        context.showSuccess("Datos descargados y actualizados con exito.");
+
+      case Err(:final error):
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        unawaited(_showDownloadFailedDialog(error.message));
+    }
+  }
+
+  /// Confirmacion previa: la descarga borra los partidos no sincronizados.
+  Future<bool?> _confirmDataLoss() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "!Peligro de perdida de datos!",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
-            ],
-          ),
-          content: const Text(
-            "Tienes partidos pendientes por subir a la nube. Si descargas los datos ahora, SE BORRARÁN TODOS TUS PARTIDOS LOCALES y perderás esa información de forma permanente.\n\n¿Estás completamente seguro de querer continuar y eliminar los datos no subidos?",
-            style: TextStyle(color: Colors.white70, height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Sí, borrar y descargar", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-      );
-
-      // Si el usuario presionó "Cancelar" o cerró el diálogo de alguna forma
-      if (confirm != true) {
-        return; 
-      }
-    }
-
-    // ====================================================================
-    // --- 2. INICIO DE LA DESCARGA ---
-    // ====================================================================
-    context.showInfo("Sincronizando datos... por favor espera.");
-
-    try {
-      final api = ref.read(catalogApiProvider);
-      final catalogData = switch (await api.fetchCatalogs(syncId)) {
-        Ok(:final value) => value,
-        Err(:final error) => throw error,
-      };
-
-      await db.transaction(() async {
-        // ====================================================================
-        // --- 3. LIMPIEZA ABSOLUTA DE FANTASMAS Y DATOS LOCALES ---
-        // ====================================================================
-        // Borrar SOLO partidos no finalizados (fantasmas a medio jugar).
-        // Los FINISHED sincronizados se conservan: la nube no los re-descarga
-        // y perderíamos su historial (rosters, asistencia, eventos).
-        final ghostMatches = await (db.select(db.matches)
-              ..where((m) => m.status.equals('FINISHED').not()))
-            .get();
-        final ghostIds = ghostMatches.map((m) => m.id).toList();
-
-        if (ghostIds.isNotEmpty) {
-          await (db.delete(db.matchRosters)..where((r) => r.matchId.isIn(ghostIds))).go();
-          await (db.delete(db.gameEvents)..where((e) => e.matchId.isIn(ghostIds))).go();
-          await (db.delete(db.matches)..where((m) => m.id.isIn(ghostIds))).go();
-        }
-        
-        await db.delete(db.tournaments).go();
-        await db.delete(db.teams).go();
-        await db.delete(db.players).go();
-        await db.delete(db.tournamentTeams).go();
-        await db.delete(db.venues).go();
-        await db.delete(db.fixtures).go();
-        await db.delete(db.officials).go();
-
-        // --- INSERCIONES DE CATÁLOGOS ---
-        for (var t in catalogData.tournaments) {
-          await db.into(db.tournaments).insert(
-                TournamentsCompanion.insert(
-                  id: drift.Value(t.id.toString()),
-                  name: t.name,
-                  category: drift.Value(t.category),
-                  status: drift.Value(t.status ?? 'ACTIVE'),
-                  logoUrl: drift.Value(t.logoUrl),
-                  refereeLogoUrl: drift.Value(t.refereeLogoUrl),
-                  isSynced: const drift.Value(true),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        for (var m in catalogData.fixturesRaw) {
-          DateTime? scheduledDate;
-          if (m['scheduled_datetime'] != null && m['scheduled_datetime'].toString().isNotEmpty) {
-            scheduledDate = DateTime.tryParse(m['scheduled_datetime'].toString());
-          }
-          int? sA, sB;
-          if (m['score_a'] != null) sA = int.tryParse(m['score_a'].toString());
-          if (m['score_b'] != null) sB = int.tryParse(m['score_b'].toString());
-
-          await db.into(db.fixtures).insert(
-                FixturesCompanion.insert(
-                  id: m['id'].toString(),
-                  tournamentId: m['tournament_id'].toString(),
-                  roundName: m['round_name'] ?? 'Jornada',
-                  teamAId: m['team_a_id'].toString(),
-                  teamBId: m['team_b_id'].toString(),
-                  teamAName: m['team_a'] ?? 'Equipo A',
-                  teamBName: m['team_b'] ?? 'Equipo B',
-                  logoA: drift.Value(m['logo_a']),
-                  logoB: drift.Value(m['logo_b']),
-                  venueId: drift.Value(m['venue_id']?.toString()),
-                  venueName: drift.Value(m['venue_name']),
-                  scheduledDatetime: drift.Value(scheduledDate),
-                  matchId: drift.Value(m['match_id']?.toString()),
-                  scoreA: drift.Value(sA),
-                  scoreB: drift.Value(sB),
-                  status: drift.Value(m['status'] ?? 'SCHEDULED'),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        for (var team in catalogData.teams) {
-          await db.into(db.teams).insert(
-                TeamsCompanion.insert(
-                  id: drift.Value(team.id.toString()),
-                  name: team.name,
-                  shortName: drift.Value(team.shortName),
-                  coachName: drift.Value(team.coachName),
-                  logoUrl: drift.Value(team.logoUrl),
-                  isSynced: const drift.Value(true),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        for (var venue in catalogData.venues) {
-          await db.into(db.venues).insert(
-                VenuesCompanion.insert(
-                  id: drift.Value(venue.id.toString()),
-                  name: venue.name,
-                  address: drift.Value(venue.address),
-                  isSynced: const drift.Value(true),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        for (var rel in catalogData.relationships) {
-          await db.into(db.tournamentTeams).insert(
-                TournamentTeamsCompanion.insert(
-                  tournamentId: rel.tournamentId.toString(),
-                  teamId: rel.teamId.toString(),
-                  isSynced: const drift.Value(true),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        for (var p in catalogData.players) {
-          await db.into(db.players).insert(
-                PlayersCompanion.insert(
-                  id: drift.Value(p.id.toString()),
-                  name: p.name,
-                  teamId: p.teamId,
-                  defaultNumber: drift.Value(p.defaultNumber),
-                  active: const drift.Value(true),
-                  isSynced: const drift.Value(true),
-                  photoUrl: drift.Value(p.photoUrl),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-        }
-
-        // Reinsertar rosters de partidos finalizados descargados, para poder
-        // corregir asistencia de partidos que no estaban en local.
-        for (var r in catalogData.finishedRosters) {
-          await db.into(db.matchRosters).insert(
-            MatchRostersCompanion.insert(
-              matchId: r['match_id'].toString(),
-              playerId: r['player_id'].toString(),
-              teamSide: (r['team_side'] ?? 'A').toString(),
-              jerseyNumber: int.tryParse((r['jersey_number'] ?? 0).toString()) ?? 0,
-              isCaptain: drift.Value(_toBool(r['is_captain'])),
-              attended: drift.Value(_toBool(r['attended'])),
-              isSynced: const drift.Value(true),
-            ),
-            mode: drift.InsertMode.insertOrReplace,
-          );
-        }
-
-       for (var off in catalogData.officials) { 
-          await db.into(db.officials).insert(
-            OfficialsCompanion.insert(
-              id: off.id.toString(), 
-              name: off.name,
-              role: drift.Value(off.role),
-              signatureData: drift.Value(off.signature),
-              active: const drift.Value(true), 
-              isSynced: const drift.Value(true),
-            ),
-            mode: drift.InsertMode.insertOrReplace,
-          );
-        }
-      });
-
-      // Actualizamos el selector de la UI al torneo que acabamos de descargar
-      ref.read(selectedTournamentIdProvider.notifier).state = syncId;
-      ref.invalidate(tournamentsListProvider);
-
-      if (context.mounted) {
-        context.showSuccess("Datos descargados y actualizados con éxito.");
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        
-        unawaited(showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            backgroundColor: Colors.white,
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.cloud_off, color: Colors.redAccent, size: 28),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text("Sin conexión al servidor", 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
-              "No pudimos descargar los datos de la nube en este momento.\n\nPor favor, verifica tu conexión a internet o inténtalo más tarde. Tus datos locales están seguros y puedes seguir operando sin conexión.",
-              style: TextStyle(fontSize: 15, color: Colors.black54, height: 1.4),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.grey.shade100,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text("Entendido", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-              ),
-            ],
+        content: const Text(
+          "Tienes partidos pendientes por subir a la nube. Si descargas los "
+          "datos ahora, SE BORRARAN TODOS TUS PARTIDOS LOCALES y perderas esa "
+          "informacion de forma permanente.\n\n"
+          "\u00bfEstas completamente seguro de querer continuar y eliminar los "
+          "datos no subidos?",
+          style: TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
           ),
-        ));
-      }
-    }
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "Si, borrar y descargar",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  /// Convierte un valor de la API (que puede venir como "1", 1, "true" o true)
-  /// a bool de forma robusta. El backend PHP devuelve enteros como strings.
-  bool _toBool(dynamic value) {
-    if (value == null) return false;
-    final s = value.toString().toLowerCase().trim();
-    return s == '1' || s == 'true';
+  Future<void> _showDownloadFailedDialog(String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cloud_off,
+                color: Colors.redAccent,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "No se pudo descargar",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+        // El mensaje viene tipado desde AppException: si fue un rechazo del
+        // backend se ve su motivo, no un generico "sin conexion".
+        content: Text(
+          "$message\n\nTus datos locales estan seguros y puedes seguir "
+          "operando sin conexion.",
+          style: const TextStyle(fontSize: 15, color: Colors.black54, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.grey.shade100,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              "Entendido",
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
 
   Future<void> _uploadPendingData() async {
     final loading = context.showLoading("Subiendo datos a la nube...");

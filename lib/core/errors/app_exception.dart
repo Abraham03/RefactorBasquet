@@ -64,6 +64,18 @@ final class ApiBusinessException extends AppException {
   const ApiBusinessException(super.message, {super.cause});
 }
 
+/// Falló una escritura o lectura de la base de datos local.
+///
+/// No todo fallo es de red: una transacción puede reventar por una restricción
+/// del esquema. Sin este caso, esos errores subían como excepción sin capturar
+/// y la pantalla —que solo contempla `Ok`/`Err`— no podía informar.
+final class StorageException extends AppException {
+  const StorageException({
+    String message = 'No se pudo guardar en el dispositivo.',
+    super.cause,
+  }) : super(message);
+}
+
 /// La respuesta no era el JSON esperado.
 final class ParseException extends AppException {
   const ParseException({

@@ -21,6 +21,7 @@ import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
+import 'package:myapp/features/catalog/data/repositories/catalog_download_repository.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
@@ -68,6 +69,16 @@ final matchApiProvider = Provider<MatchApi>(
 final officialVenueApiProvider = Provider<OfficialVenueApi>(
   (ref) => OfficialVenueApi(ref.watch(apiClientProvider)),
 );
+
+/// Sincronización de bajada: descarga el catálogo y reemplaza el local.
+final catalogDownloadRepositoryProvider = Provider<CatalogDownloadRepository>((
+  ref,
+) {
+  return CatalogDownloadRepository(
+    ref.watch(databaseProvider),
+    ref.watch(catalogApiProvider),
+  );
+});
 
 /// Repositorio de sincronización (orquesta la subida a la nube).
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {

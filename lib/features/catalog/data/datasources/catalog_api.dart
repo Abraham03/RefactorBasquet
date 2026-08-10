@@ -1,6 +1,7 @@
 import 'package:myapp/core/network/api_actions.dart';
 import 'package:myapp/core/network/api_client.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_download.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 
 /// Torneos y catálogos: lo que se descarga para poder trabajar sin conexión.
@@ -72,7 +73,9 @@ class CatalogApi {
           venues: (data['venues'] as List)
               .map((e) => CatalogVenue.fromJson(e))
               .toList(),
-          teams: (data['teams'] as List).map((e) => CatalogTeam.fromJson(e)).toList(),
+          teams: (data['teams'] as List)
+              .map((e) => CatalogTeam.fromJson(e))
+              .toList(),
           players: (data['players'] as List)
               .map((e) => CatalogPlayer.fromJson(e))
               .toList(),
@@ -99,20 +102,26 @@ class CatalogApi {
           venues: (data['venues'] as List)
               .map((e) => CatalogVenue.fromJson(e))
               .toList(),
-          teams: (data['teams'] as List).map((e) => CatalogTeam.fromJson(e)).toList(),
+          teams: (data['teams'] as List)
+              .map((e) => CatalogTeam.fromJson(e))
+              .toList(),
           players: (data['players'] as List)
               .map((e) => CatalogPlayer.fromJson(e))
               .toList(),
           relationships: (data['tournament_teams'] as List)
               .map((e) => TournamentTeamRelation.fromJson(e))
               .toList(),
-          fixturesRaw: data['fixtures'] ?? [],
+          fixtures: ((data['fixtures'] ?? []) as List)
+              .map((e) => CatalogFixture.fromJson(e as Map<String, dynamic>))
+              .toList(),
           officials: data['officials'] != null
               ? (data['officials'] as List)
                     .map((e) => CatalogOfficial.fromJson(e))
                     .toList()
               : [],
-          finishedRosters: data['finished_rosters'] ?? [],
+          finishedRosters: ((data['finished_rosters'] ?? []) as List)
+              .map((e) => CatalogRoster.fromJson(e as Map<String, dynamic>))
+              .toList(),
         );
       },
     );

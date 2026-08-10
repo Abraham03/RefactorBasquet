@@ -38,3 +38,24 @@ int? tryParseId(Object? value) {
     return null;
   }
 }
+
+/// Interpreta como booleano lo que el backend PHP manda como `1`, `"1"`,
+/// `true` o `"true"`.
+///
+/// Estaba como `_toBool` privado dentro de `home_menu_screen`, justo donde no
+/// se podía reutilizar ni probar.
+bool parseBool(Object? value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  final text = value.toString().toLowerCase().trim();
+  return text == '1' || text == 'true';
+}
+
+/// Entero tolerante: devuelve `null` si el valor no es numérico.
+/// Para campos opcionales como un marcador aún no jugado.
+int? parseIntOrNull(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString().trim());
+}

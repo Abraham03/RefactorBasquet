@@ -13,6 +13,7 @@
 library;
 
 import 'package:myapp/core/utils/json_parsing.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_download.dart';
 
 class CatalogTournament {
   final int id;
@@ -283,13 +284,10 @@ class CatalogData {
   final List<TournamentTeamRelation> relationships;
   final List<CatalogOfficial> officials;
 
-  /// TODO(fase-5): tipar. Hoy el JSON crudo del calendario y de los rosters
-  /// finalizados llega hasta la UI, que lo desmenuza a mano dentro de
-  /// `home_menu_screen._syncData()`. Tiparlos aquí obligaría a escribir el
-  /// parseo en un widget que la Fase 5 va a vaciar, así que se hace allí,
-  /// junto con `CatalogDownloadRepository`.
-  final List<dynamic> fixturesRaw;
-  final List<dynamic> finishedRosters;
+  /// Calendario y rosters finalizados. Eran `List<dynamic>` y su JSON crudo
+  /// llegaba hasta la UI; ahora se parsean aquí (Fase 5).
+  final List<CatalogFixture> fixtures;
+  final List<CatalogRoster> finishedRosters;
 
   const CatalogData({
     required this.tournaments,
@@ -298,7 +296,7 @@ class CatalogData {
     required this.players,
     required this.relationships,
     required this.officials,
-    this.fixturesRaw = const [],
+    this.fixtures = const [],
     this.finishedRosters = const [],
   });
 }
