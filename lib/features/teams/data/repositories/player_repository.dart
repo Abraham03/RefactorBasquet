@@ -5,6 +5,7 @@ import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
+import 'package:myapp/core/utils/id_generator.dart';
 
 /// Resultado de guardar un jugador: si se sincronizó a la nube y con qué ID
 /// quedó (real si hubo red, temporal negativo si fue offline).
@@ -223,7 +224,7 @@ class PlayerRepository {
     required String name,
     required int number,
   }) async {
-    final tempId = (-DateTime.now().millisecondsSinceEpoch).toString();
+    final tempId = TempId.nextNegativeString();
     await _db
         .into(_db.players)
         .insert(

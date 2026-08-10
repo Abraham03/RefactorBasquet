@@ -13,6 +13,7 @@ import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/core/utils/id_generator.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;
@@ -294,8 +295,7 @@ class TeamManagementScreen extends ConsumerWidget {
                 if (!context.mounted) return;
                 context.showSuccess("Equipo creado y sincronizado");
               } catch (e) {
-                final tempId = (-DateTime.now().millisecondsSinceEpoch)
-                    .toString();
+                final tempId = TempId.nextNegativeString();
                 await db.transaction(() async {
                   await db
                       .into(db.teams)

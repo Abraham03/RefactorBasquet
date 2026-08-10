@@ -15,6 +15,7 @@ import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
 import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/core/utils/id_generator.dart';
 class ScoreEvent {
   final int period;
   final String teamId;
@@ -1732,7 +1733,7 @@ void undoLastSubstitution() {
     } catch (e) {
       // Si falla (no hay internet), creamos un ID negativo único local basado en el tiempo
       // Esto garantiza matemáticamente que nunca chocará con un ID de la nube.
-      newPlayerId = -DateTime.now().millisecondsSinceEpoch;
+      newPlayerId = TempId.nextNegative();
       isOnlineSync = false;
     }
 

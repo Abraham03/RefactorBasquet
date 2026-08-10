@@ -18,6 +18,7 @@ import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/core/utils/id_generator.dart';
 /// Desenvuelve un [Result] o relanza su error tipado.
 ///
 /// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
@@ -678,7 +679,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
       matchIdToUse = widget.preSelectedFixture!.matchId!;
     } else {
       // Si es manual, creamos un ID que no cambie cada segundo mientras sean los mismos equipos
-      matchIdToUse = DateTime.now().millisecondsSinceEpoch.toString();
+      matchIdToUse = TempId.newLocalMatchId();
     }
     final rosterA = data.players.where((p) => p.teamId == selectedTeamA!.id).toList();
     final rosterB = data.players.where((p) => p.teamId == selectedTeamB!.id).toList();
@@ -778,7 +779,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   venueId = realIdInt.toString();
                   isSyncedStatus = true; 
                 } catch (e) {
-                  venueId = "-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}";
+                  venueId = TempId.nextNegativeString();
                   isSyncedStatus = false;
                 }
 
@@ -1125,7 +1126,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                     officialId = realIdInt.toString();
                     isSyncedStatus = true;
                   } catch (e) {
-                    officialId = "-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}";
+                    officialId = TempId.nextNegativeString();
                     isSyncedStatus = false;
                   }
 

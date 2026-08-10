@@ -15,6 +15,7 @@ import 'package:myapp/features/match/presentation/screens/match_control_screen.d
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/features/match/presentation/providers/starters_providers.dart';
+import 'package:myapp/core/utils/id_generator.dart';
 
 class StartersSelectionScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -208,7 +209,7 @@ class _StartersSelectionScreenState
                 );
               } else {
                 // Crear Nuevo
-                final tempId = (-DateTime.now().millisecondsSinceEpoch).toString();
+                final tempId = TempId.nextNegativeString();
                 await dbBase.into(dbBase.players).insert(
                   db.PlayersCompanion.insert(
                     id: drift.Value(tempId),
