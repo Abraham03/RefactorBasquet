@@ -830,27 +830,28 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 
 | Métrica | Base | F0 | F1 | F2 | F3 | F4 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | — | | | 0 |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | | | 30 |
-| Providers duplicados | 2 | 2 | 2 | **0** | 0 | | | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 | | | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ | | | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 | | | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 | | | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 | | | 0 |
-| Imports relativos | 136 | 136 | **0** | 0 | 0 | | | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 | | | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 | | | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** | | | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** | | | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 | | | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 | | | 0 |
-| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | | | 0 |
-| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | | | 0 |
-| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 | | | 0 |
-| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | | | 0 |
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 |  |  | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | 0 |  |  | 0 |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ |  |  | 30 |
+| Providers duplicados | 2 | 2 | 2 | **0** | 0 | 0 |  |  | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 |  |  | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ |  |  | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 |  |  | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 |  |  | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 |  |  | 0 |
+| Imports relativos | 136 | 136 | **0** | 0 | 0 | 0 |  |  | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 |  |  | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 |  |  | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 |  |  | 0 |
+| Imports con alias `as catalog`/`as model` | 4 | 4 | 4 | 4 | 4 | **0** |  |  | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** |  |  | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** |  |  | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 |  |  | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 |  |  | 0 |
+| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | 0 |  |  | 0 |
+| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | 0 |  |  | 0 |
+| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 |  |  | 0 |
+| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | 0 |  |  | 0 |
 
 ---
 
