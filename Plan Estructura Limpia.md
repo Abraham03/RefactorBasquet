@@ -679,6 +679,36 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 
 **Criterio de salida:** los 5 bloques con 1 sola implementación; 0 `// ignore: unused_local_variable`; el golden del payload pasa **sin modificar el fixture**.
 
+#### ✅ Resultado (2026-08-10)
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 152 verdes | **162 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Goldens de contrato (I2) | 35 ✔ | 35 ✔ + **golden del payload** |
+| Esquema drift (I3) | — | `diff` vacío |
+| Copias del mapper evento→payload | 2 | **1** |
+| Copias de la subida offline de jugador | 2 | **1** |
+| Estrategias de id temporal | 3 (en 7 sitios) | **1** |
+| `// ignore: unused_local_variable` | 1 | **0** |
+
+**El paso 0 se hizo primero**, como manda el plan: el golden del payload se capturó **por el camino real** (`uploadPendingData()` contra BD en memoria + `MockClient`, comparando el cuerpo de la petición) y se commiteó **antes** de tocar el mapper. Pasa sin modificarse.
+
+**Tres correcciones al diagnóstico de este plan:**
+
+1. **El mapper de _rosters_ NO estaba duplicado.** El campo `played` se deriva de fuentes distintas a propósito: al cerrar el partido, de las estadísticas **vivas** en memoria (titular, en cancha, puntos, faltas); al subirlo más tarde, de si el jugador aparece en algún evento persistido, porque ya no hay estado en memoria. Unificarlos habría cambiado lo que se envía. Se comparte la **forma** (`mapRoster`) y `hasPlayed` se recibe como parámetro, con el porqué escrito en el código.
+
+2. **Aparece una tercera copia del mapper** que el plan no listaba, en `home_menu_screen.exportMatchToJSON`. **Tampoco es la misma:** manda el `player_id` negativo tal cual (para corregirlo a mano en Postman), usa el `type` ya limpio y omite `clock_time`. Es un volcado de diagnóstico, no el acta. Se deja y se documenta.
+
+3. **La duplicación (a) escondía un bug de integridad, no solo repetición.** Las dos copias no eran equivalentes: la del repositorio delega en `replaceTempPlayerId`, que en una transacción revincula `matchRosters`, `gameEvents.playerId` **y los ids incrustados en el texto de los eventos `SUB_A_OUT_<id>_IN_<id>`**. La de `starters_selection_screen` reconciliaba a mano y solo tocaba `players` y `gameEvents.playerId`: dejaba el acta con referencias a un jugador que ya no existía. Unificar **corrige esa corrupción**; hay un test que lo fija.
+
+**La variante truncada de id temporal era un riesgo real:** `"-${...millisecondsSinceEpoch.toString().substring(5)}"` descarta los 5 primeros dígitos, dejando 8 cifras en vez de 13. Dos altas seguidas de sede u oficial podían generar el mismo id y pisarse. `TempId` además garantiza unicidad dentro del mismo milisegundo.
+
+#### ⬜ Falta (c): la descarga + reinserción de fixture
+
+Quedan 3 sitios en 2 pantallas (`fixture_list_screen`, `manual_fixture_builder_screen` ×2) que bajan el calendario y lo reinsertan a mano. Extraerlo pide un `FixtureRepository.refresh(tournamentId)` y toca dos pantallas grandes; se deja para una fase posterior en vez de meterlo con calzador aquí.
+
 ---
 
 ### Fase 7 — `MatchState` al dominio y contrato de marcador completo
@@ -793,7 +823,7 @@ Se actualiza al cerrar cada fase.
 | 3 | Capa de red | `refactor/f3-network` + `f3.3-borrar-fachada` | 🟡 Verde, falta smoke en dispositivo | **0** | 105 ✔ | 5 commits | 2026-08-09 |
 | 4 | Contratos de dominio | `refactor/f4-domain` | 🟡 Verde, falta smoke en dispositivo | **0** | 135 ✔ | 2 commits | 2026-08-10 |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
-| 6 | Deduplicación | `refactor/f6-dry` | ⬜ Pendiente | — | — | — | — |
+| 6 | Deduplicación | `refactor/f6-dry` | 🟡 Verde; falta (c) y el smoke | **0** | 162 ✔ | 5 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | ⬜ Pendiente | — | — | — | — |
 | 8 | Dividir el controller | `refactor/f8-engines` | ⬜ Pendiente | — | — | — | — |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
