@@ -20,21 +20,9 @@ import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/features/fixture/presentation/screens/manual_fixture_builder_screen.dart';
 import 'package:myapp/features/fixture/presentation/widgets/tournament_rules_dialog.dart';
 import 'package:myapp/features/match/presentation/screens/change_outcome_screen.dart';           // ChangeOutcomeScreen
-import 'package:myapp/features/match/domain/services/outcome_changer.dart'; // OutcomePdfParams
-import 'package:myapp/core/network/connectivity_helper.dart';
-import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
 import 'package:myapp/core/errors/app_exception.dart';
+import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
 import 'package:myapp/core/network/result.dart';
-
-/// Desenvuelve un [Result] o relanza su error tipado.
-///
-/// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
-/// ese flujo y sustituye el viejo `Exception('texto')` por una `AppException`
-/// con su causa.
-T _unwrapOrThrow<T>(Result<T> result) => switch (result) {
-  Ok(:final value) => value,
-  Err(:final error) => throw error,
-};
 
 class FixtureListScreen extends ConsumerStatefulWidget {
   final String tournamentId;
@@ -374,273 +362,49 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
               title: const Text("Cambiar resultado", style: TextStyle(color: Colors.white)),
               subtitle: const Text("Forfeit, protesta o normal", style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () async {
-              Navigator.pop(ctx);
-              final db = ref.read(databaseProvider);
-
-              // 1. Intentar fila matches local (solo existe si el partido se jugó aquí).
-              final linkedId = match.matchId;
-              var localMatch = (linkedId != null && linkedId.isNotEmpty)
-                  ? await (db.select(db.matches)..where((t) => t.id.equals(linkedId))).getSingleOrNull()
-                  : null;
-              localMatch ??= await (db.select(db.matches)
-                    ..where((t) => t.fixtureId.equals(match.id))).getSingleOrNull();
-
-              // Datos del acta: si no hay fila local, los traemos del backend.
-              // Variables que usaremos para armar OutcomePdfParams.
-              String actaMatchId;
-              String actaTeamAName, actaTeamBName;
-              String actaMainReferee, actaAuxReferee, actaScorekeeper;
-              DateTime? actaMatchDate;
-              String? actaTournamentId;
-              int actaTeamAId, actaTeamBId;
-              String? actaVenueId;
-
-              if (localMatch != null) {
-                // Acta local disponible (partido jugado en este dispositivo).
-                actaMatchId = localMatch.id;
-                actaTeamAName = localMatch.teamAName;
-                actaTeamBName = localMatch.teamBName;
-                actaMainReferee = localMatch.mainReferee ?? '';
-                actaAuxReferee = localMatch.auxReferee ?? '';
-                actaScorekeeper = localMatch.scorekeeper ?? '';
-                actaMatchDate = localMatch.matchDate;
-                actaTournamentId = localMatch.tournamentId;
-                actaTeamAId = localMatch.teamAId ?? 0;
-                actaTeamBId = localMatch.teamBId ?? 0;
-                actaVenueId = localMatch.venueId;
-              } else {
-                // Sin acta local: traer del backend (online-only).
-                final remoteId = match.matchId ?? match.id;
-                try {
-                  final api = ref.read(matchApiProvider);
-                  final details = _unwrapOrThrow(await api.getMatchDetails(remoteId));
-                  actaMatchId = details['id']?.toString() ?? remoteId;
-                  actaTeamAName = details['team_a_name']?.toString() ?? match.teamAName;
-                  actaTeamBName = details['team_b_name']?.toString() ?? match.teamBName;
-                  actaMainReferee = details['main_referee']?.toString() ?? '';
-                  actaAuxReferee = details['aux_referee']?.toString() ?? '';
-                  actaScorekeeper = details['scorekeeper']?.toString() ?? '';
-                  actaMatchDate = DateTime.tryParse(details['match_date']?.toString() ?? '');
-                  actaTournamentId = details['tournament_id']?.toString();
-                  actaTeamAId = int.tryParse(details['team_a_id']?.toString() ?? '0') ?? 0;
-                  actaTeamBId = int.tryParse(details['team_b_id']?.toString() ?? '0') ?? 0;
-                  actaVenueId = details['venue_id']?.toString();
-                } catch (e) {
-                  if (context.mounted) {
-                    context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudo obtener el acta: $e"));
-                  }
-                  return;
-                }
-              }
-
-              // 2. Logos y categoría desde tournaments.
-              final tournamentData = await (db.select(db.tournaments)
-                    ..where((t) => t.id.equals(actaTournamentId ?? ''))).getSingleOrNull();
-
-              // 3. Rosters para restoreFromDatabase.
-              final allDbPlayers = await db.select(db.players).get();
-              final rosterA = allDbPlayers
-                  .where((p) => p.teamId.toString() == actaTeamAId.toString())
-                  .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
-                  .toList();
-              final rosterB = allDbPlayers
-                  .where((p) => p.teamId.toString() == actaTeamBId.toString())
-                  .map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber))
-                  .toList();
-
-              // 4. Roster del acta (capitanes y titulares).
-              final dbRosters = await (db.select(db.matchRosters)
-                    ..where((t) => t.matchId.equals(actaMatchId))).get();
-
-              // --- PARTE 3: hidratar matchRosters desde la nube si no hay local ---
-              // (partido jugado en OTRO dispositivo: capitanes/titulares no están locales).
-              var rostersForActa = dbRosters;
-              if (rostersForActa.isEmpty) {
-                // Asegurar la fila matches (FK de matchRosters).
-                await db.into(db.matches).insertOnConflictUpdate(
-                  MatchesCompanion.insert(
-                    id: drift.Value(actaMatchId),
-                    teamAName: actaTeamAName,
-                    teamBName: actaTeamBName,
-                    status: const drift.Value('FINISHED'),
-                    tournamentId: drift.Value(actaTournamentId),
-                    venueId: drift.Value(actaVenueId),
-                    teamAId: drift.Value(actaTeamAId),
-                    teamBId: drift.Value(actaTeamBId),
-                    mainReferee: drift.Value(actaMainReferee),
-                    auxReferee: drift.Value(actaAuxReferee),
-                    scorekeeper: drift.Value(actaScorekeeper),
-                    matchDate: drift.Value(actaMatchDate),
-                    isSynced: const drift.Value(true),
-                  ),
-                );
-                try {
-                  final apiR = ref.read(matchApiProvider);
-                  final cloudRosters = _unwrapOrThrow(await apiR.getMatchRosters(actaMatchId));
-                  for (final r in cloudRosters) {
-                    await db.into(db.matchRosters).insertOnConflictUpdate(
-                      MatchRostersCompanion.insert(
-                        matchId: actaMatchId,
-                        playerId: r['player_id'].toString(),
-                        teamSide: r['team_side'].toString(),
-                        jerseyNumber: int.tryParse(r['jersey_number']?.toString() ?? '0') ?? 0,
-                        isCaptain: drift.Value((r['is_captain']?.toString() ?? '0') == '1'),
-                        isStarter: drift.Value((r['is_starter']?.toString() ?? '0') == '1'),
-                        attended: drift.Value((r['attended']?.toString() ?? '0') == '1'),
-                      ),
-                    );
-                  }
-                  // Recargar para capitanes/titulares ya hidratados.
-                  rostersForActa = await (db.select(db.matchRosters)
-                        ..where((t) => t.matchId.equals(actaMatchId))).get();
-                } catch (e) {
-                  if (context.mounted) context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudo traer el roster: $e"));
-                }
-              }
-
-              final capA = rostersForActa.where((r) => r.teamSide == 'A' && r.isCaptain).firstOrNull;
-              final capB = rostersForActa.where((r) => r.teamSide == 'B' && r.isCaptain).firstOrNull;
-              final teamA = await (db.select(db.teams)
-                    ..where((t) => t.id.equals(actaTeamAId.toString()))).getSingleOrNull();
-              final teamB = await (db.select(db.teams)
-                    ..where((t) => t.id.equals(actaTeamBId.toString()))).getSingleOrNull();
-
-              // Titulares reales desde matchRosters → X con círculo en el PDF.
-              final startersAIds = rostersForActa
-                  .where((r) => r.teamSide == 'A' && r.isStarter)
-                  .map((r) => int.tryParse(r.playerId) ?? -1)
-                  .where((id) => id > 0)
-                  .toSet();
-              final startersBIds = rostersForActa
-                  .where((r) => r.teamSide == 'B' && r.isStarter)
-                  .map((r) => int.tryParse(r.playerId) ?? -1)
-                  .where((id) => id > 0)
-                  .toSet();
-
-              // 5. Firmas de árbitros.
-              final refSignatures = await ref.read(officialRepositoryProvider).getRefereeSignatures(
-                    mainRefereeName: actaMainReferee,
-                    auxRefereeName: actaAuxReferee,
-                  );
-
-              // --- PARTE 2: hidratar eventos desde la nube si no hay locales ---
-              // Solo aplica a partidos jugados en OTRO dispositivo (sin gameEvents local).
-              final localEvents = await (db.select(db.gameEvents)
-                    ..where((t) => t.matchId.equals(actaMatchId))).get();
-
-              if (localEvents.isEmpty) {
-                // 1. Asegurar la fila matches local: FK de gameEvents + metadata de restore.
-                //    Se inserta como FINISHED para no alterar el estado del calendario.
-                await db.into(db.matches).insertOnConflictUpdate(
-                  MatchesCompanion.insert(
-                    id: drift.Value(actaMatchId),
-                    teamAName: actaTeamAName,
-                    teamBName: actaTeamBName,
-                    status: const drift.Value('FINISHED'),
-                    tournamentId: drift.Value(actaTournamentId),
-                    venueId: drift.Value(actaVenueId),
-                    teamAId: drift.Value(actaTeamAId),
-                    teamBId: drift.Value(actaTeamBId),
-                    mainReferee: drift.Value(actaMainReferee),
-                    auxReferee: drift.Value(actaAuxReferee),
-                    scorekeeper: drift.Value(actaScorekeeper),
-                    matchDate: drift.Value(actaMatchDate),
-                    isSynced: const drift.Value(true),
-                  ),
-                );
-
-                // 2. Traer eventos de la nube e insertarlos en gameEvents (restore los reproducirá).
-                try {
-                  final apiEvents = ref.read(matchApiProvider);
-                  final cloudEvents = _unwrapOrThrow(await apiEvents.getMatchEvents(actaMatchId));
-                  final base = DateTime.now();
-
-                  for (var i = 0; i < cloudEvents.length; i++) {
-                    final e = cloudEvents[i];
-                    final rawType = e['event_type']?.toString() ?? '';
-                    final pts = int.tryParse(e['points_scored']?.toString() ?? '0') ?? 0;
-                    // Fallback para eventos viejos sin event_type: al menos la anotación.
-                    final type = rawType.isNotEmpty ? rawType : (pts > 0 ? 'POINT_$pts' : 'OTROS');
-                    final pidRaw = e['player_id']?.toString();
-                    final pid = (pidRaw == null || pidRaw.isEmpty || pidRaw == '0') ? null : pidRaw;
-
-                    await db.into(db.gameEvents).insert(
-                      GameEventsCompanion.insert(
-                        matchId: actaMatchId,
-                        type: type,
-                        period: int.tryParse(e['period']?.toString() ?? '1') ?? 1,
-                        clockTime: e['clock_time']?.toString().isNotEmpty == true
-                            ? e['clock_time'].toString()
-                            : '00:00',
-                        playerId: drift.Value(pid),
-                        createdAt: drift.Value(base.add(Duration(milliseconds: i))), // preserva el orden
-                        isSynced: const drift.Value(true),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) context.showError(ConnectivityHelper.friendlyMessage(e, fallback: "No se pudieron traer los eventos: $e"));
-                  // Se continúa: el PDF saldría con marcador pero sin jugadas.
-                }
-              }
-
-              // 6. Restaurar estado del partido en el controller (scoreLog, eventos).
-              final controller = ref.read(matchGameProvider.notifier);
-              await controller.restoreFromDatabase(
-                  matchId: actaMatchId,
-                  fixtureId: match.id,
-                  rosterA: rosterA,
-                  rosterB: rosterB,
-                  startersA: startersAIds,
-                  startersB: startersBIds,
-                  tournamentId: int.tryParse(actaTournamentId ?? '0') ?? 0,
-                  venueId: int.tryParse(actaVenueId ?? '0') ?? 0,
-                  teamAId: actaTeamAId,
-                  teamBId: actaTeamBId,
-                  mainReferee: actaMainReferee,
-                  auxReferee: actaAuxReferee,
-                  scorekeeper: actaScorekeeper,
-                  markFinished: true,
-                );
-
-              // 7. OutcomePdfParams con coaches + firmas.
-              final pdfParams = OutcomePdfParams(
-                teamAName: actaTeamAName,
-                teamBName: actaTeamBName,
-                tournamentName: tournamentData?.name ?? '',
-                categoryName: tournamentData?.category ?? '',
-                tournamentLogoUrl: tournamentData?.logoUrl ?? '',
-                refereeLogoUrl: tournamentData?.refereeLogoUrl ?? '',
-                venueName: match.venueName ?? '',
-                mainReferee: actaMainReferee,
-                auxReferee: actaAuxReferee,
-                scorekeeper: actaScorekeeper,
-                coachA: teamA?.coachName ?? '',
-                coachB: teamB?.coachName ?? '',
-                captainAId: capA != null ? int.tryParse(capA.playerId) : null,
-                captainBId: capB != null ? int.tryParse(capB.playerId) : null,
-                matchDate: actaMatchDate,
-                mainRefSignature: refSignatures.main,
-                auxRefSignature: refSignatures.aux,
-                tournamentId: actaTournamentId,
-              );
-
-              // 8. Navegar.
-              if (!context.mounted) return;
-              unawaited(Navigator.push(context, MaterialPageRoute(
-                builder: (_) => ChangeOutcomeScreen(
-                  matchId: actaMatchId,
-                  teamAName: actaTeamAName,
-                  teamBName: actaTeamBName,
-                  pdfParams: pdfParams,
-                ),
-              )));
-            },
+                Navigator.pop(ctx);
+                await _openFinishedMatch(match);
+              },
             ),
           ],
         ),
       ),
     );
+  }
+
+
+  /// Abre un partido finalizado para corregir su resultado.
+  ///
+  /// Todo el trabajo (traer el acta, hidratar rosters y eventos, armar el
+  /// snapshot y los parametros del PDF) vive en el caso de uso. Aqui solo
+  /// queda pedirlo, informar si falla y navegar.
+  Future<void> _openFinishedMatch(Fixture match) async {
+    final prepared = await ref.read(openFinishedMatchUseCaseProvider)(match);
+    if (!mounted) return;
+
+    switch (prepared) {
+      case Err(:final error):
+        context.showError(error.message);
+
+      case Ok(:final value):
+        await ref
+            .read(matchGameProvider.notifier)
+            .restoreFromDatabase(value.snapshot, markFinished: true);
+        if (!mounted) return;
+        unawaited(
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChangeOutcomeScreen(
+                matchId: value.matchId,
+                teamAName: value.teamAName,
+                teamBName: value.teamBName,
+                pdfParams: value.pdfParams,
+              ),
+            ),
+          ),
+        );
+    }
   }
 
   @override

@@ -12,6 +12,7 @@ import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:flutter/foundation.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
+import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
 import 'package:myapp/core/network/result.dart';
 class ScoreEvent {
   final int period;
@@ -309,22 +310,29 @@ class MatchGameController extends StateNotifier<MatchState> {
 
   int getTeamFouls(String teamId) => teamFoulsOf(state, teamId);
 
-Future<void> restoreFromDatabase({
-  required String matchId,
-  String? fixtureId,
-  required List<CatalogPlayer> rosterA,
-  required List<CatalogPlayer> rosterB,
-  required Set<int> startersA, // <--- Estos son los que el usuario eligió originalmente
-  required Set<int> startersB,
-  required int tournamentId,
-  required int venueId,
-  required int teamAId,
-  required int teamBId,
-  required String mainReferee,
-  required String auxReferee,
-  required String scorekeeper,
-   bool markFinished = false,
+/// Reconstruye un partido ya jugado a partir de su [MatchRestoreSnapshot].
+///
+/// Recibia estos 13 valores como parametros sueltos y dos pantallas los
+/// armaban por separado: cualquiera podia olvidar uno o cruzar `teamAId` con
+/// `teamBId` sin que nada fallara al compilar (Parameter Object).
+Future<void> restoreFromDatabase(
+  MatchRestoreSnapshot snapshot, {
+  bool markFinished = false,
 }) async {
+  final matchId = snapshot.matchId;
+  final fixtureId = snapshot.fixtureId;
+  final rosterA = snapshot.rosterA;
+  final rosterB = snapshot.rosterB;
+  final startersA = snapshot.startersA;
+  final startersB = snapshot.startersB;
+  final tournamentId = snapshot.tournamentId;
+  final venueId = snapshot.venueId;
+  final teamAId = snapshot.teamAId;
+  final teamBId = snapshot.teamBId;
+  final mainReferee = snapshot.mainReferee;
+  final auxReferee = snapshot.auxReferee;
+  final scorekeeper = snapshot.scorekeeper;
+
     _isFinished = markFinished;
   // 1. Inicializar usando los starters que vienen del widget (los que elegiste en la pantalla de selección)
   // Si startersA viene vacío desde el calendario, entonces el problema está en el paso de datos del FixtureList.

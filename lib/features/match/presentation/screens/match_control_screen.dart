@@ -22,6 +22,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
+import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
 
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -116,19 +117,21 @@ void initState() {
       // Intentamos ver si tiene eventos en la BD para restaurar
       // (Aquí llamamos al método que creamos en el controlador)
       await controller.restoreFromDatabase(
-        matchId: widget.matchId,
-        fixtureId: widget.fixtureId,
-        rosterA: widget.fullRosterA,
-        rosterB: widget.fullRosterB,
-        startersA: widget.startersAIds,
-        startersB: widget.startersBIds,
-        tournamentId: widget.tournamentId,
-        venueId: widget.venueId,
-        teamAId: widget.teamAId,
-        teamBId: widget.teamBId,
-        mainReferee: widget.mainReferee,
-        auxReferee: widget.auxReferee,
-        scorekeeper: widget.scorekeeper,
+        MatchRestoreSnapshot(
+          matchId: widget.matchId,
+          fixtureId: widget.fixtureId,
+          rosterA: widget.fullRosterA,
+          rosterB: widget.fullRosterB,
+          startersA: widget.startersAIds,
+          startersB: widget.startersBIds,
+          tournamentId: widget.tournamentId,
+          venueId: widget.venueId,
+          teamAId: widget.teamAId,
+          teamBId: widget.teamBId,
+          mainReferee: widget.mainReferee,
+          auxReferee: widget.auxReferee,
+          scorekeeper: widget.scorekeeper,
+        ),
       );
 
       if (mounted) {

@@ -26,6 +26,7 @@ import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/services/match_finalizer.dart';
+import 'package:myapp/features/match/domain/usecases/open_finished_match_usecase.dart';
 import 'package:myapp/features/match/data/repositories/attendance_repository.dart';
 
 /// Base de datos local. Su ciclo de vida cuelga del contenedor: al desecharse
@@ -106,6 +107,17 @@ final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
     ref.watch(teamApiProvider),
     ref.watch(officialRepositoryProvider),
     ref.watch(matchGameProvider.notifier),
+  );
+});
+
+/// Prepara un partido finalizado para corregir su resultado.
+final openFinishedMatchUseCaseProvider = Provider<OpenFinishedMatchUseCase>((
+  ref,
+) {
+  return OpenFinishedMatchUseCase(
+    ref.watch(databaseProvider),
+    ref.watch(matchApiProvider),
+    ref.watch(officialRepositoryProvider),
   );
 });
 
