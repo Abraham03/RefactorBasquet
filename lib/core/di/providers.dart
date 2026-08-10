@@ -23,6 +23,7 @@ import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
+import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/services/match_finalizer.dart';
 import 'package:myapp/features/match/data/repositories/attendance_repository.dart';
 
@@ -81,9 +82,10 @@ final syncRepositoryProvider = Provider<SyncRepository>((ref) {
   );
 });
 
-final officialRepositoryProvider = Provider<OfficialRepository>((ref) {
-  final db = ref.watch(databaseProvider);
-  return OfficialRepository(db);
+/// Se expone por su CONTRATO, no por la clase concreta: así el dominio
+/// (`MatchFinalizer`) no queda atado a la implementación que abre drift.
+final officialRepositoryProvider = Provider<OfficialRepositoryContract>((ref) {
+  return OfficialRepository(ref.watch(databaseProvider));
 });
 
 final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {

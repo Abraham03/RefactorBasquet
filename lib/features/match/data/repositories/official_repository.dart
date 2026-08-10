@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/match/domain/entities/referee_signatures.dart';
+import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 
 /// Acceso a datos de oficiales (árbitros).
 ///
@@ -10,13 +11,14 @@ import 'package:myapp/features/match/domain/entities/referee_signatures.dart';
 /// duplicada en _finishMatchProcess y _goToPdfPreview. Una sola fuente de
 /// verdad: si mañana cambia el formato de la firma o el criterio de búsqueda,
 /// se toca aquí una vez.
-class OfficialRepository {
+class OfficialRepository implements OfficialRepositoryContract {
   final AppDatabase _db;
 
   OfficialRepository(this._db);
 
   /// Busca las firmas del árbitro principal y auxiliar por nombre y rol,
   /// y las devuelve ya decodificadas de base64 a bytes.
+  @override
   Future<RefereeSignatures> getRefereeSignatures({
     required String mainRefereeName,
     required String auxRefereeName,
