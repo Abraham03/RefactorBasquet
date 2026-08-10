@@ -623,6 +623,36 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 
 **Criterio de salida:** `grep -rn "core/database" lib/features/*/presentation` → 0 (hoy 7); `grep -rn "apiServiceProvider" lib/features/*/presentation` → 0 (hoy 7); ningún método de widget supera 60 líneas.
 
+#### ✅ Resultado (2026-08-10)
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 135 verdes | **152 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Goldens de contrato (I2) | 35 ✔ | 35 ✔ |
+| Esquema drift (I3) | — | `diff` vacío |
+| `fixture_list_screen.dart` | 1153 líneas | **918** |
+| `home_menu_screen.dart` | 1442 líneas | **1323** |
+| El `onTap` de "cambiar resultado" | 263 líneas | **4** |
+| `_syncData()` | 272 líneas | **141** (100 de ellas, diálogos) |
+| Parámetros de `restoreFromDatabase` | 13 sueltos | **1 snapshot** |
+| Upserts duplicados a `matches` | 2 | **1** |
+
+**CORRECCIÓN A ESTE PLAN.** El documento afirmaba que el wipe+insert de las 7 tablas "no es atómico" y que había que envolverlo en `db.transaction()`. **No era cierto:** la transacción ya estaba y cubría el borrado y las 8 inserciones. Se verificó antes de escribir nada; ese bug no existía y no se apunta como arreglado.
+
+**Lo que sí apareció** al escribir el test de atomicidad: un fallo de esquema *dentro* de la transacción (p.ej. un nombre que excede el `CHECK` de longitud) subía como excepción suelta. La pantalla solo contempla `Ok`/`Err`, así que no se enteraba y el error llegaba al framework. Se añadió `StorageException` a la jerarquía sellada.
+
+**Se resolvió el `TODO(fase-5)` de la Fase 4:** `fixturesRaw` y `finishedRosters` dejan de ser `List<dynamic>`. Ahora son `CatalogFixture` y `CatalogRoster`, parseados en el datasource. El `_toBool` privado del widget pasó a `parseBool` en `core/utils/`.
+
+**17 tests nuevos.** Los que cubren decisiones que importan:
+- los partidos `FINISHED` **sobreviven** a la descarga (la nube no los reenvía: borrarlos perdería rosters, asistencia y eventos sin vuelta atrás);
+- **rollback real**: se fuerza un fallo a mitad y se comprueba que las tablas conservan su contenido previo;
+- si falla el roster al abrir un partido ajeno, **sigue adelante sin capitanes** — el usuario puede corregir el resultado igual, abortar sería peor;
+- un `player_id` `"0"` (falta de banca, tiempo muerto) se guarda como **nulo**: guardarlo tal cual violaría la FK contra `players`.
+
+**R4 sigue en 12.** Bajar de ahí exige tocar las 10 pantallas restantes, no solo las dos peores. Queda para una fase posterior.
+
 **Rollback:** 5.1 y 5.2 son commits separados e independientes.
 
 ---
@@ -762,7 +792,7 @@ Se actualiza al cerrar cada fase.
 | 2 | DI + singletons | `refactor/f2-di` | 🟡 Verde, falta smoke en dispositivo | **0** | 93 ✔ | — | 2026-08-09 |
 | 3 | Capa de red | `refactor/f3-network` + `f3.3-borrar-fachada` | 🟡 Verde, falta smoke en dispositivo | **0** | 105 ✔ | 5 commits | 2026-08-09 |
 | 4 | Contratos de dominio | `refactor/f4-domain` | 🟡 Verde, falta smoke en dispositivo | **0** | 135 ✔ | 2 commits | 2026-08-10 |
-| 5 | Sacar negocio de la UI | `refactor/f5-usecases` | ⬜ Pendiente | — | — | — | — |
+| 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` | ⬜ Pendiente | — | — | — | — |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | ⬜ Pendiente | — | — | — | — |
 | 8 | Dividir el controller | `refactor/f8-engines` | ⬜ Pendiente | — | — | — | — |
@@ -830,28 +860,28 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 
 | Métrica | Base | F0 | F1 | F2 | F3 | F4 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 |  |  | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | 0 |  |  | 0 |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ |  |  | 30 |
-| Providers duplicados | 2 | 2 | 2 | **0** | 0 | 0 |  |  | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 |  |  | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ |  |  | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 |  |  | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 |  |  | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 |  |  | 0 |
-| Imports relativos | 136 | 136 | **0** | 0 | 0 | 0 |  |  | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 |  |  | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 |  |  | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 |  |  | 0 |
-| Imports con alias `as catalog`/`as model` | 4 | 4 | 4 | 4 | 4 | **0** |  |  | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** |  |  | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** |  |  | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 |  |  | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 |  |  | 0 |
-| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | 0 |  |  | 0 |
-| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | 0 |  |  | 0 |
-| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 |  |  | 0 |
-| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | 0 |  |  | 0 |
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 | 1705 |  | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | 0 | 0 |  | 0 |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ |  | 30 |
+| Providers duplicados | 2 | 2 | 2 | **0** | 0 | 0 | 0 |  | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 | 0 |  | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ | 1 ✔ |  | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 | 3 |  | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 | 12 |  | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 | 4 |  | 0 |
+| Imports relativos | 136 | 136 | **0** | 0 | 0 | 0 | 0 |  | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 | 14 |  | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 | 17 |  | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 | 21 |  | 0 |
+| Imports con alias `as catalog`/`as model` | 4 | 4 | 4 | 4 | 4 | **0** | 0 |  | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** | **152** |  | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** | **17** |  | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 | 0 |  | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 | 0 |  | 0 |
+| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | 0 | 0 |  | 0 |
+| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | 0 | 0 |  | 0 |
+| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 | 0 |  | 0 |
+| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | 0 | 0 |  | 0 |
 
 ---
 
