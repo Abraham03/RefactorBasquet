@@ -408,7 +408,7 @@ Get-ChildItem -Path lib,test -Recurse -Filter *.dart |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
 | Goldens de contrato (I2) | 34 ✔ | 34 ✔ |
-| Imports relativos | 136 | **0** |
+| Imports relativos | 136 | **0** | 0 |
 | Renames detectados por git | — | **61** (historia preservada) |
 
 **Commits** (uno por grupo, revertibles de forma independiente):
@@ -479,9 +479,9 @@ El movimiento **expone** las violaciones que ya existían; no las crea ni las co
 | `flutter test` | 83 verdes | **93 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
-| Providers duplicados | 2 | **0** |
+| Providers duplicados | 2 | **0** | 0 |
 | Providers declarados en screens/widgets | 3 | **0** |
-| Singletons estáticos (`.instance`) | 3 | **0** |
+| Singletons estáticos (`.instance`) | 3 | **0** | 0 |
 | Puntos de arranque de `ExternalDisplayService` | 2 | **1** (`AppBootstrap`) |
 
 **El riesgo abierto de esta fase quedó descartado:** `NativeDatabase.memory()` **sí funciona** bajo `flutter test` en Windows sin necesidad de poner `sqlite3.dll` en la raíz. Se comprobó con una prueba desechable antes de escribir los tests reales, así que las fases siguientes pueden usar drift en memoria con confianza.
@@ -537,9 +537,9 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Goldens de contrato (I2) | 35 ✔ | **35 ✔ sin tocar un fixture** |
 | Esquema drift (I3) | — | `diff` vacío |
-| `http.get`/`http.post` top-level | 30 | **0** |
+| `http.get`/`http.post` top-level | 30 | **0** | 0 |
 | Copias del `if (statusCode == 200 \|\| 201)` | ~20 | **0** |
-| Líneas de `ApiService` | 866 | **363** (pura delegación) |
+| Líneas de `ApiService` | 866 | **363** (pura delegación) | 0 |
 | Clases con lógica de red | 1 God class | **5 datasources** |
 
 **Lo importante:** se reescribieron las 30 acciones y **los 35 goldens siguen pasando sin modificar un solo fixture**. El contrato con el backend está intacto.
@@ -761,7 +761,7 @@ Se actualiza al cerrar cada fase.
 | 1 | Mover archivos | `refactor/f1-mover-archivos` | 🟡 Verde, falta smoke en dispositivo | **0** | 83 ✔ | 7 commits | 2026-08-09 |
 | 2 | DI + singletons | `refactor/f2-di` | 🟡 Verde, falta smoke en dispositivo | **0** | 93 ✔ | — | 2026-08-09 |
 | 3 | Capa de red | `refactor/f3-network` + `f3.3-borrar-fachada` | 🟡 Verde, falta smoke en dispositivo | **0** | 105 ✔ | 5 commits | 2026-08-09 |
-| 4 | Contratos de dominio | `refactor/f4-domain` | ⬜ Pendiente | — | — | — | — |
+| 4 | Contratos de dominio | `refactor/f4-domain` | 🟡 Verde, falta smoke en dispositivo | **0** | 135 ✔ | 2 commits | 2026-08-10 |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | ⬜ Pendiente | — | — | — | — |
 | 6 | Deduplicación | `refactor/f6-dry` | ⬜ Pendiente | — | — | — | — |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | ⬜ Pendiente | — | — | — | — |
@@ -828,28 +828,28 @@ diff schema/base.json schema/current.json                     # debe ser vacío
 
 Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cada fase marcada.
 
-| Métrica | Base | F0 | F1 | F2 | F3 | F5 | F8 | Meta |
-|---|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | | | 0 |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | | | 30 |
+| Métrica | Base | F0 | F1 | F2 | F3 | F4 | F5 | F8 | Meta |
+|---|---|---|---|---|---|---|---|---|---|
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 | | | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | — | | | 0 |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | | | 30 |
 | Providers duplicados | 2 | 2 | 2 | **0** | 0 | | | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | | | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | | | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | | | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | | | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | | | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 | | | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ | | | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 | | | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 | | | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 | | | 0 |
 | Imports relativos | 136 | 136 | **0** | 0 | 0 | | | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | | | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | | | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | | | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | | | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | | | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | | | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 | | | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 | | | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 | | | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** | | | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** | | | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 | | | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 | | | 0 |
 | Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | | | 0 |
 | `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | | | 0 |
-| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | | | 0 |
+| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 | | | 0 |
 | Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | | | 0 |
 
 ---
