@@ -553,9 +553,27 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 
 **Deuda explícita y localizada:** la fachada conserva `_asBool`, `_asApiResult` y `_orThrow`, que **siguen destruyendo la causa del error** para no cambiar la firma pública. Están marcados como tales y desaparecen en 3.3.
 
-#### ⬜ Falta 3.3 — eliminar la fachada
+#### ✅ Resultado de 3.3 (2026-08-09)
 
-Es la parte que toca la UI, y por eso se deja aparte: migrar los llamadores de `ApiService` a consumir `Result` con `switch` exhaustivo, y borrar `api_service.dart`. Al terminar desaparecen los `Future<bool>` que tragan la causa y los `e.toString().replaceFirst('Exception: ', '')` de las pantallas. Alcance: ~7 pantallas y los repositorios de `sync`, `player`, `attendance` y `official`.
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 104 verdes | **105 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Goldens de contrato (I2) | 35 ✔ | **35 ✔, fixtures intactos desde la Fase 0** |
+| Esquema drift (I3) | — | `diff` vacío |
+| `ApiService` | 363 líneas | **borrada** |
+| Violaciones R2 | 3 | **2** (`matches_dao` → Fase 4; el composition root es excepción legítima) |
+| `replaceFirst('Exception: ')` en pantallas | 1 | **0** |
+
+**Técnica que hizo el trabajo manejable:** marcar `apiServiceProvider` como `@Deprecated` **antes** de migrar. El analizador se convirtió en una checklist viva de los 22 puntos pendientes, que iba bajando con cada archivo.
+
+**Dos mejoras que cayeron por el camino:**
+
+1. `matches_dao.syncOfflinePlayersBeforeMatches` recibía **`dynamic api`**, lo que ocultaba el acoplamiento y desactivaba toda comprobación de tipos. Ahora recibe un **callback tipado**: el DAO declara *qué* necesita, no quién se lo da, y así `core/database` no tiene que importar `features/`.
+2. `player_repository` registraba `"Creación online falló: $e"`; ahora registra el tipo y el mensaje de la `AppException`. Distinguir "sin internet" de "el backend rechazó el dorsal" cambia qué hacer.
+
+**LA PRUEBA de I2:** los 34 fixtures de petición **siguen sin modificarse desde el commit de la Fase 0** (`f924171`), cuando se capturaron contra la vieja `ApiService`. Que sigan pasando contra una capa de red reescrita entera es la demostración de que el contrato con el backend está intacto.
 
 ---
 
@@ -742,7 +760,7 @@ Se actualiza al cerrar cada fase.
 | 0 | Red de seguridad + congelar contratos | `refactor/f0-safety-net` | ✅ Cerrada | 153 info / 0 err | 83 ✔ | — | 2026-08-09 |
 | 1 | Mover archivos | `refactor/f1-mover-archivos` | 🟡 Verde, falta smoke en dispositivo | **0** | 83 ✔ | 7 commits | 2026-08-09 |
 | 2 | DI + singletons | `refactor/f2-di` | 🟡 Verde, falta smoke en dispositivo | **0** | 93 ✔ | — | 2026-08-09 |
-| 3 | Capa de red | `refactor/f3-network` | 🟡 3.1 y 3.2 cerradas; **falta 3.3** | **0** | 104 ✔ | 3 commits | 2026-08-09 |
+| 3 | Capa de red | `refactor/f3-network` + `f3.3-borrar-fachada` | 🟡 Verde, falta smoke en dispositivo | **0** | 105 ✔ | 5 commits | 2026-08-09 |
 | 4 | Contratos de dominio | `refactor/f4-domain` | ⬜ Pendiente | — | — | — | — |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | ⬜ Pendiente | — | — | — | — |
 | 6 | Deduplicación | `refactor/f6-dry` | ⬜ Pendiente | — | — | — | — |
@@ -802,6 +820,8 @@ dart run drift_dev schema dump lib/core/database/app_database.dart schema/curren
 diff schema/base.json schema/current.json                     # debe ser vacío
 ```
 
+> **Esta regla se incumplió en la Fase 3.3 y salió caro.** Correr `dart format` sobre `lib/` reformateó 54 archivos (**+5867/−3602**) para ~50 cambios reales: `match_control_screen.dart` salía con **+1996/−723** por UNA línea, y `tv_scoreboard_widget.dart` aparecía en el commit sin haberlo tocado. Además el reformateo partió `if (x) stmt;` en dos líneas, lo que disparó 9 `curly_braces_in_flow_control_structures` que antes no existían. Hubo que reconstruir el commit desde el estado limpio reaplicando solo lo funcional: **21 archivos, +1211/−995**. No repetir.
+
 > **Nota sobre `dart format` (medido en Fase 0):** `dart format lib test` reformatea **66 de 76 archivos** — el "tall style" del formatter de Dart 3.10 toca casi todo el código existente. Correrlo de forma global está **prohibido en la Fase 1**: destruiría la verificación `added == deleted` del diff, que es la única prueba de que no se coló lógica. Se formatean solo los archivos nuevos de cada fase. El reformateo global, si se quiere, va en la Fase 9 como commit propio y aislado.
 
 ### 4.4 Burn-down de deuda
@@ -811,11 +831,11 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 | Métrica | Base | F0 | F1 | F2 | F3 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|---|
 | Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | 30 (delegan) | | | 0 (disuelta) |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | | | 0 |
 | Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | | | 30 |
 | Providers duplicados | 2 | 2 | 2 | **0** | 0 | | | 0 |
 | Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | | | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | 3 | | | 1 (solo el composition root) |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | | | 1 (solo el composition root) |
 | Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | | | 0 |
 | Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | | | 0 |
 | Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | | | 0 |
@@ -823,14 +843,14 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 | Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | | | 0 |
 | `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | | | 0 |
 | `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **104** | | | ≥200 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | | | ≥200 |
 | Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | | | ≥40 |
 | `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | | | 0 |
 | `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | | | 0 |
 | Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | | | 0 |
 | `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | | | 0 |
 | Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | | | 0 |
-| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **363** | | | 0 (borrada) |
+| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | | | 0 |
 
 ---
 
