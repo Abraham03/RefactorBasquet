@@ -684,13 +684,15 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 | Métrica | Antes | Después |
 |---|---|---|
 | `flutter analyze` | 0 | **0** |
-| `flutter test` | 152 verdes | **162 verdes** |
+| `flutter test` | 152 verdes | **170 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Goldens de contrato (I2) | 35 ✔ | 35 ✔ + **golden del payload** |
 | Esquema drift (I3) | — | `diff` vacío |
 | Copias del mapper evento→payload | 2 | **1** |
 | Copias de la subida offline de jugador | 2 | **1** |
 | Estrategias de id temporal | 3 (en 7 sitios) | **1** |
+| Copias de la bajada de calendario | 3 | **1** |
+| Bloques duplicados del plan | 5 | **0** |
 | `// ignore: unused_local_variable` | 1 | **0** |
 
 **El paso 0 se hizo primero**, como manda el plan: el golden del payload se capturó **por el camino real** (`uploadPendingData()` contra BD en memoria + `MockClient`, comparando el cuerpo de la petición) y se commiteó **antes** de tocar el mapper. Pasa sin modificarse.
@@ -705,9 +707,23 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 
 **La variante truncada de id temporal era un riesgo real:** `"-${...millisecondsSinceEpoch.toString().substring(5)}"` descarta los 5 primeros dígitos, dejando 8 cifras en vez de 13. Dos altas seguidas de sede u oficial podían generar el mismo id y pisarse. `TempId` además garantiza unicidad dentro del mismo milisegundo.
 
-#### ⬜ Falta (c): la descarga + reinserción de fixture
+#### ✅ (c) cerrada — y tapaba un tercer bug
 
-Quedan 3 sitios en 2 pantallas (`fixture_list_screen`, `manual_fixture_builder_screen` ×2) que bajan el calendario y lo reinsertan a mano. Extraerlo pide un `FixtureRepository.refresh(tournamentId)` y toca dos pantallas grandes; se deja para una fase posterior en vez de meterlo con calzador aquí.
+`FixtureRepository.refresh()` sustituye las 3 copias. Igual que en (a), **las copias no eran equivalentes**:
+
+> `fixture_list_screen` **no ponía `isSynced`** al reinsertar. La columna toma su default (`false`) y `_uploadFixtures` recoge todo lo que esté en `false`, así que la siguiente sincronización **reenviaba al servidor partidos que acababan de venir de él**, como si fueran cambios locales de equipos. La otra copia sí lo marcaba.
+
+Además, en las dos copias el `delete` quedaba **fuera** de la transacción: un fallo a mitad dejaba al usuario sin calendario. (Este sí era el problema de atomicidad real, no el que el plan señalaba en la Fase 5.)
+
+El tercer sitio no persistía: solo recorría el mismo mapa de jornadas para contar enfrentamientos. Se comparte vía `scheduledTeamPairs`, que además descarta los `CANCELLED`.
+
+| | Antes | Después |
+|---|---|---|
+| `fixture_list` refresh | 32 líneas | **15** |
+| `manual_fixture_builder` reinserción | 34 líneas | **5** |
+| `manual_fixture_builder` head-to-head | 27 líneas | **11** |
+
+`fixture_list_screen` deja de importar drift: ya no toca la BD en ese flujo. 8 tests nuevos.
 
 ---
 
@@ -823,7 +839,7 @@ Se actualiza al cerrar cada fase.
 | 3 | Capa de red | `refactor/f3-network` + `f3.3-borrar-fachada` | 🟡 Verde, falta smoke en dispositivo | **0** | 105 ✔ | 5 commits | 2026-08-09 |
 | 4 | Contratos de dominio | `refactor/f4-domain` | 🟡 Verde, falta smoke en dispositivo | **0** | 135 ✔ | 2 commits | 2026-08-10 |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
-| 6 | Deduplicación | `refactor/f6-dry` | 🟡 Verde; falta (c) y el smoke | **0** | 162 ✔ | 5 commits | 2026-08-10 |
+| 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | ⬜ Pendiente | — | — | — | — |
 | 8 | Dividir el controller | `refactor/f8-engines` | ⬜ Pendiente | — | — | — | — |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
