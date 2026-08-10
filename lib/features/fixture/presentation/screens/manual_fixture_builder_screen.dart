@@ -173,28 +173,12 @@ class _ManualFixtureBuilderScreenState
       final statusData = (await api.fetchTeamsSchedulingStatus(
           widget.tournamentId, _selectedRoundId)).valueOrNull ?? [];
 
-      final fixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
-      
-      // Recolectamos pares (idLocal, idVisitante); el conteo y la validación
-      // viven en HeadToHeadCounter.fromPairs → una sola fuente de verdad (DRY).
-      final pairs = <(int, int)>[];
-
-      if (fixtureData.isNotEmpty && fixtureData['rounds'] != null) {
-        final roundsMap = fixtureData['rounds'] as Map<String, dynamic>;
-        
-        for (var entry in roundsMap.entries) {
-          for (var match in (entry.value as List)) {
-            if (match['status'] == 'CANCELLED') continue;
-
-            final teamA = int.tryParse(match['team_a_id'].toString()) ?? 0;
-            final teamB = int.tryParse(match['team_b_id'].toString()) ?? 0;
-            
-            if (teamA != 0 && teamB != 0) {
-              pairs.add((teamA, teamB));
-            }
-          }
-        }
-      }
+      // Las parejas ya programadas las cuenta el repositorio: aqui se
+      // recorria el mapa de jornadas a mano, igual que en otros dos sitios.
+      final pairsResult = await ref
+          .read(fixtureRepositoryProvider)
+          .scheduledTeamPairs(widget.tournamentId);
+      final pairs = pairsResult.valueOrNull ?? const <(int, int)>[];
 
       if (mounted) {
         _teamsStatus = statusData;
@@ -775,38 +759,9 @@ Future<void> _loadCreatedMatchesLocally() async {
         )).valueOrNull;
 
         if (newFixtureId != null) {
-          final newFixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
-
-          if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
-            await (db.delete(db.fixtures)
-                  ..where((f) => f.tournamentId.equals(widget.tournamentId)))
-                .go();
-
-            final roundsMap = newFixtureData['rounds'] as Map<String, dynamic>;
-            await db.transaction(() async {
-              for (var entry in roundsMap.entries) {
-                final roundName = entry.key;
-                final matches = entry.value as List;
-                for (var m in matches) {
-                  await db.into(db.fixtures).insert(
-                      FixturesCompanion.insert(
-                        id: m['id'].toString(),
-                        tournamentId: widget.tournamentId,
-                        roundName: roundName,
-                        teamAId: m['team_a_id'].toString(),
-                        teamBId: m['team_b_id'].toString(),
-                        teamAName: m['team_a'] ?? 'A',
-                        teamBName: m['team_b'] ?? 'B',
-                        logoA: drift.Value(m['logo_a']),
-                        logoB: drift.Value(m['logo_b']),
-                        status: drift.Value(m['status'] ?? 'SCHEDULED'),
-                        isSynced: const drift.Value(true),
-                      ),
-                      mode: drift.InsertMode.insertOrReplace);
-                }
-              }
-            });
-          }
+          await ref
+              .read(fixtureRepositoryProvider)
+              .refresh(widget.tournamentId);
         }
       } catch (e) {
         debugPrint("Guardado local exitoso, pero falló subida a nube: $e");

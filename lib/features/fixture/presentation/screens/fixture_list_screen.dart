@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/features/match/presentation/screens/attendance_edit_screen.dart';
@@ -241,38 +240,21 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         throw Exception(error.message);
       }
 
-      // 4. Descargar y persistir localmente el nuevo calendario
-      final newFixtureData = (await api.fetchFixture(widget.tournamentId)).valueOrNull ?? {};
-      if (newFixtureData.isNotEmpty && newFixtureData['rounds'] != null) {
-        await (db.delete(db.fixtures)..where((f) => f.tournamentId.equals(widget.tournamentId))).go();
+      // 4. Descargar y persistir localmente el nuevo calendario.
+      //    El repositorio hace el borrado y la reinsercion en una sola
+      //    transaccion y marca isSynced: aqui se omitia, asi que el calendario
+      //    recien bajado quedaba como "pendiente de subir" y la siguiente
+      //    sincronizacion lo reenviaba al servidor.
+      final saved = await ref
+          .read(fixtureRepositoryProvider)
+          .refresh(widget.tournamentId);
 
-        final roundsMap = newFixtureData['rounds'] as Map<String, dynamic>;
-        await db.transaction(() async {
-          for (var entry in roundsMap.entries) {
-            final roundName = entry.key;
-            for (var m in (entry.value as List)) {
-              await db.into(db.fixtures).insert(
-                FixturesCompanion.insert(
-                  id: m['id'].toString(),
-                  tournamentId: widget.tournamentId,
-                  roundName: roundName,
-                  teamAId: m['team_a_id'].toString(),
-                  teamBId: m['team_b_id'].toString(),
-                  teamAName: m['team_a'] ?? 'A',
-                  teamBName: m['team_b'] ?? 'B',
-                  logoA: drift.Value(m['logo_a']),
-                  logoB: drift.Value(m['logo_b']),
-                  status: drift.Value(m['status'] ?? 'SCHEDULED'),
-                ),
-                mode: drift.InsertMode.insertOrReplace,
-              );
-            }
-          }
-        });
-
-        ref.invalidate(localFixtureProvider(widget.tournamentId));
-        setState(() => _selectedRound = null);
+      if (saved case Err(:final error)) {
+        throw Exception(error.message);
       }
+
+      ref.invalidate(localFixtureProvider(widget.tournamentId));
+      if (mounted) setState(() => _selectedRound = null);
 
       if (!mounted) return;
       Navigator.pop(context);

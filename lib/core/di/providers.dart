@@ -18,6 +18,7 @@ import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/network/api_client.dart';
 import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
 import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
+import 'package:myapp/features/fixture/data/repositories/fixture_repository.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
@@ -70,6 +71,14 @@ final matchApiProvider = Provider<MatchApi>(
 final officialVenueApiProvider = Provider<OfficialVenueApi>(
   (ref) => OfficialVenueApi(ref.watch(apiClientProvider)),
 );
+
+/// Calendario local: bajada desde la nube y consultas derivadas.
+final fixtureRepositoryProvider = Provider<FixtureRepository>((ref) {
+  return FixtureRepository(
+    ref.watch(databaseProvider),
+    ref.watch(fixtureApiProvider),
+  );
+});
 
 /// Sincronización de bajada: descarga el catálogo y reemplaza el local.
 final catalogDownloadRepositoryProvider = Provider<CatalogDownloadRepository>((
