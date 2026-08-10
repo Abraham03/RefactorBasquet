@@ -1055,6 +1055,14 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
     query.where(db.gameEvents.matchId.equals(match.id));
     final rows = await query.get();
     
+    // NO usa MatchPayloadMapper a propósito. Esto es un volcado de
+    // diagnóstico, no el acta que va al backend, y difiere donde importa:
+    //   - manda el `player_id` NEGATIVO tal cual, para poder corregirlo a mano
+    //     en Postman (el acta real lo convierte a null);
+    //   - usa el `type` ya limpio, sin el sufijo de lado;
+    //   - no incluye `clock_time` ni `is_starter`/`attended`.
+    // Pasarlo por el mapper cambiaría el volcado o llenaría el mapper de
+    // banderas para un consumidor que no es el backend.
     int runningScoreA = 0;
     int runningScoreB = 0;
     
