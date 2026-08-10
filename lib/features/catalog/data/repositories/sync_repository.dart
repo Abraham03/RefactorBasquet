@@ -10,6 +10,7 @@ import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
+import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///
@@ -505,57 +506,23 @@ class SyncRepository {
       query.where(_db.gameEvents.matchId.equals(match.id));
       final rows = await query.get();
 
-      int runningScoreA = 0;
-      int runningScoreB = 0;
-
-      final eventsList = rows.map((row) {
-        final event = row.readTable(_db.gameEvents);
-        final roster = row.readTableOrNull(_db.matchRosters);
-        final player = row.readTableOrNull(_db.players);
-        String rawType = event.type;
-        String teamSide = roster?.teamSide ?? 'A';
-        if (rawType.endsWith('_A')) {
-          teamSide = 'A';
-          rawType = rawType.replaceAll('_A', '');
-        } else if (rawType.endsWith('_B')) {
-          teamSide = 'B';
-          rawType = rawType.replaceAll('_B', '');
-        }
-        int points = 0;
-        if (rawType == 'POINT_1' || rawType == 'FREE_THROW') points = 1;
-        if (rawType == 'POINT_2') points = 2;
-        if (rawType == 'POINT_3') points = 3;
-        bool isTeamA = teamSide == 'A';
-        if (points > 0) {
-          if (isTeamA) {
-            runningScoreA += points;
-          } else {
-            runningScoreB += points;
-          }
-        }
-        final currentScore = isTeamA ? runningScoreA : runningScoreB;
-
-        final Map<String, dynamic> eventPayload = {
-          "period": event.period,
-          "team_side": teamSide,
-          "player_name": player?.name ?? '',
-          "player_number": roster?.jerseyNumber ?? 0,
-          "points_scored": points,
-          "score_after": currentScore,
-          "type": event.type,
-          "clock_time": event.clockTime,
-        };
-
-        int pId = 0;
-        if (event.playerId != null &&
-            event.playerId!.isNotEmpty &&
-            event.playerId != '-1') {
-          pId = int.tryParse(event.playerId!) ?? 0;
-        }
-        if (pId < 0) containsUnsyncedOfflinePlayers = true;
-        eventPayload["player_id"] = (pId > 0) ? pId : null;
-        return eventPayload;
-      }).toList();
+      final mapped = MatchPayloadMapper.mapEvents(
+        rows.map(
+          (row) => (
+            event: row.readTable(_db.gameEvents),
+            roster: row.readTableOrNull(_db.matchRosters),
+            player: row.readTableOrNull(_db.players),
+          ),
+        ),
+      );
+      if (mapped.any((e) => e.isOfflinePlayer)) {
+        containsUnsyncedOfflinePlayers = true;
+      }
+      final eventsList = mapped.map((e) => e.payload).toList();
+      final playedIds = mapped
+          .map((e) => e.playerId)
+          .whereType<int>()
+          .toSet();
 
       Uint8List? savedPdfBytes;
       if (match.matchReportPath != null && match.matchReportPath!.isNotEmpty) {
@@ -572,28 +539,19 @@ class SyncRepository {
       )..where((r) => r.matchId.equals(match.id))).get();
 
       final rostersList = rosterRows.map((r) {
-        final pIdInt = int.tryParse(r.playerId) ?? 0;
-        if (pIdInt < 0) containsUnsyncedOfflinePlayers = true;
-        // Un equipo en forfeit no jugó ni asistió: forzamos played = 0.
-        final bool teamForfeited =
-            (r.teamSide == 'A' &&
-                (match.forfeitStatus == 'TEAM_A' ||
-                    match.forfeitStatus == 'BOTH')) ||
-            (r.teamSide == 'B' &&
-                (match.forfeitStatus == 'TEAM_B' ||
-                    match.forfeitStatus == 'BOTH'));
-        final hasPlayed =
-            !teamForfeited &&
-            eventsList.any((event) => event["player_id"] == pIdInt);
-        return {
-          "player_id": pIdInt,
-          "team_side": r.teamSide,
-          "is_starter": r.isStarter ? 1 : 0,
-          "jersey_number": r.jerseyNumber,
-          "is_captain": r.isCaptain ? 1 : 0,
-          "played": hasPlayed ? 1 : 0,
-          "attended": r.attended ? 1 : 0,
-        };
+        final playerId = int.tryParse(r.playerId) ?? 0;
+        if (playerId < 0) containsUnsyncedOfflinePlayers = true;
+        final forfeited = MatchPayloadMapper.teamForfeited(
+          r.teamSide,
+          match.forfeitStatus,
+        );
+        return MatchPayloadMapper.mapRoster(
+          r,
+          playerId: playerId,
+          // En la subida diferida ya no hay estadisticas en memoria: que un
+          // jugador haya jugado se deduce de aparecer en algun evento.
+          hasPlayed: !forfeited && playedIds.contains(playerId),
+        );
       }).toList();
 
       if (containsUnsyncedOfflinePlayers) {

@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
+import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/core/network/result.dart';
 class ScoreEvent {
   final int period;
@@ -720,30 +721,13 @@ void _applyRestoreSub({
       await _dao.saveSignature(state.matchId, signatureBase64);
     }
 
-    // RECUPERAR FIRMAS DE OFICIALES ---
-    final database = _dao.db;
-    final mainRefObj = await (database.select(database.officials)
-      ..where((t) => t.name.equals(state.mainReferee))
-      ..where((t) => t.role.equals('ARBITRO_PRINCIPAL')))
-      .get().then((list) => list.firstOrNull);
-
-    final auxRefObj = await (database.select(database.officials)
-      ..where((t) => t.name.equals(state.auxReferee))
-      ..where((t) => t.role.equals('ARBITRO_AUXILIAR')))
-      .get().then((list) => list.firstOrNull);
-
-    // ignore: unused_local_variable
-    Uint8List? mainRefSignature;
-    // ignore: unused_local_variable
-    Uint8List? auxRefSignature;
-
-    if (mainRefObj?.signatureData != null) {
-      mainRefSignature = base64Decode(mainRefObj!.signatureData!);
-    }
-    if (auxRefObj?.signatureData != null) {
-      auxRefSignature = base64Decode(auxRefObj!.signatureData!);
-    }
-    // --------------------------------------------
+    // Aquí había una copia de la búsqueda de firmas de árbitro: dos consultas
+    // a `officials` y dos `base64Decode` cuyos resultados se guardaban en
+    // variables marcadas `// ignore: unused_local_variable`. Código muerto que
+    // además pegaba a la base de datos en cada cierre de partido.
+    //
+    // Las firmas las recupera `OfficialRepository.getRefereeSignatures`, que
+    // es quien las usa de verdad (para el PDF, desde `MatchFinalizer`).
 
     String? localPdfPath;
     if (pdfBytes != null) {
@@ -792,85 +776,49 @@ void _applyRestoreSub({
           ..orderBy([drift.OrderingTerm.asc(_dao.db.gameEvents.createdAt)]))
         .get();
 
-    int runA = 0, runB = 0;
-    final eventsList = eventRows.map((row) {
-      final event = row.readTable(_dao.db.gameEvents);
-      final roster = row.readTableOrNull(_dao.db.matchRosters);
-      final player = row.readTableOrNull(_dao.db.players);
-
-      String rawType = event.type;
-      String teamSide = roster?.teamSide ?? 'A';
-      if (rawType.endsWith('_A')) { teamSide = 'A'; rawType = rawType.replaceAll('_A', ''); }
-      else if (rawType.endsWith('_B')) { teamSide = 'B'; rawType = rawType.replaceAll('_B', ''); }
-
-      int points = 0;
-      if (rawType == 'POINT_1' || rawType == 'FREE_THROW') points = 1;
-      if (rawType == 'POINT_2') points = 2;
-      if (rawType == 'POINT_3') points = 3;
-      final isA = teamSide == 'A';
-      if (points > 0) { if (isA) {
-        runA += points;
-      } else {
-        runB += points;
-      } }
-      final currentScore = isA ? runA : runB;
-
-      int pId = 0;
-      if (event.playerId != null && event.playerId!.isNotEmpty && event.playerId != '-1') {
-        pId = int.tryParse(event.playerId!) ?? 0;
-      }
-
-      return {
-        "period": event.period,
-        "team_side": teamSide,
-        "player_name": player?.name ?? '',
-        "player_id": (pId > 0) ? pId : null,
-        "player_number": roster?.jerseyNumber ?? 0,
-        "points_scored": points,
-        "score_after": currentScore,
-        "type": event.type, // type ORIGINAL completo (con sufijo) para reconstrucción fiel
-        "clock_time": event.clockTime,
-      };
-    }).toList();
+    final eventsList = MatchPayloadMapper.mapEvents(
+      eventRows.map(
+        (row) => (
+          event: row.readTable(_dao.db.gameEvents),
+          roster: row.readTableOrNull(_dao.db.matchRosters),
+          player: row.readTableOrNull(_dao.db.players),
+        ),
+      ),
+    ).map((e) => e.payload).toList();
 
     final rosterRows = await (_dao.db.select(
       _dao.db.matchRosters,
     )..where((r) => r.matchId.equals(state.matchId))).get();
 
     final rostersList = rosterRows
-    .where((r) => (int.tryParse(r.playerId) ?? 0) > 0)
-    .map((r) {
-      // Un equipo en forfeit NO jugó ni asistió, sin importar qué titulares
-      // se hayan seleccionado en la UI para poder avanzar. El forfeit manda.
-      final bool teamForfeited =
-          (r.teamSide == 'A' && (state.forfeitStatus == ForfeitStatus.teamA || state.forfeitStatus == ForfeitStatus.both)) ||
-          (r.teamSide == 'B' && (state.forfeitStatus == ForfeitStatus.teamB || state.forfeitStatus == ForfeitStatus.both));
+        // Los jugadores con id temporal negativo aun no existen en la nube:
+        // enviarlos rompe la FK del backend.
+        .where((r) => (int.tryParse(r.playerId) ?? 0) > 0)
+        .map((r) {
+          final forfeited = MatchPayloadMapper.teamForfeited(
+            r.teamSide,
+            state.forfeitStatus,
+          );
+          // Al cerrar el partido SI hay estadisticas vivas: se usan en vez de
+          // releer los eventos.
+          final stats = state.playerStats.values
+              .where((p) => p.dbId.toString() == r.playerId)
+              .firstOrNull;
+          final played =
+              !forfeited &&
+              stats != null &&
+              (stats.isStarter ||
+                  stats.isOnCourt ||
+                  stats.points > 0 ||
+                  stats.fouls > 0);
 
-      bool hasPlayed = false;
-      if (!teamForfeited) {
-        final pStats = state.playerStats.values
-            .where((p) => p.dbId.toString() == r.playerId)
-            .firstOrNull;
-        if (pStats != null) {
-          if (pStats.isStarter ||
-              pStats.isOnCourt ||
-              pStats.points > 0 ||
-              pStats.fouls > 0) {
-            hasPlayed = true;
-          }
-        }
-      }
-
-      return {
-        "player_id": int.tryParse(r.playerId) ?? 0,
-        "team_side": r.teamSide,
-        "is_starter": r.isStarter ? 1 : 0,
-        "jersey_number": r.jerseyNumber,
-        "is_captain": r.isCaptain ? 1 : 0,
-        "played": hasPlayed ? 1 : 0,
-        "attended": r.attended ? 1 : 0,
-      };
-    }).toList();
+          return MatchPayloadMapper.mapRoster(
+            r,
+            playerId: int.tryParse(r.playerId) ?? 0,
+            hasPlayed: played,
+          );
+        })
+        .toList();
 
     final now = DateTime.now();
     final formattedDate =
