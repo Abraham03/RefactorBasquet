@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Importamos app_database.dart donde se genera la clase Tournament
 import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/core/di/providers.dart';
 
-// 1. Provider para obtener la base de datos
-final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+// `databaseProvider` vivía también aquí, duplicado. Ahora sale del composition
+// root (core/di/providers.dart) y se reexporta para no romper a quien lo
+// importaba desde este archivo.
+export 'package:myapp/core/di/providers.dart' show databaseProvider;
 
-// 2. Provider que escucha los torneos disponibles en la BD
+// Provider que escucha los torneos disponibles en la BD
 final tournamentsListProvider = StreamProvider<List<Tournament>>((ref) {
   final db = ref.watch(databaseProvider);
   // NOTA: Si 'db.tournaments' sale en rojo, ES PORQUE FALTA EJECUTAR EL PASO 1 (build_runner)

@@ -40,10 +40,10 @@ class PublisherStatus {
 /// Servidor WebSocket de la red local: difunde el marcador a la pantalla
 /// externa (loopback) y a las tablets de la LAN.
 class LocalWebSocketServer {
-  static final LocalWebSocketServer _instance = LocalWebSocketServer._internal();
-  static LocalWebSocketServer get instance => _instance;
-
-  LocalWebSocketServer._internal();
+  /// Una sola instancia por `ProviderScope`, vía `localWebSocketServerProvider`.
+  /// Antes era un singleton estático, lo que impedía levantar un servidor
+  /// aislado por test.
+  LocalWebSocketServer();
 
   HttpServer? _server;
   int? _port;

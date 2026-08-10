@@ -8,6 +8,7 @@ import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/database/app_database.dart' as db_app;
 import 'package:myapp/core/di/providers.dart' as di;
+import 'package:myapp/features/teams/presentation/providers/team_providers.dart';
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 
@@ -526,11 +527,3 @@ class _PlayerCard extends StatelessWidget {
     );
   }
 }
-
-final teamPlayersStreamProvider =
-    StreamProvider.family<List<db_app.Player>, int>((ref, teamId) {
-      final db = ref.watch(di.databaseProvider);
-      return (db.select(
-        db.players,
-      )..where((p) => p.teamId.equals(teamId))).watch();
-    });

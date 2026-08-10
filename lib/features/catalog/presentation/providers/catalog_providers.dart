@@ -4,11 +4,13 @@ import 'package:drift/drift.dart';
 
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart' as model;
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
-import 'package:myapp/core/network/api_service.dart';
-import 'package:myapp/features/catalog/presentation/providers/tournament_providers.dart';
+import 'package:myapp/core/di/providers.dart';
 
-// Provider que instancia el servicio API
-final apiServiceProvider = Provider((ref) => ApiService());
+// `apiServiceProvider` vivía también aquí, duplicado: construía una SEGUNDA
+// instancia de ApiService distinta de la del composition root. Ahora sale de
+// core/di/providers.dart y se reexporta para no romper a quien lo importaba
+// desde este archivo.
+export 'package:myapp/core/di/providers.dart' show apiServiceProvider;
 
 // FutureProvider que descarga los datos al iniciar la pantalla
 final catalogProvider = FutureProvider.family<CatalogData, String>((ref,tournamentId) async {

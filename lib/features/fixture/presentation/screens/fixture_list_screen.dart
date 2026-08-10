@@ -22,26 +22,7 @@ import 'package:myapp/features/fixture/presentation/widgets/tournament_rules_dia
 import 'package:myapp/features/match/presentation/screens/change_outcome_screen.dart';           // ChangeOutcomeScreen
 import 'package:myapp/features/match/domain/services/outcome_changer.dart'; // OutcomePdfParams
 import 'package:myapp/core/network/connectivity_helper.dart';
-
-// Provider REACTIVO para leer el fixture local de un torneo específico
-final localFixtureProvider = StreamProvider.family<Map<String, List<Fixture>>, String>((ref, tournamentId) {
-  final db = ref.read(databaseProvider);
-  
-  return (db.select(db.fixtures)
-        ..where((tbl) => tbl.tournamentId.equals(tournamentId))
-      ).watch().map((matches) {
-        
-    final Map<String, List<Fixture>> grouped = {};
-    for (var m in matches) {
-      if (!grouped.containsKey(m.roundName)) {
-        grouped[m.roundName] = [];
-      }
-      grouped[m.roundName]!.add(m);
-    }
-    
-    return grouped;
-  });
-});
+import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
 
 class FixtureListScreen extends ConsumerStatefulWidget {
   final String tournamentId;

@@ -36,8 +36,14 @@ enum ExternalDisplayStatus {
 /// las dispara el `DisplayManager` de Android vía
 /// [FlutterPresentationDisplay.connectedDisplaysChangedStream].
 class ExternalDisplayService {
-  ExternalDisplayService._();
-  static final ExternalDisplayService instance = ExternalDisplayService._();
+  /// El ciclo de vida lo gestiona `externalDisplayProvider`, que es el único
+  /// que debe construirlo y arrancarlo.
+  ///
+  /// Antes era un singleton estático arrancado desde DOS sitios a la vez
+  /// (`main.dart` y el propio provider), y ninguna prueba de widget podía
+  /// sustituirlo: `MyApp.initState` llamaba al canal nativo y reventaba con
+  /// `MissingPluginException` en el host de tests.
+  ExternalDisplayService();
 
   static const String _routerName = 'presentation_scoreboard';
 

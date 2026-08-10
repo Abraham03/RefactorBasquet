@@ -58,7 +58,7 @@ abstract interface class ScoreboardSubscriber {
 /// Implementación LAN sobre el servidor WebSocket local.
 class WebSocketScoreboardPublisher implements ScoreboardPublisher {
   WebSocketScoreboardPublisher([LocalWebSocketServer? server])
-      : _server = server ?? LocalWebSocketServer.instance;
+      : _server = server ?? LocalWebSocketServer();
 
   final LocalWebSocketServer _server;
 

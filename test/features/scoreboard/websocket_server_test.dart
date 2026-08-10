@@ -4,22 +4,24 @@ import 'package:web_socket_channel/io.dart';
 
 void main() {
   group('LocalWebSocketServer', () {
+    // Una instancia nueva por test. Antes se compartia el singleton estatico,
+    // asi que el estado (_lastPayload, _clients) se filtraba entre tests.
+    late LocalWebSocketServer server;
     late int port;
 
     setUp(() async {
-      port = await LocalWebSocketServer.instance.startServer();
+      server = LocalWebSocketServer();
+      port = await server.startServer();
     });
 
     tearDown(() async {
-      await LocalWebSocketServer.instance.stopServer();
+      await server.stopServer();
     });
 
     test('un cliente muerto no impide que los demás reciban', () async {
       // Regresión del marcador congelado: `broadcast` envolvía el bucle entero
       // en un try, así que un `sink.add` sobre un socket cerrado abortaba la
       // iteración y todos los clientes posteriores dejaban de actualizarse.
-      final server = LocalWebSocketServer.instance;
-
       final dead = IOWebSocketChannel.connect(Uri.parse('ws://127.0.0.1:$port'));
       final aliveA = IOWebSocketChannel.connect(Uri.parse('ws://127.0.0.1:$port'));
       final aliveB = IOWebSocketChannel.connect(Uri.parse('ws://127.0.0.1:$port'));
@@ -48,7 +50,6 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('un cliente que conecta tarde recibe el último marcador', () async {
-      final server = LocalWebSocketServer.instance;
       server.broadcast('{"scoreA":42}');
 
       final late = IOWebSocketChannel.connect(Uri.parse('ws://127.0.0.1:$port'));
@@ -61,7 +62,6 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('clearLastPayload evita mostrar el partido anterior', () async {
-      final server = LocalWebSocketServer.instance;
       server.broadcast('{"scoreA":42}');
       server.clearLastPayload();
 
@@ -77,8 +77,8 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('startServer es idempotente y devuelve el mismo puerto', () async {
-      final a = await LocalWebSocketServer.instance.startServer();
-      final b = await LocalWebSocketServer.instance.startServer();
+      final a = await server.startServer();
+      final b = await server.startServer();
       expect(a, b);
       expect(a, port);
     });

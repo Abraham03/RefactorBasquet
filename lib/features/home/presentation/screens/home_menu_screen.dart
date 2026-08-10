@@ -31,6 +31,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
+import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});
@@ -180,16 +181,17 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
   }
 
   Future<void> _disconnectExternalDisplay() async {
-    await ExternalDisplayService.instance.disable();
+    await ref.read(externalDisplayProvider).disable();
     if (mounted) {
       context.showInfo("Pantalla externa desconectada. Vuelve a activarla desde este menú.");
     }
   }
 
   Future<void> _reconnectExternalDisplay() async {
-    await ExternalDisplayService.instance.requestShow(force: true);
+    final display = ref.read(externalDisplayProvider);
+    await display.requestShow(force: true);
     if (!mounted) return;
-    final status = ExternalDisplayService.instance.status;
+    final status = display.status;
     if (status == ExternalDisplayStatus.showing) {
       context.showSuccess("Marcador visible en la pantalla externa.");
     } else {

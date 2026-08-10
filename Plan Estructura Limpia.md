@@ -471,6 +471,32 @@ El movimiento **expone** las violaciones que ya existían; no las crea ni las co
 
 **Rollback:** revert del commit. Ningún cambio de esquema ni de datos.
 
+#### ✅ Resultado (2026-08-09)
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 83 verdes | **93 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Esquema drift (I3) | — | `diff` vacío |
+| Providers duplicados | 2 | **0** |
+| Providers declarados en screens/widgets | 3 | **0** |
+| Singletons estáticos (`.instance`) | 3 | **0** |
+| Puntos de arranque de `ExternalDisplayService` | 2 | **1** (`AppBootstrap`) |
+
+**El riesgo abierto de esta fase quedó descartado:** `NativeDatabase.memory()` **sí funciona** bajo `flutter test` en Windows sin necesidad de poner `sqlite3.dll` en la raíz. Se comprobó con una prueba desechable antes de escribir los tests reales, así que las fases siguientes pueden usar drift en memoria con confianza.
+
+**Lo que ahora es posible y antes no:** `test/app/app_smoke_test.dart`. Con `ExternalDisplayService` como singleton estático, `MyApp.initState` llamaba al canal nativo y reventaba con `MissingPluginException`; por eso la Fase 0 **borró** el `widget_test.dart` de la plantilla en vez de arreglarlo. Ahora la raíz se monta con un doble del servicio.
+
+**Dos decisiones tomadas durante la ejecución:**
+
+1. **`MyApp` recibe `home` inyectable** (por defecto `HomeMenuScreen`, sin cambio en producción). Montar `HomeMenuScreen` en un test tarda minutos y falla con *"A Timer is still pending"*: sus `StreamProvider` sobre drift dejan pendiente el timer de `StreamQueryStore.markAsClosed` al desmontarse. Cubrir esa pantalla es trabajo de la **Fase 5**, cuando su lógica salga del widget.
+2. **`matchGameProvider` se queda junto a su `StateNotifier`** en `match_game_controller.dart`. Colocar un `StateNotifierProvider` con su notifier es idiomático en Riverpod y ese archivo no es un widget. El criterio de salida es por tanto "ningún provider declarado en archivos de *pantalla o widget*", que sí se cumple.
+
+**Reexports en lugar de tocar 6 pantallas:** al borrar los providers duplicados, `catalog_providers.dart` y `tournament_providers.dart` **reexportan** los del composition root (`export ... show apiServiceProvider`). Las pantallas que los importaban por esa ruta siguen compilando sin cambios, y el test verifica por identidad que ambas rutas resuelven al mismo provider.
+
+**Guard de regresión:** `providers_test.dart` escanea `lib/` y falla si `databaseProvider` o `apiServiceProvider` vuelven a declararse en más de un archivo.
+
 ---
 
 ### Fase 3 — Capa de red: cliente inyectado, `Result` sellado y división por dominio
@@ -686,7 +712,7 @@ Se actualiza al cerrar cada fase.
 |---|---|---|---|---|---|---|---|
 | 0 | Red de seguridad + congelar contratos | `refactor/f0-safety-net` | ✅ Cerrada | 153 info / 0 err | 83 ✔ | — | 2026-08-09 |
 | 1 | Mover archivos | `refactor/f1-mover-archivos` | 🟡 Verde, falta smoke en dispositivo | **0** | 83 ✔ | 7 commits | 2026-08-09 |
-| 2 | DI + singletons | `refactor/f2-di` | ⬜ Pendiente | — | — | — | — |
+| 2 | DI + singletons | `refactor/f2-di` | 🟡 Verde, falta smoke en dispositivo | **0** | 93 ✔ | — | 2026-08-09 |
 | 3 | Capa de red | `refactor/f3-network` | ⬜ Pendiente | — | — | — | — |
 | 4 | Contratos de dominio | `refactor/f4-domain` | ⬜ Pendiente | — | — | — | — |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | ⬜ Pendiente | — | — | — | — |
@@ -753,25 +779,26 @@ diff schema/base.json schema/current.json                     # debe ser vacío
 
 Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cada fase marcada.
 
-| Métrica | Base | F0 | F1 | F3 | F5 | F8 | Meta |
-|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | | | | 0 (disuelta) |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | | | | 30 |
-| Providers duplicados | 2 | 2 | 2 | | | | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | | | | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | | | | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | | | | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | | | | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | | | | 0 |
-| Imports relativos | 136 | 136 | **0** | | | | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | | | | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | | | | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | | | | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | | | | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | | | | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | | | | 0 |
+| Métrica | Base | F0 | F1 | F2 | F3 | F5 | F8 | Meta |
+|---|---|---|---|---|---|---|---|---|
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | | | | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | | | | 0 (disuelta) |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | | | | 30 |
+| Providers duplicados | 2 | 2 | 2 | **0** | | | | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | | | | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | | | | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | | | | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | | | | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | | | | 0 |
+| Imports relativos | 136 | 136 | **0** | 0 | | | | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | | | | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | | | | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | | | | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | | | | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | | | | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | | | | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | | | | 0 |
+| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | | | | 0 |
 
 ---
 
