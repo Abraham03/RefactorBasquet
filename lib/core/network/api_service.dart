@@ -1,11 +1,11 @@
 // lib/core/services/api_service.dart
-import 'dart:convert';
 import 'dart:typed_data';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:myapp/core/constants/api_constants.dart';
 import 'package:myapp/core/network/api_client.dart';
+import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
+import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
+import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
+import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/network/result.dart';
 
@@ -25,8 +25,10 @@ class ApiService {
   final ApiClient _client;
 
   late final OfficialVenueApi _officialVenue = OfficialVenueApi(_client);
-
-  static const String _baseUrl = kApiEndpoint;
+  late final CatalogApi _catalog = CatalogApi(_client);
+  late final FixtureApi _fixture = FixtureApi(_client);
+  late final TeamApi _teams = TeamApi(_client);
+  late final MatchApi _match = MatchApi(_client);
 
   /// Traduce un `Result` al viejo `Future<bool>`.
   ///
@@ -34,6 +36,10 @@ class ApiService {
   /// temporal: desaparece en la Fase 3.3, cuando los llamadores consuman
   /// `Result` directamente.
   static bool _asBool(Result<void> result) => result.isOk;
+
+  /// Traduce un `Result` al viejo `ApiResult`.
+  static ApiResult _asApiResult(Result<void> result) =>
+      ApiResult.from(result.map((_) => null));
 
   /// Traduce un `Result` al viejo `throw Exception('<contexto>: ...')`.
   static T _orThrow<T>(Result<T> result, String context) => switch (result) {
@@ -50,34 +56,17 @@ class ApiService {
     required int ptsForfeitWin,
     required int ptsForfeitLoss,
   }) async {
-    try {
-      final payload = {
-        "action": "save_tournament_rules",
-        "tournament_id": tournamentId,
-        "config": {
-          "matchups_per_pair": vueltas,
-          "points_win": ptsVictoria,
-          "points_draw": ptsEmpate,
-          "points_loss": ptsDerrota,
-          "points_forfeit_win": ptsForfeitWin,
-          "points_forfeit_loss": ptsForfeitLoss,
-        },
-      };
-
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _catalog.saveTournamentRules(
+        tournamentId: tournamentId,
+        vueltas: vueltas,
+        ptsVictoria: ptsVictoria,
+        ptsDerrota: ptsDerrota,
+        ptsEmpate: ptsEmpate,
+        ptsForfeitWin: ptsForfeitWin,
+        ptsForfeitLoss: ptsForfeitLoss,
+      ),
+    );
   }
 
   // ==========================================
@@ -102,51 +91,13 @@ class ApiService {
 
   // --- NUEVO: OBTENER LISTA DE TORNEOS DESDE LA NUBE ---
   Future<List<Map<String, dynamic>>> fetchCloudTournaments() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_tournaments_list'),
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonResponse = jsonDecode(response.body);
-        if (jsonResponse['status'] == 'success') {
-          return List<Map<String, dynamic>>.from(jsonResponse['data']);
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
+    return (await _catalog.fetchCloudTournaments()).valueOrNull ?? [];
   }
 
   Future<ApiResult> generateFixture({required String tournamentId}) async {
-    try {
-      final payload = {
-        "action": "generate_fixture",
-        "tournament_id": tournamentId,
-      };
-
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
-
-      final respData = jsonDecode(response.body);
-      final message = respData['message']?.toString();
-
-      // El backend manda 'status' y, cuando falla, un 'message' explicativo
-      // (p.ej. la regla de "ya hay partidos jugados"). Lo propagamos tal cual.
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          respData['status'] == 'success') {
-        return ApiResult.ok(message);
-      }
-      return ApiResult.fail(
-        message ??
-            "El servidor rechazó la solicitud (código ${response.statusCode}).",
-      );
-    } catch (e) {
-      return ApiResult.fail("Error de conexión: $e");
-    }
+    return _asApiResult(
+      await _fixture.generateFixture(tournamentId: tournamentId),
+    );
   }
 
   Future<bool> updateFixtureTeams({
@@ -154,161 +105,52 @@ class ApiService {
     required int newTeamAId,
     required int newTeamBId,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_fixture_teams'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "fixture_id": fixtureId,
-          "new_team_a_id": newTeamAId,
-          "new_team_b_id": newTeamBId,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _fixture.updateFixtureTeams(
+        fixtureId: fixtureId,
+        newTeamAId: newTeamAId,
+        newTeamBId: newTeamBId,
+      ),
+    );
   }
 
   Future<bool> syncManualFixtures({
     required String tournamentId,
     required List<Map<String, dynamic>> fixtures,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=sync_manual_fixtures'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"tournament_id": tournamentId, "fixtures": fixtures}),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _fixture.syncManualFixtures(
+        tournamentId: tournamentId,
+        fixtures: fixtures,
+      ),
+    );
   }
 
   Future<ApiResult> deleteFixture({required String tournamentId}) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=delete_fixture'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"id": tournamentId}),
-      );
-
-      final respData = jsonDecode(response.body);
-      final message = respData['message']?.toString();
-
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          respData['status'] == 'success') {
-        return ApiResult.ok(message);
-      }
-      return ApiResult.fail(
-        message ??
-            "No se pudo purgar el calendario (código ${response.statusCode}).",
-      );
-    } catch (e) {
-      return ApiResult.fail("Error de conexión: $e");
-    }
+    return _asApiResult(
+      await _fixture.deleteFixture(tournamentId: tournamentId),
+    );
   }
 
   Future<CatalogData> fetchTournamentData(String tournamentId) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '$_baseUrl?action=get_tournament_data&tournament_id=$tournamentId',
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          final data = jsonResponse['data'];
-
-          return CatalogData(
-            tournaments: [],
-            venues: (data['venues'] as List)
-                .map((e) => Venue.fromJson(e))
-                .toList(),
-            teams: (data['teams'] as List)
-                .map((e) => Team.fromJson(e))
-                .toList(),
-            players: (data['players'] as List)
-                .map((e) => Player.fromJson(e))
-                .toList(),
-            relationships: (data['tournament_teams'] as List)
-                .map((e) => TournamentTeamRelation.fromJson(e))
-                .toList(),
-            officials: [],
-          );
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error cargando datos del torneo: $e');
-    }
+    return _orThrow(
+      await _catalog.fetchTournamentData(tournamentId),
+      'Error cargando datos del torneo',
+    );
   }
 
   Future<CatalogData> fetchCatalogs(String tournamentId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_sync_data&tournament_id=$tournamentId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          final data = jsonResponse['data'];
-
-          return CatalogData(
-            tournaments: (data['tournaments'] as List)
-                .map((e) => Tournament.fromJson(e))
-                .toList(),
-            venues: (data['venues'] as List)
-                .map((e) => Venue.fromJson(e))
-                .toList(),
-            teams: (data['teams'] as List)
-                .map((e) => Team.fromJson(e))
-                .toList(),
-            players: (data['players'] as List)
-                .map((e) => Player.fromJson(e))
-                .toList(),
-            relationships: (data['tournament_teams'] as List)
-                .map((e) => TournamentTeamRelation.fromJson(e))
-                .toList(),
-            fixturesRaw: data['fixtures'] ?? [],
-            officials: data['officials'] != null
-                ? (data['officials'] as List)
-                      .map((e) => Official.fromJson(e))
-                      .toList()
-                : [],
-            finishedRosters: data['finished_rosters'] ?? [],
-          );
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error conectando al servidor: $e');
-    }
+    return _orThrow(
+      await _catalog.fetchCatalogs(tournamentId),
+      'Error conectando al servidor',
+    );
   }
 
-  Future<int> createOfficial(String name, String role, String? signature) async {
+  Future<int> createOfficial(
+    String name,
+    String role,
+    String? signature,
+  ) async {
     return _orThrow(
       await _officialVenue.createOfficial(name, role, signature),
       'Error creando oficial',
@@ -340,21 +182,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchFixture(String tournamentId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_fixture&tournament_id=$tournamentId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonResponse = json.decode(response.body);
-        if (jsonResponse['status'] == 'success') {
-          return jsonResponse['data'];
-        }
-      }
-      return {};
-    } catch (e) {
-      throw Exception('Error de conexión: $e');
-    }
+    // Devolver {} ante un fallo replica el comportamiento anterior. Es una
+    // perdida de informacion conocida: desaparece en la Fase 3.3.
+    return (await _fixture.fetchFixture(tournamentId)).valueOrNull ?? {};
   }
 
   Future<int> createTeam(
@@ -363,63 +193,22 @@ class ApiService {
     String coach, {
     String? tournamentId,
   }) async {
-    try {
-      final bodyData = {
-        "name": name,
-        "shortName": shortName,
-        "coachName": coach,
-      };
-
-      if (tournamentId != null &&
-          tournamentId.isNotEmpty &&
-          tournamentId != "true" &&
-          tournamentId != "false") {
-        bodyData["tournament_id"] = tournamentId;
-      }
-
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=create_team'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(bodyData),
-      );
-
-      _checkResponse(response);
-      final body = jsonDecode(response.body);
-
-      if (body['data'] != null && body['data']['newId'] != null) {
-        return int.parse(body['data']['newId'].toString());
-      } else if (body['newId'] != null) {
-        return int.parse(body['newId'].toString());
-      } else {
-        throw Exception("ID no recibido del servidor.");
-      }
-    } catch (e) {
-      throw Exception('Error creando equipo: $e');
-    }
+    return _orThrow(
+      await _teams.createTeam(
+        name,
+        shortName,
+        coach,
+        tournamentId: tournamentId,
+      ),
+      'Error creando equipo',
+    );
   }
 
   Future<int> addPlayer(int teamId, String name, int number) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=add_player'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"teamId": teamId, "name": name, "number": number}),
-      );
-
-      _checkResponse(response);
-
-      final body = jsonDecode(response.body);
-
-      if (body['data'] != null && body['data']['newId'] != null) {
-        return int.parse(body['data']['newId'].toString());
-      } else if (body['newId'] != null) {
-        return int.parse(body['newId'].toString());
-      } else {
-        throw Exception("ID de jugador no recibido del servidor.");
-      }
-    } catch (e) {
-      throw Exception('Error agregando jugador: $e');
-    }
+    return _orThrow(
+      await _teams.addPlayer(teamId, name, number),
+      'Error agregando jugador',
+    );
   }
 
   Future<bool> updateTeam({
@@ -428,26 +217,14 @@ class ApiService {
     required String shortName,
     required String coachName,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_team'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "id": id,
-          "name": name,
-          "shortName": shortName,
-          "coachName": coachName,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _teams.updateTeam(
+        id: id,
+        name: name,
+        shortName: shortName,
+        coachName: coachName,
+      ),
+    );
   }
 
   Future<bool> updatePlayer(
@@ -456,49 +233,14 @@ class ApiService {
     String name,
     int number,
   ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_player'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "id": id,
-          "teamId": teamId,
-          "name": name,
-          "number": number,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return _asBool(await _teams.updatePlayer(id, teamId, name, number));
   }
 
   Future<String> createTournament(String name, String category) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl?action=create_tournament'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({"name": name, "category": category}),
+    return _orThrow(
+      await _catalog.createTournament(name, category),
+      'No se recibió el ID del torneo creado',
     );
-
-    _checkResponse(response);
-
-    final jsonResponse = jsonDecode(response.body);
-
-    if (jsonResponse['status'] == 'success') {
-      if (jsonResponse['data'] != null &&
-          jsonResponse['data']['newId'] != null) {
-        return jsonResponse['data']['newId'].toString();
-      } else if (jsonResponse['newId'] != null) {
-        return jsonResponse['newId'].toString();
-      }
-    }
-
-    throw Exception("No se recibió el ID del torneo creado");
   }
 
   // Obtiene los equipos y su estatus para el constructor manual
@@ -506,23 +248,11 @@ class ApiService {
     String tournamentId,
     int roundId,
   ) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '$_baseUrl?action=get_team_scheduling_status&tournament_id=$tournamentId&round_id=$roundId',
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonResponse = json.decode(response.body);
-        if (jsonResponse['status'] == 'success') {
-          return List<Map<String, dynamic>>.from(jsonResponse['data']);
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
+    return (await _fixture.fetchTeamsSchedulingStatus(
+          tournamentId,
+          roundId,
+        )).valueOrNull ??
+        [];
   }
 
   Future<int?> addManualFixture({
@@ -531,136 +261,44 @@ class ApiService {
     required int teamAId,
     required int teamBId,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=add_manual_fixture'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "tournament_id": tournamentId,
-          "round_order": roundOrder,
-          "team_a_id": teamAId,
-          "team_b_id": teamBId,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        if (respData['status'] == 'success') {
-          // Extraemos el ID numérico real que nos devolvió MySQL
-          return int.tryParse(respData['data']['fixture_id'].toString());
-        }
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+    return (await _fixture.addManualFixture(
+      tournamentId: tournamentId,
+      roundOrder: roundOrder,
+      teamAId: teamAId,
+      teamBId: teamBId,
+    )).valueOrNull;
   }
 
   Future<bool> deleteSingleFixture(int fixtureId) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=delete_single_fixture'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"fixture_id": fixtureId}),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Ahora aceptamos 200 (OK) y 201 (Created) como exitosos
-  void _checkResponse(http.Response response) {
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('HTTP Error: ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body);
-    if (body['status'] != 'success') {
-      throw Exception(body['message']);
-    }
+    return _asBool(await _fixture.deleteSingleFixture(fixtureId));
   }
 
   Future<bool> syncMatchData(Map<String, dynamic> matchPayload) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=sync_match'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(matchPayload),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      } else {
-        return false;
-      }
-    } catch (e) {
-      return false;
-    }
+    return _asBool(await _match.syncMatchData(matchPayload));
   }
 
   Future<bool> syncMatchDataMultipart({
     required Map<String, dynamic> matchData,
     required Uint8List? pdfBytes,
   }) async {
-    try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl?action=sync_match'),
-      );
-
-      request.fields['data'] = jsonEncode(matchData);
-
-      if (pdfBytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'pdf_report',
-            pdfBytes,
-            filename: 'match_report.pdf',
-            contentType: MediaType('application', 'pdf'),
-          ),
-        );
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final respData = jsonDecode(response.body);
-        return respData['status'] == 'success';
-      } else {
-        return false;
-      }
-    } catch (e) {
-      return false;
-    }
+    return _asBool(
+      await _match.syncMatchDataMultipart(
+        matchData: matchData,
+        pdfBytes: pdfBytes,
+      ),
+    );
   }
 
   Future<ApiResult> updateMatchAttendance({
     required String matchId,
     required List<Map<String, dynamic>> attendance,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl?action=update_match_attendance'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"match_id": matchId, "attendance": attendance}),
-      );
-      final data = jsonDecode(response.body);
-      if ((response.statusCode == 200) && data['status'] == 'success') {
-        return ApiResult.ok(data['message']?.toString());
-      }
-      return ApiResult.fail(
-        data['message']?.toString() ?? "No se pudo actualizar la asistencia.",
-      );
-    } catch (e) {
-      return ApiResult.fail("Error de conexión: $e");
-    }
+    return ApiResult.from(
+      await _match.updateMatchAttendance(
+        matchId: matchId,
+        attendance: attendance,
+      ),
+    );
   }
 
   Future<ApiResult> updateMatchOutcome({
@@ -673,44 +311,18 @@ class ApiService {
     String? tournamentId,
     Uint8List? pdfBytes,
   }) async {
-    try {
-      final uri = Uri.parse('$_baseUrl?action=update_match_outcome');
-      final request = http.MultipartRequest('POST', uri);
-
-      // Los datos van en 'data' como JSON (mismo patrón que sync_match).
-      request.fields['data'] = jsonEncode({
-        "match_id": matchId,
-        "forfeit_status": forfeitStatus,
-        "observaciones": observaciones,
-        "signature_data": signatureBase64,
-        "score_a": scoreA,
-        "score_b": scoreB,
-        "tournament_id": tournamentId,
-      });
-
-      if (pdfBytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'pdf_report',
-            pdfBytes,
-            filename: 'match_$matchId.pdf',
-          ),
-        );
-      }
-
-      final streamed = await request.send();
-      final body = await streamed.stream.bytesToString();
-      final data = jsonDecode(body);
-
-      if (streamed.statusCode == 200 && data['status'] == 'success') {
-        return ApiResult.ok(data['message']?.toString());
-      }
-      return ApiResult.fail(
-        data['message']?.toString() ?? "No se pudo actualizar el resultado.",
-      );
-    } catch (e) {
-      return ApiResult.fail("Error de conexión: $e");
-    }
+    return ApiResult.from(
+      await _match.updateMatchOutcome(
+        matchId: matchId,
+        forfeitStatus: forfeitStatus,
+        observaciones: observaciones,
+        signatureBase64: signatureBase64,
+        scoreA: scoreA,
+        scoreB: scoreB,
+        tournamentId: tournamentId,
+        pdfBytes: pdfBytes,
+      ),
+    );
   }
 
   /// Consulta al backend el marcador REAL de un partido (suma de score_logs).
@@ -720,106 +332,37 @@ class ApiService {
   /// [matchId] ID del partido a consultar.
   /// Retorna un record (scoreA, scoreB). Lanza Exception si la petición falla.
   Future<({int scoreA, int scoreB})> getRealScores(String matchId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_real_scores&match_id=$matchId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          final data = jsonResponse['data'];
-
-          // El backend ya castea a int; (num).toInt() normaliza por si
-          // el JSON lo serializa como num y evita un error de cast.
-          return (
-            scoreA: (data['real_score_a'] as num).toInt(),
-            scoreB: (data['real_score_b'] as num).toInt(),
-          );
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error obteniendo marcador real: $e');
-    }
+    return _orThrow(
+      await _match.getRealScores(matchId),
+      'Error obteniendo marcador real',
+    );
   }
 
   /// Obtiene los datos del acta de un partido desde el backend.
   /// Se usa cuando la tabla matches local no tiene la fila (partido jugado
   /// en otro dispositivo). Retorna un Map con los campos del acta.
   Future<Map<String, dynamic>> getMatchDetails(String matchId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_match_details&match_id=$matchId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          return jsonResponse['data'] as Map<String, dynamic>;
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error obteniendo datos del acta: $e');
-    }
+    return _orThrow(
+      await _match.getMatchDetails(matchId),
+      'Error obteniendo datos del acta',
+    );
   }
 
   /// Obtiene los eventos (score_logs) de un partido desde el backend.
   /// Se usa para hidratar gameEvents cuando el partido se jugó en otro dispositivo.
   Future<List<Map<String, dynamic>>> getMatchEvents(String matchId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_match_events&match_id=$matchId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          final List<dynamic> data = jsonResponse['data'] as List<dynamic>;
-          return data.cast<Map<String, dynamic>>();
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error obteniendo eventos: $e');
-    }
+    return _orThrow(
+      await _match.getMatchEvents(matchId),
+      'Error obteniendo eventos',
+    );
   }
 
   /// Obtiene el roster (match_rosters) de un partido desde el backend.
   /// Se usa para hidratar cuando el partido se jugó en otro dispositivo.
   Future<List<Map<String, dynamic>>> getMatchRosters(String matchId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl?action=get_match_rosters&match_id=$matchId'),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        if (jsonResponse['status'] == 'success') {
-          final List<dynamic> data = jsonResponse['data'] as List<dynamic>;
-          return data.cast<Map<String, dynamic>>();
-        } else {
-          throw Exception('API Error: ${jsonResponse['message']}');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error obteniendo roster: $e');
-    }
+    return _orThrow(
+      await _match.getMatchRosters(matchId),
+      'Error obteniendo roster',
+    );
   }
 }

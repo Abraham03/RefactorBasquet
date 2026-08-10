@@ -66,7 +66,7 @@ class ApiClient {
     }
     return _send(
       () => _client.get(Uri.parse(url.toString())).timeout(timeout),
-      decode,
+      _overData(decode),
     );
   }
 
@@ -84,7 +84,7 @@ class ApiClient {
             body: jsonEncode(body),
           )
           .timeout(timeout),
-      decode,
+      _overData(decode),
     );
   }
 
@@ -105,7 +105,7 @@ class ApiClient {
             body: jsonEncode({'action': action, ...body}),
           )
           .timeout(timeout),
-      decode,
+      _overData(decode),
     );
   }
 
@@ -115,6 +115,24 @@ class ApiClient {
     required Map<String, String> fields,
     List<http.MultipartFile> files = const [],
     required T Function(Object? data) decode,
+  }) {
+    return multipartEnvelope(
+      action,
+      fields: fields,
+      files: files,
+      decode: _overData(decode),
+    );
+  }
+
+  /// Como [multipart] pero el `decode` recibe el sobre completo.
+  ///
+  /// `update_match_outcome` devuelve su mensaje en la raíz del sobre, no
+  /// dentro de `data`.
+  Future<Result<T>> multipartEnvelope<T>(
+    String action, {
+    required Map<String, String> fields,
+    List<http.MultipartFile> files = const [],
+    required T Function(Map<String, dynamic> envelope) decode,
   }) {
     return _send(() async {
       final request = http.MultipartRequest(
@@ -132,9 +150,39 @@ class ApiClient {
   // Envío y traducción de fallos
   // ---------------------------------------------------------------------------
 
+  /// Adapta un `decode` que solo mira `data` al `decode` sobre el sobre.
+  static T Function(Map<String, dynamic>) _overData<T>(
+    T Function(Object? data) decode,
+  ) {
+    return (envelope) => decode(envelope['data']);
+  }
+
+  /// Como [post] pero el `decode` recibe el sobre completo.
+  ///
+  /// Tres endpoints (`create_team`, `add_player`, `create_tournament`)
+  /// devuelven `newId` unas veces dentro de `data` y otras en la raíz. Sin
+  /// acceso al sobre no se puede reproducir ese comportamiento, y perderlo
+  /// rompería altas que hoy funcionan.
+  Future<Result<T>> postEnvelope<T>(
+    String action, {
+    required Map<String, Object?> body,
+    required T Function(Map<String, dynamic> envelope) decode,
+  }) {
+    return _send(
+      () => _client
+          .post(
+            Uri.parse('$baseUrl?action=$action'),
+            headers: _jsonHeaders,
+            body: jsonEncode(body),
+          )
+          .timeout(timeout),
+      decode,
+    );
+  }
+
   Future<Result<T>> _send<T>(
     Future<http.Response> Function() perform,
-    T Function(Object? data) decode,
+    T Function(Map<String, dynamic> envelope) decode,
   ) async {
     final http.Response response;
     try {
@@ -171,7 +219,7 @@ class ApiClient {
     }
 
     try {
-      return Ok(decode(envelope['data']));
+      return Ok(decode(envelope));
     } catch (e) {
       return Err(ParseException(cause: e));
     }
