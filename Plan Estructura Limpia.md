@@ -528,6 +528,35 @@ Migrar los llamadores a los datasources y borrar `api_service.dart`. Desaparecen
 
 **Rollback:** 3.1 es aditivo (revert trivial). 3.2/3.3 son revertibles **por dominio** gracias a la fachada.
 
+#### ✅ Resultado de 3.1 y 3.2 (2026-08-09) · ⬜ 3.3 pendiente
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 93 verdes | **104 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Goldens de contrato (I2) | 35 ✔ | **35 ✔ sin tocar un fixture** |
+| Esquema drift (I3) | — | `diff` vacío |
+| `http.get`/`http.post` top-level | 30 | **0** |
+| Copias del `if (statusCode == 200 \|\| 201)` | ~20 | **0** |
+| Líneas de `ApiService` | 866 | **363** (pura delegación) |
+| Clases con lógica de red | 1 God class | **5 datasources** |
+
+**Lo importante:** se reescribieron las 30 acciones y **los 35 goldens siguen pasando sin modificar un solo fixture**. El contrato con el backend está intacto.
+
+**Dos regresiones que el trabajo destapó y que se habrían colado sin los goldens:**
+
+1. `create_team`, `add_player` y `create_tournament` leen `newId` **unas veces dentro de `data` y otras en la raíz del sobre**. El primer diseño de `ApiClient` solo entregaba `data`, así que hubo que añadir `postEnvelope` / `multipartEnvelope`. Sin eso, las altas que usan el segundo camino habrían empezado a fallar en producción.
+2. `update_match_outcome` devuelve su mensaje en la raíz del sobre, y su PDF viaja **sin `contentType` explícito** (`application/octet-stream`), a diferencia de `sync_match` que sí lo declara `application/pdf`. El golden lo tenía congelado.
+
+**Cambio de comportamiento deliberado:** antes **no había ningún timeout**. Una red que aceptaba la conexión pero no respondía dejaba la app colgada con el loader puesto indefinidamente. Ahora 30 s para JSON y 3 min para multipart (subir el PDF del acta por datos móviles legítimamente tarda).
+
+**Deuda explícita y localizada:** la fachada conserva `_asBool`, `_asApiResult` y `_orThrow`, que **siguen destruyendo la causa del error** para no cambiar la firma pública. Están marcados como tales y desaparecen en 3.3.
+
+#### ⬜ Falta 3.3 — eliminar la fachada
+
+Es la parte que toca la UI, y por eso se deja aparte: migrar los llamadores de `ApiService` a consumir `Result` con `switch` exhaustivo, y borrar `api_service.dart`. Al terminar desaparecen los `Future<bool>` que tragan la causa y los `e.toString().replaceFirst('Exception: ', '')` de las pantallas. Alcance: ~7 pantallas y los repositorios de `sync`, `player`, `attendance` y `official`.
+
 ---
 
 ### Fase 4 — Contratos de dominio: interfaces de repositorio y modelos tipados
@@ -713,7 +742,7 @@ Se actualiza al cerrar cada fase.
 | 0 | Red de seguridad + congelar contratos | `refactor/f0-safety-net` | ✅ Cerrada | 153 info / 0 err | 83 ✔ | — | 2026-08-09 |
 | 1 | Mover archivos | `refactor/f1-mover-archivos` | 🟡 Verde, falta smoke en dispositivo | **0** | 83 ✔ | 7 commits | 2026-08-09 |
 | 2 | DI + singletons | `refactor/f2-di` | 🟡 Verde, falta smoke en dispositivo | **0** | 93 ✔ | — | 2026-08-09 |
-| 3 | Capa de red | `refactor/f3-network` | ⬜ Pendiente | — | — | — | — |
+| 3 | Capa de red | `refactor/f3-network` | 🟡 3.1 y 3.2 cerradas; **falta 3.3** | **0** | 104 ✔ | 3 commits | 2026-08-09 |
 | 4 | Contratos de dominio | `refactor/f4-domain` | ⬜ Pendiente | — | — | — | — |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | ⬜ Pendiente | — | — | — | — |
 | 6 | Deduplicación | `refactor/f6-dry` | ⬜ Pendiente | — | — | — | — |
@@ -781,24 +810,27 @@ Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cad
 
 | Métrica | Base | F0 | F1 | F2 | F3 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | | | | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | | | | 0 (disuelta) |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | | | | 30 |
-| Providers duplicados | 2 | 2 | 2 | **0** | | | | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | **0** | | | | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | | | | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | | | | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | | | | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | 5 | | | | 0 |
-| Imports relativos | 136 | 136 | **0** | 0 | | | | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | | | | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | | | | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | | | | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | | | | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | | | | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | 0 | | | | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | 0 | | | | 0 |
-| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | | | | 0 |
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | | | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | 30 (delegan) | | | 0 (disuelta) |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | | | 30 |
+| Providers duplicados | 2 | 2 | 2 | **0** | 0 | | | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | | | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | 3 | | | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | | | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | | | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | | | 0 |
+| Imports relativos | 136 | 136 | **0** | 0 | 0 | | | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | | | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | | | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | | | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **104** | | | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | | | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | | | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | | | 0 |
+| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | | | 0 |
+| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | | | 0 |
+| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | | | 0 |
+| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **363** | | | 0 (borrada) |
 
 ---
 
