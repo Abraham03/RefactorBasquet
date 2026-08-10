@@ -15,7 +15,6 @@ import 'package:myapp/features/match/presentation/screens/match_control_screen.d
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/features/match/presentation/providers/starters_providers.dart';
-import 'package:myapp/core/network/result.dart';
 
 class StartersSelectionScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -108,60 +107,11 @@ class _StartersSelectionScreenState
 
  // FALLO 1: Diferenciar entre Editar (Swap) y Crear + Anti-Deadlock
   Future<void> _refreshRosters() async {
-    final dbBase = ref.read(databaseProvider);
-    final api = ref.read(teamApiProvider);
-
-    try {
-      final pending = await (dbBase.select(dbBase.players)..where((p) => p.isSynced.equals(false))).get();
-      
-      // --- TRUCO ANTI-DEADLOCK ---
-      for (var p in pending) {
-        final isExistingPlayer = (int.tryParse(p.id) ?? 0) > 0;
-        if (isExistingPlayer) {
-           await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber + 1000);
-        }
-      }
-
-      // --- SUBIDA FINAL ---
-      for (var p in pending) {
-        final isExistingPlayer = (int.tryParse(p.id) ?? 0) > 0;
-
-        if (isExistingPlayer) {
-          // Edición o Swap de un jugador existente
-          final success = (await api.updatePlayer(p.id, p.teamId, p.name, p.defaultNumber)).isOk;
-          if (success) {
-            await (dbBase.update(dbBase.players)..where((tbl) => tbl.id.equals(p.id))).write(
-              const db.PlayersCompanion(isSynced: drift.Value(true))
-            );
-          }
-        } else {
-          // Jugador totalmente nuevo creado offline
-          final realId = switch (await api.addPlayer(p.teamId, p.name, p.defaultNumber)) {
-            Ok(:final value) => value,
-            Err(:final error) => throw error,
-          };
-          await dbBase.transaction(() async {
-             await (dbBase.update(dbBase.players)..where((tbl) => tbl.id.equals(p.id))).write(
-               db.PlayersCompanion(id: drift.Value(realId.toString()), isSynced: const drift.Value(true))
-             );
-             await (dbBase.update(dbBase.gameEvents)..where((e) => e.playerId.equals(p.id))).write(
-               db.GameEventsCompanion(playerId: drift.Value(realId.toString()))
-             );
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Sincronización falló: $e");
-    }
-
-    final playersA = await (dbBase.select(dbBase.players)..where((p) => p.teamId.equals(widget.teamA.id))).get();
-    final playersB = await (dbBase.select(dbBase.players)..where((p) => p.teamId.equals(widget.teamB.id))).get();
-
-    setState(() {
-      _orderedRosterA = playersA.map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
-      _orderedRosterB = playersB.map((p) => CatalogPlayer(id: int.tryParse(p.id) ?? -1, name: p.name, teamId: p.teamId, defaultNumber: p.defaultNumber, photoUrl: p.photoUrl)).toList();
-      _sortRosters();
-    });
+    // La subida y la reconciliacion de ids temporales viven en
+    // PlayerRepository. Aqui habia una copia que solo revinculaba `players` y
+    // `gameEvents.playerId`: dejaba `matchRosters` y los ids incrustados en
+    // los eventos SUB apuntando al id negativo.
+    await ref.read(playerRepositoryProvider).uploadPendingPlayers();
   }
 
   void _showPlayerFormDialog(bool isTeamA, {CatalogPlayer? playerToEdit}) {

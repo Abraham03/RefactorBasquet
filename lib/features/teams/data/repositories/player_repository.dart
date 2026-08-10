@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:myapp/core/database/app_database.dart';
+import 'package:myapp/core/database/daos/matches_dao.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 
@@ -21,8 +22,77 @@ class SavePlayerResult {
 class PlayerRepository {
   final AppDatabase _db;
   final TeamApi _api;
+  final MatchesDao _matchesDao;
 
-  PlayerRepository(this._db, this._api);
+  PlayerRepository(this._db, this._api, this._matchesDao);
+
+  /// Sube todos los jugadores pendientes y reconcilia sus ids temporales.
+  ///
+  /// **Estaba duplicado** entre `SyncRepository._uploadPlayers` y
+  /// `starters_selection_screen._refreshRosters`, y las dos copias NO eran
+  /// equivalentes: la de la pantalla reconciliaba a mano y solo actualizaba
+  /// `players` y `gameEvents.playerId`. Se dejaba sin tocar `matchRosters` y,
+  /// peor, los ids incrustados en el TEXTO de los eventos de cambio
+  /// (`SUB_A_OUT_<id>_IN_<id>`), que quedaban apuntando al id negativo.
+  /// Unificar aquí no es solo DRY: **corrige esa corrupción**, porque
+  /// `replaceTempPlayerId` hace las cuatro cosas en una transacción.
+  ///
+  /// Devuelve cuántos se subieron.
+  Future<int> uploadPendingPlayers() async {
+    final pending = await (_db.select(
+      _db.players,
+    )..where((p) => p.isSynced.equals(false))).get();
+
+    bool isExisting(Player p) => (int.tryParse(p.id) ?? 0) > 0;
+
+    // Primera pasada: aparca los dorsales en +1000. El backend impone dorsal
+    // único por equipo, así que intercambiar dos de golpe se bloquea solo.
+    for (final player in pending.where(isExisting)) {
+      await _api.updatePlayer(
+        player.id,
+        player.teamId,
+        player.name,
+        player.defaultNumber + 1000,
+      );
+    }
+
+    var uploaded = 0;
+    for (final player in pending) {
+      try {
+        if (isExisting(player)) {
+          final synced = (await _api.updatePlayer(
+            player.id,
+            player.teamId,
+            player.name,
+            player.defaultNumber,
+          )).isOk;
+          if (!synced) continue;
+          await (_db.update(_db.players)..where((p) => p.id.equals(player.id)))
+              .write(const PlayersCompanion(isSynced: Value(true)));
+        } else {
+          final realId = switch (await _api.addPlayer(
+            player.teamId,
+            player.name,
+            player.defaultNumber,
+          )) {
+            Ok(:final value) => value,
+            Err(:final error) => throw error,
+          };
+          // El DAO inserta el id real, revincula rosters, eventos y los SUB
+          // con el id incrustado, y borra el temporal. Todo en una
+          // transacción.
+          await _matchesDao.replaceTempPlayerId(player.id, realId.toString());
+        }
+        uploaded++;
+      } catch (e) {
+        // Se sigue con el resto: un jugador que falla no debe bloquear a los
+        // demás. Ahora se registra la causa tipada.
+        debugPrint('No se pudo subir a ${player.name}: $e');
+      }
+    }
+
+    return uploaded;
+  }
 
   /// Busca en un equipo un jugador que ya use [number], excluyendo opcionalmente
   /// a [excludePlayerId] (el que estamos editando). Devuelve null si está libre.

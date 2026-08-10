@@ -47,7 +47,7 @@ void main() {
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     backend = _FakeBackend();
-    repo = PlayerRepository(db, backend.api);
+    repo = PlayerRepository(db, backend.api, db.matchesDao);
 
     await db
         .into(db.teams)
@@ -259,6 +259,94 @@ void main() {
       final moved = await db.select(db.players).getSingle();
       expect(moved.defaultNumber, 12);
       expect(moved.isSynced, isFalse);
+    });
+  });
+
+  group('uploadPendingPlayers', () {
+    test(
+      'reconcilia el id temporal en TODAS las tablas, no solo en players',
+      () async {
+        // Esta es la razon de fondo para unificar: la copia que vivia en
+        // starters_selection_screen solo revinculaba `players` y
+        // `gameEvents.playerId`. Dejaba `matchRosters` y, peor, los ids
+        // incrustados en el TEXTO de los eventos SUB apuntando al id negativo.
+        const tempId = '-123';
+        await seedPlayer(
+          id: tempId,
+          number: 12,
+          name: 'Offline',
+          synced: false,
+        );
+        await db
+            .into(db.matches)
+            .insert(
+              MatchesCompanion.insert(
+                id: const Value('M1'),
+                teamAName: 'Lobos',
+                teamBName: 'Pumas',
+              ),
+            );
+        await db
+            .into(db.matchRosters)
+            .insert(
+              MatchRostersCompanion.insert(
+                matchId: 'M1',
+                playerId: tempId,
+                teamSide: 'A',
+                jerseyNumber: 12,
+              ),
+            );
+        await db
+            .into(db.gameEvents)
+            .insert(
+              GameEventsCompanion.insert(
+                matchId: 'M1',
+                type: 'SUB_A_OUT_${tempId}_IN_9',
+                period: 1,
+                clockTime: '05:00',
+              ),
+            );
+
+        final uploaded = await repo.uploadPendingPlayers();
+
+        expect(uploaded, 1);
+        expect(backend.actions, ['add_player']);
+
+        final roster = await db.select(db.matchRosters).getSingle();
+        expect(roster.playerId, '77', reason: 'matchRosters revinculado');
+
+        final event = await db.select(db.gameEvents).getSingle();
+        expect(
+          event.type,
+          'SUB_A_OUT_77_IN_9',
+          reason: 'el id incrustado en el texto del SUB tambien se revincula',
+        );
+
+        final players = await db.select(db.players).get();
+        expect(players.map((p) => p.id), contains('77'));
+        expect(players.map((p) => p.id), isNot(contains(tempId)));
+      },
+    );
+
+    test('aparca los dorsales en +1000 antes de reasignarlos', () async {
+      await seedPlayer(id: '9', number: 12, synced: false);
+
+      await repo.uploadPendingPlayers();
+
+      expect(backend.actions, ['update_player', 'update_player']);
+      expect(backend.bodies.first['number'], 12 + 1000);
+      expect(backend.bodies.last['number'], 12);
+    });
+
+    test('un jugador que falla no bloquea a los demas', () async {
+      await seedPlayer(id: '9', number: 12, synced: false);
+      backend.failEverything = true;
+
+      final uploaded = await repo.uploadPendingPlayers();
+
+      expect(uploaded, 0);
+      final saved = await db.select(db.players).getSingle();
+      expect(saved.isSynced, isFalse, reason: 'queda pendiente de reintentar');
     });
   });
 }

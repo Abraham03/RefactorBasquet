@@ -11,6 +11,7 @@ import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
 import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
+import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///
@@ -24,6 +25,7 @@ import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 class SyncRepository {
   final AppDatabase _db;
   final MatchesDao _matchesDao;
+  final PlayerRepository _playerRepository;
   final CatalogApi _catalogApi;
   final OfficialVenueApi _officialVenueApi;
   final TeamApi _teamApi;
@@ -33,12 +35,14 @@ class SyncRepository {
   SyncRepository(
     this._db,
     this._matchesDao, {
+    required PlayerRepository playerRepository,
     required CatalogApi catalogApi,
     required OfficialVenueApi officialVenueApi,
     required TeamApi teamApi,
     required FixtureApi fixtureApi,
     required MatchApi matchApi,
-  }) : _catalogApi = catalogApi,
+  }) : _playerRepository = playerRepository,
+       _catalogApi = catalogApi,
        _officialVenueApi = officialVenueApi,
        _teamApi = teamApi,
        _fixtureApi = fixtureApi,
@@ -332,69 +336,9 @@ class SyncRepository {
   // JUGADORES (PLAYERS)
   // =========================================================================
 
-  Future<int> _uploadPlayers() async {
-    int uploaded = 0;
-
-    final pending = await (_db.select(
-      _db.players,
-    )..where((tbl) => tbl.isSynced.equals(false))).get();
-
-    // Truco anti-deadlock: despeja dorsales a +1000 en la nube primero.
-    for (final player in pending) {
-      final isExistingPlayer = (int.tryParse(player.id) ?? 0) > 0;
-      if (isExistingPlayer) {
-        try {
-          await _teamApi.updatePlayer(
-            player.id,
-            player.teamId,
-            player.name,
-            player.defaultNumber + 1000,
-          );
-        } catch (_) {}
-      }
-    }
-
-    for (final player in pending) {
-      try {
-        final isExistingPlayer = (int.tryParse(player.id) ?? 0) > 0;
-
-        if (isExistingPlayer) {
-          final success = (await _teamApi.updatePlayer(
-            player.id,
-            player.teamId,
-            player.name,
-            player.defaultNumber,
-          )).isOk;
-          if (success) {
-            await (_db.update(_db.players)
-                  ..where((p) => p.id.equals(player.id)))
-                .write(const PlayersCompanion(isSynced: Value(true)));
-            uploaded++;
-          }
-        } else {
-          // Creamos el jugador en la nube y delegamos TODA la reconciliación
-          // (insertar ID real, revincular rosters/eventos/SUB, borrar temporal)
-          // al DAO, que lo hace de forma atómica en un solo lugar.
-          final realPlayerId = _unwrap(
-            await _teamApi.addPlayer(
-              player.teamId,
-              player.name,
-              player.defaultNumber,
-            ),
-          );
-          await _matchesDao.replaceTempPlayerId(
-            player.id,
-            realPlayerId.toString(),
-          );
-          uploaded++;
-        }
-      } catch (e) {
-        debugPrint("Error al subir jugador: $e");
-      }
-    }
-
-    return uploaded;
-  }
+  /// Delega en `PlayerRepository`: la misma subida la necesitaba tambien la
+  /// pantalla de titulares, y las dos copias no eran equivalentes.
+  Future<int> _uploadPlayers() => _playerRepository.uploadPendingPlayers();
 
   // =========================================================================
   // FIXTURES

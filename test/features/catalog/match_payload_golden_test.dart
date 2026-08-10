@@ -25,6 +25,7 @@ import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
+import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 
 /// Captura el campo `data` de la subida multipart del acta.
 class _Capture {
@@ -70,6 +71,7 @@ void main() {
     repo = SyncRepository(
       db,
       db.matchesDao,
+      playerRepository: PlayerRepository(db, TeamApi(api), db.matchesDao),
       catalogApi: CatalogApi(api),
       officialVenueApi: OfficialVenueApi(api),
       teamApi: TeamApi(api),

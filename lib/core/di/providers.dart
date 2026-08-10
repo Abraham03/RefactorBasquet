@@ -86,6 +86,7 @@ final syncRepositoryProvider = Provider<SyncRepository>((ref) {
   return SyncRepository(
     ref.watch(databaseProvider),
     ref.watch(matchesDaoProvider),
+    playerRepository: ref.watch(playerRepositoryProvider),
     catalogApi: ref.watch(catalogApiProvider),
     officialVenueApi: ref.watch(officialVenueApiProvider),
     teamApi: ref.watch(teamApiProvider),
@@ -125,6 +126,7 @@ final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
   return PlayerRepository(
     ref.watch(databaseProvider),
     ref.watch(teamApiProvider),
+    ref.watch(matchesDaoProvider),
   );
 });
 
