@@ -239,6 +239,14 @@ class MatchGameController extends StateNotifier<MatchState>
           }
         }
         _applyRestoreTimeout(toTeam, event.period, event.clockTime);
+        // El mismo apunte que deja `TimeoutEngine.grant` en vivo, para que el
+        // estado reconstruido sea indistinguible del que dejo el partido.
+        state = state.copyWith(
+          scoreLog: [
+            ...state.scoreLog,
+            TimeoutEngine.timeoutEvent(state, toTeam, event.type),
+          ],
+        );
         continue;
       }
 

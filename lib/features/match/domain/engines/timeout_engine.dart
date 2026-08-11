@@ -72,7 +72,13 @@ abstract final class TimeoutEngine {
         current.add(mark);
     }
 
-    return _withList(state, slot, isTeamA: isTeamA, list: current);
+    final withList = _withList(state, slot, isTeamA: isTeamA, list: current);
+    return withList.copyWith(
+      scoreLog: [
+        ...withList.scoreLog,
+        timeoutEvent(withList, teamId, EventType.timeoutFor(teamId)),
+      ],
+    );
   }
 
   /// El minuto que se anota en el acta junto al tiempo muerto.
@@ -106,6 +112,28 @@ abstract final class TimeoutEngine {
       TimeoutSlot.secondHalf => isTeamA ? s.teamATimeouts2 : s.teamBTimeouts2,
       TimeoutSlot.overtime => isTeamA ? s.teamAOTTimeouts : s.teamBOTTimeouts,
     };
+  }
+
+  /// El apunte que deja un tiempo fuera en el registro del partido.
+  ///
+  /// **No estaba, y esa era la causa de dos rarezas.** El menu de deshacer se
+  /// habilita mirando `scoreLog`, asi que con solo tiempos fuera salia gris; y
+  /// `TimeoutUndo.undoLast` los busca ahi, asi que no encontraba ninguno por
+  /// ningun camino —ni en vivo ni al reconstruir—.
+  ///
+  /// Lo construye el dominio para que la forma sea la MISMA en los dos
+  /// caminos. Que el mismo hecho tenga dos representaciones segun quien lo
+  /// escriba es de donde han salido casi todos los fallos de este acta.
+  static ScoreEvent timeoutEvent(MatchState state, String side, String type) {
+    return ScoreEvent(
+      period: state.currentPeriod,
+      teamId: side,
+      playerId: 'TIMEOUT_$side',
+      playerNumber: '',
+      points: 0,
+      scoreAfter: side == TeamSide.home ? state.scoreA : state.scoreB,
+      type: type,
+    );
   }
 
   static MatchState _withList(
