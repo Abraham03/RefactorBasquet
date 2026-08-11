@@ -1,3 +1,5 @@
+import 'dart:developer';
+import 'package:myapp/core/errors/app_exception.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
@@ -61,6 +63,19 @@ class SyncRepository {
     Err(:final error) => throw error,
   };
 
+  /// Fallos de la subida en curso. Se vacía al empezar cada `uploadPendingData`.
+  final List<String> _failures = [];
+
+  /// Registra que un elemento no subió, sin abortar el resto.
+  ///
+  /// Antes esto era un `debugPrint` y se perdía: la pantalla decía
+  /// «Sincronización exitosa» contando solo los que sí subieron.
+  void _recordFailure(String what, Object error) {
+    final reason = error is AppException ? error.message : error.toString();
+    _failures.add('$what: $reason');
+    log('no subió $what', name: 'SyncRepository', error: error);
+  }
+
   /// Punto de entrada único. Sube todo lo pendiente y devuelve el resumen.
   Future<SyncResult> uploadPendingData() async {
     // Reconcilia jugadores offline (IDs negativos) ANTES que nada, para
@@ -70,6 +85,7 @@ class SyncRepository {
           (await _teamApi.addPlayer(teamId, name, number)).valueOrNull,
     );
 
+    _failures.clear();
     var result = const SyncResult();
 
     result = result.copyWith(tournaments: await _uploadTournaments());
@@ -94,7 +110,7 @@ class SyncRepository {
     // torneos/partidos nuevos: puede haber solo asistencias corregidas offline).
     await _uploadAttendanceCorrections();
 
-    return result;
+    return result.copyWith(failures: List.unmodifiable(_failures));
   }
 
   // =========================================================================
@@ -150,7 +166,7 @@ class SyncRepository {
 
         uploaded++;
       } catch (e) {
-        debugPrint("Error subiendo torneo: $e");
+        _recordFailure("Torneo ${tourn.name}", e);
       }
     }
 
@@ -240,7 +256,7 @@ class SyncRepository {
           uploaded++;
         }
       } catch (e) {
-        debugPrint("Error al sincronizar sede: $e");
+        _recordFailure("Sede ${venue.name}", e);
       }
     }
 
@@ -327,7 +343,7 @@ class SyncRepository {
           uploaded++;
         }
       } catch (e) {
-        debugPrint("Error al subir equipo: $e");
+        _recordFailure("Equipo ${team.name}", e);
       }
     }
 
@@ -413,7 +429,7 @@ class SyncRepository {
           fixtureMap[fixture.id] = newRealFixtureId;
         }
       } catch (e) {
-        debugPrint("Error al subir fixture: $e");
+        _recordFailure("Calendario ${fixture.roundName}", e);
       }
     }
 
@@ -626,7 +642,7 @@ class SyncRepository {
           uploaded++;
         }
       } catch (e) {
-        debugPrint("Error al sincronizar oficial: $e");
+        _recordFailure("Oficial ${official.name}", e);
       }
     }
 

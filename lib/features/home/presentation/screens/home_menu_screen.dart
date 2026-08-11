@@ -974,7 +974,22 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
 
       if (mounted) {
         loading.close();
-        context.showSuccess("☁️ Sincronización exitosa.\n${result.toSummary()}");
+
+        // No se anuncia "exitosa" si algo se quedó sin subir. Antes se decía
+        // siempre, con el recuento de los que SÍ subieron, y los fallos solo
+        // iban a debugPrint: el árbitro se iba creyendo que su acta estaba
+        // en la nube.
+        if (result.hasFailures) {
+          context.showWarning(
+            "☁️ Sincronización parcial.\n${result.toSummary()}\n\n"
+            "${result.toFailureSummary()}",
+          );
+        } else {
+          context.showSuccess(
+            "☁️ Sincronización exitosa.\n${result.toSummary()}",
+          );
+        }
+
         if (result.hasSkipped) {
           context.showWarning(
               "Partidos omitidos (jugadores sin sincronizar): ${result.skippedMatches.join(', ')}");
