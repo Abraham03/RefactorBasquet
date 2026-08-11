@@ -47,8 +47,8 @@ void main() {
         ..push(stateWith(scoreA: 1))
         ..push(stateWith(scoreA: 2));
 
-      expect(history.pop()!.scoreA, 2);
-      expect(history.pop()!.scoreA, 1);
+      expect(history.pop()!.state.scoreA, 2);
+      expect(history.pop()!.state.scoreA, 1);
       expect(history.pop(), isNull);
     });
 
@@ -68,9 +68,9 @@ void main() {
       }
 
       expect(history.length, 3);
-      expect(history.pop()!.scoreA, 5);
-      expect(history.pop()!.scoreA, 4);
-      expect(history.pop()!.scoreA, 3, reason: '1 y 2 se descartaron');
+      expect(history.pop()!.state.scoreA, 5);
+      expect(history.pop()!.state.scoreA, 4);
+      expect(history.pop()!.state.scoreA, 3, reason: '1 y 2 se descartaron');
     });
   });
 

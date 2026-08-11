@@ -25,6 +25,7 @@ import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/id_generator.dart';
 import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
+import 'package:uuid/uuid.dart';
 
 class MatchGameController extends StateNotifier<MatchState>
     implements MatchFinalizationPort {
@@ -35,6 +36,15 @@ class MatchGameController extends StateNotifier<MatchState>
   final GameClock _clock;
   bool _isFinished = false;
   final MatchHistory _history = MatchHistory();
+
+  /// Ids de los eventos que ha escrito ESTA sesion, en orden.
+  ///
+  /// Deshacer tiene que borrarlos de la base, no solo revertir el estado: si
+  /// no, el acta en vivo sale bien —se dibuja del estado— pero el partido
+  /// reconstruido los resucita, y ademas viajan a la nube. Se guardan los
+  /// ids, y no un contador o un rango, para no poder tocar nunca los eventos
+  /// de una sesion anterior de un partido reabierto.
+  final List<String> _loggedEventIds = [];
 
   MatchGameController(this._dao, {GameClock? clock})
     : _clock = clock ?? GameClock(),
@@ -1093,7 +1103,8 @@ class MatchGameController extends StateNotifier<MatchState>
 
   void initMatch(String matchId) {}
 
-  void _saveToHistory() => _history.push(state);
+  void _saveToHistory() =>
+      _history.push(state, loggedEvents: _loggedEventIds.length);
 
   void undo() {
     final previous = _history.pop();
@@ -1101,11 +1112,26 @@ class MatchGameController extends StateNotifier<MatchState>
 
     // El reloj NO se deshace: el tiempo sigue corriendo mientras el anotador
     // corrige, y devolverlo atras falsearia el acta.
-    state = previous.copyWith(
+    state = previous.state.copyWith(
       timeLeft: state.timeLeft,
       isRunning: state.isRunning,
     );
+
+    // Y se borran de la base los eventos escritos despues de la instantanea.
+    // Antes solo se revertia el estado: el acta en vivo salia correcta, pero
+    // al reconstruir el partido los eventos deshechos reaparecian, y el
+    // `sync_match` se los llevaba a la nube.
+    _discardEventsLoggedAfter(previous.loggedEvents);
+
     _saveToDatabase();
+  }
+
+  /// Borra los eventos que esta sesion escribio despues de [keep].
+  void _discardEventsLoggedAfter(int keep) {
+    if (keep >= _loggedEventIds.length) return;
+    final discarded = _loggedEventIds.sublist(keep);
+    _loggedEventIds.removeRange(keep, _loggedEventIds.length);
+    unawaited(_dao.deleteEventsByIds(discarded));
   }
 
   void setTime(Duration newTime) {
@@ -1256,6 +1282,28 @@ class MatchGameController extends StateNotifier<MatchState>
     _saveToDatabase();
   }
 
+  /// Borra de la base el evento que se acaba de deshacer.
+  ///
+  /// Se busca por tipo y periodo en vez de por id porque un partido reanudado
+  /// trae eventos de sesiones anteriores, que no estan en [_loggedEventIds].
+  /// Si resulta ser uno de esta sesion, tambien se saca de esa lista para que
+  /// el deshacer general no intente borrarlo dos veces.
+  void _forgetPersistedEvent({
+    required String type,
+    required int period,
+    String? playerId,
+  }) {
+    if (state.matchId.isEmpty) return;
+    unawaited(
+      _dao.deleteLastEventOfType(
+        state.matchId,
+        type: type,
+        period: period,
+        playerId: playerId,
+      ),
+    );
+  }
+
   void undoLastPoint() {
     final lastPoint = state.scoreLog.where((e) => e.points > 0).lastOrNull;
     if (lastPoint == null) return;
@@ -1288,6 +1336,13 @@ class MatchGameController extends StateNotifier<MatchState>
           .toList(), // Eliminar del log
       periodScores: newPeriodScores,
     );
+    _forgetPersistedEvent(
+      type: EventType.pointFor(lastPoint.points),
+      period: lastPoint.period,
+      playerId: lastPoint.dbPlayerId == 0
+          ? null
+          : lastPoint.dbPlayerId.toString(),
+    );
     _saveToDatabase();
   }
 
@@ -1311,6 +1366,11 @@ class MatchGameController extends StateNotifier<MatchState>
       state = state.copyWith(
         scoreLog: state.scoreLog.where((e) => e != lastFoul).toList(),
       );
+      // En la base se guarda con el lado pegado: 'C' en vivo es 'C_A'.
+      _forgetPersistedEvent(
+        type: EventType.teamFoul(lastFoul.type, lastFoul.teamId),
+        period: lastFoul.period,
+      );
       _saveToDatabase();
       return;
     }
@@ -1327,6 +1387,13 @@ class MatchGameController extends StateNotifier<MatchState>
         ),
       },
       scoreLog: state.scoreLog.where((e) => e != lastFoul).toList(),
+    );
+    _forgetPersistedEvent(
+      type: lastFoul.type,
+      period: lastFoul.period,
+      playerId: lastFoul.dbPlayerId == 0
+          ? null
+          : lastFoul.dbPlayerId.toString(),
     );
     _saveToDatabase();
   }
@@ -1386,8 +1453,15 @@ class MatchGameController extends StateNotifier<MatchState>
 
     final timeStr = MatchClockFormat.format(state.timeLeft);
 
+    // El id se genera aqui, en vez de dejarlo al valor por defecto de la
+    // tabla, para poder anotarlo: deshacer necesita saber EXACTAMENTE que
+    // filas escribio esta sesion.
+    final eventId = const Uuid().v4();
+    _loggedEventIds.add(eventId);
+
     await _dao.insertEvent(
       GameEventsCompanion.insert(
+        id: drift.Value(eventId),
         matchId: state.matchId,
         playerId: drift.Value(playeridDb),
         type: type,

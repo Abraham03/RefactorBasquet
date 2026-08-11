@@ -167,6 +167,52 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     await into(gameEvents).insert(event);
   }
 
+  /// Borra eventos concretos por id.
+  ///
+  /// Lo usa el deshacer general: el controller lleva la lista de los eventos
+  /// que **él** ha escrito, así que borrar por id no puede tocar los de una
+  /// sesión anterior de un partido reabierto.
+  Future<int> deleteEventsByIds(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    return (delete(gameEvents)..where((e) => e.id.isIn(ids))).go();
+  }
+
+  /// Borra el evento persistido **más reciente** que encaje.
+  ///
+  /// Lo usan los deshacer concretos (punto, falta, cambio), que sí pueden
+  /// caer sobre un evento de una sesión anterior —un partido reanudado trae
+  /// los suyos de la base— y por eso no sirve la lista de ids.
+  ///
+  /// Se ordena por `createdAt` y, a igualdad, por `id`: dos eventos del mismo
+  /// segundo son frecuentes cuando el anotador va rápido.
+  Future<int> deleteLastEventOfType(
+    String matchId, {
+    required String type,
+    required int period,
+    String? playerId,
+  }) async {
+    final query = select(gameEvents)
+      ..where(
+        (e) =>
+            e.matchId.equals(matchId) &
+            e.type.equals(type) &
+            e.period.equals(period),
+      )
+      ..orderBy([
+        (e) => OrderingTerm.desc(e.createdAt),
+        (e) => OrderingTerm.desc(e.id),
+      ])
+      ..limit(1);
+
+    if (playerId != null) {
+      query.where((e) => e.playerId.equals(playerId));
+    }
+
+    final row = await query.getSingleOrNull();
+    if (row == null) return 0;
+    return (delete(gameEvents)..where((e) => e.id.equals(row.id))).go();
+  }
+
   // Ejemplo de Transacción (Atomicidad)
   // Útil cuando registras un equipo completo: o se guardan todos o ninguno.
   Future<void> addRosterToMatch(

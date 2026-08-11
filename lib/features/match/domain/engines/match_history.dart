@@ -10,27 +10,43 @@ import 'package:myapp/features/match/domain/constants/match_constants.dart';
 /// El límite existe porque cada entrada es un `MatchState` completo, con sus
 /// mapas de estadísticas y su log de eventos: un partido largo acumularía
 /// cientos y la memoria del dispositivo importa.
+/// Un punto al que se puede volver.
+class MatchSnapshot {
+  const MatchSnapshot(this.state, this.loggedEvents);
+
+  final MatchState state;
+
+  /// Cuántos eventos llevaba escritos la sesión en ese momento.
+  ///
+  /// Deshacer tiene que **borrar de la base** los eventos registrados
+  /// después, no solo revertir el estado en memoria. Sin esto, el acta en
+  /// vivo salía correcta —se dibuja del estado— pero al reconstruir el
+  /// partido los eventos deshechos volvían a aparecer, y además viajaban a
+  /// la nube en el `sync_match`.
+  final int loggedEvents;
+}
+
 class MatchHistory {
   MatchHistory({this.limit = 50});
 
   /// Cuántos pasos atrás se conservan.
   final int limit;
 
-  final List<MatchState> _stack = [];
+  final List<MatchSnapshot> _stack = [];
 
   bool get canUndo => _stack.isNotEmpty;
   int get length => _stack.length;
 
   /// Guarda un punto al que poder volver.
-  void push(MatchState state) {
+  void push(MatchState state, {int loggedEvents = 0}) {
     // Se descarta el más antiguo, no el más reciente: deshacer debe alcanzar
     // siempre los últimos [limit] pasos.
     if (_stack.length >= limit) _stack.removeAt(0);
-    _stack.add(state);
+    _stack.add(MatchSnapshot(state, loggedEvents));
   }
 
-  /// Devuelve el estado anterior, o `null` si no hay nada que deshacer.
-  MatchState? pop() => _stack.isEmpty ? null : _stack.removeLast();
+  /// Devuelve la instantánea anterior, o `null` si no hay nada que deshacer.
+  MatchSnapshot? pop() => _stack.isEmpty ? null : _stack.removeLast();
 
   void clear() => _stack.clear();
 }
