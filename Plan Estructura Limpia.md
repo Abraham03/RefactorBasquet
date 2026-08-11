@@ -753,6 +753,31 @@ El tercer sitio no persistía: solo recorría el mismo mapa de jornadas para con
 
 **Rollback:** revert del commit. Al ser aditivo, no hay riesgo de dejar receptores incompatibles en campo.
 
+#### ✅ Resultado (2026-08-10)
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `flutter analyze` | 0 | **0** |
+| `flutter test` | 170 verdes | **183 verdes** |
+| `flutter build apk --release` | ✔ | ✔ 69.2 MB |
+| Goldens (I2 + acta + cable) | 37 | **45** |
+| Esquema drift (I3) | — | `diff` vacío |
+| Violaciones R3 | 4 | **2** |
+| `scoreboard/domain` → `match/presentation` | 1 | **0** |
+| Líneas de `match_game_controller.dart` | 1705 | **1596** |
+
+**Corrección al plan.** El plan afirmaba que `MatchState.toJson()` era «a la vez el formato de cable y el de persistencia» y pedía partirlo en `ScoreboardSnapshot` + `MatchStatePersistenceDto`. **No es cierto:** lo usa únicamente `ScoreboardPayload`; el controller persiste en columnas de drift, no en JSON. Esos 14 de 30 campos no son una persistencia con pérdida — **son** el formato de cable, y el recorte es deliberado: `scoreLog` y `playerStats` son las listas más grandes del estado y el receptor no las necesita, porque las faltas se calculan en el emisor y viajan ya resueltas.
+
+Así que en vez de inventar un DTO de persistencia que nadie pedía, la serialización se muda a `scoreboard/domain` como extensión `ScoreboardWire`. El recorte queda donde se decide, y añadir un campo a `MatchState` ya no cambia en silencio lo que se emite. **No se añaden campos de forma especulativa:** nada los consume hoy.
+
+**Efecto en cadena:** seis archivos dejan de importar el controller (`pdf_generator`, `pdf_preview_screen`, `tv_scoreboard_widget` y tres tests). Solo querían la entidad.
+
+Las dos violaciones R3 de `scoreboard/domain` eran únicamente `@immutable`: se cambia a `package:meta`, que es de donde viene la anotación. Las dos que quedan (`match_finalizer`, `open_finished_match_usecase`) son trabajo real de la Fase 8.
+
+#### 🆕 `test/architecture_test.dart`
+
+El plan describía las reglas de dependencia como «verificables por `grep`». Un `grep` que nadie ejecuta no protege nada: una regla que no falla en CI es documentación, no arquitectura. Ahora fallan solas, con su lista de excepciones **explícita y razonada**, e incluyen un test de que **la deuda conocida no crece** — si baja hay que actualizarla, así que el recuento del burn-down no puede mentir.
+
 ---
 
 ### Fase 8 — Romper `MatchGameController` (1.697 líneas / ~55 métodos)
@@ -840,7 +865,7 @@ Se actualiza al cerrar cada fase.
 | 4 | Contratos de dominio | `refactor/f4-domain` | 🟡 Verde, falta smoke en dispositivo | **0** | 135 ✔ | 2 commits | 2026-08-10 |
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
-| 7 | `MatchState` al dominio | `refactor/f7-match-state` | ⬜ Pendiente | — | — | — | — |
+| 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
 | 8 | Dividir el controller | `refactor/f8-engines` | ⬜ Pendiente | — | — | — | — |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
