@@ -450,46 +450,11 @@ class PdfGenerator {
                   color: PdfColors.blue900,
                 ),
 
-                // --- NUEVO: FIRMAS DE OFICIALES EN EL ACTA ---
-                if (mainRefSignature != null)
-                  pw.Positioned(
-                    left: PdfCoords.footerReferee1X,
-                    top: PdfCoords.footerY, // Ajuste para que quede sobre el nombre
-                    child: pw.Image(
-                      pw.MemoryImage(mainRefSignature),
-                      width: 55,
-                      height: 30,
-                      fit: pw.BoxFit.contain,
-                    ),
-                  ),
-                
-                if (auxRefSignature != null)
-                  pw.Positioned(
-                    left: PdfCoords.footerReferee2X,
-                    top: PdfCoords.footerY, // Ajuste para que quede sobre el nombre
-                    child: pw.Image(
-                      pw.MemoryImage(auxRefSignature),
-                      width: 55,
-                      height: 30,
-                      fit: pw.BoxFit.contain,
-                    ),
-                  ),
-                // --------------------------------------------
-
-                if (protestSignature != null)
-                  pw.Positioned(
-                    left: PdfCoords.protestSignatureX,
-                    bottom: PdfCoords.protestSignatureY,
-                    child: pw.Column(
-                      children: [
-                        pw.Image(
-                          pw.MemoryImage(protestSignature),
-                          width: 55,
-                          height: 30,
-                        ),
-                      ],
-                    ),
-                  ),
+                ..._drawSignatures(
+                  mainRefSignature: mainRefSignature,
+                  auxRefSignature: auxRefSignature,
+                  protestSignature: protestSignature,
+                ),
 
                 if (mainReferee.isNotEmpty)
                   _drawText(
@@ -1002,6 +967,45 @@ class PdfGenerator {
   ///
   /// Si no hay entrenador se imprime una linea para rellenar a mano, que es
   /// lo que espera la mesa cuando el equipo llega sin banquillo.
+  /// Firmas escaneadas: los dos arbitros y, si la hubo, la de protesta.
+  ///
+  /// Las dos de arbitro eran el mismo bloque de 11 lineas con la coordenada
+  /// cambiada. La de protesta NO es igual y por eso queda aparte: se ancla
+  /// por abajo (`bottom`) en vez de por arriba, porque va al pie del acta.
+  static List<pw.Widget> _drawSignatures({
+    required Uint8List? mainRefSignature,
+    required Uint8List? auxRefSignature,
+    required Uint8List? protestSignature,
+  }) {
+    pw.Widget refereeSignature(Uint8List bytes, double x) => pw.Positioned(
+      left: x,
+      top: PdfCoords.footerY,
+      child: pw.Image(
+        pw.MemoryImage(bytes),
+        width: 55,
+        height: 30,
+        fit: pw.BoxFit.contain,
+      ),
+    );
+
+    return [
+      if (mainRefSignature != null)
+        refereeSignature(mainRefSignature, PdfCoords.footerReferee1X),
+      if (auxRefSignature != null)
+        refereeSignature(auxRefSignature, PdfCoords.footerReferee2X),
+      if (protestSignature != null)
+        pw.Positioned(
+          left: PdfCoords.protestSignatureX,
+          bottom: PdfCoords.protestSignatureY,
+          child: pw.Column(
+            children: [
+              pw.Image(pw.MemoryImage(protestSignature), width: 55, height: 30),
+            ],
+          ),
+        ),
+    ];
+  }
+
   static List<pw.Widget> _drawCoachBlock(
     MatchState state,
     String side, {

@@ -965,10 +965,36 @@ Tipar `CatalogTeam` dejó al descubierto dos `try/catch` que solo existían como
 
 `strict-inference` queda fuera con la razón medida: **45 de sus 52 issues están en 5 pantallas grandes sin formatear**, y tocarlas dispara el problema de diff descrito en 9.2. Entra cuando se troceen esas pantallas, no antes.
 
+#### ✅ 9.9 — El acta (`pdf_generator.dart`)
+
+**La premisa del plan estaba equivocada.** Pedía «extraer las ~140 coordenadas a un `ScoresheetLayout`»; al abrir el archivo resulta que **ya estaban extraídas**: `PdfCoords` existe desde antes, con 103 constantes. El problema era otro, y peor.
+
+**20 parámetros posicionales.** `_buildDocument` los recibía así, y los tres métodos públicos (`generateBytes`, `generateAndPreview`, `generateAndShare`) repetían cada uno la misma llamada de 19 argumentos, diferenciándose solo en las dos últimas líneas. Tres sitios donde cruzar `mainReferee` con `auxReferee`, o `coachA` con `coachB`, **compila sin una queja y sale impreso en el acta que firma el árbitro**. Ahora es `ScoresheetData`, mismo patrón que `MatchRestoreSnapshot` en la Fase 5 y por la misma razón: cuando una firma pasa de media docena de parámetros del mismo tipo, el compilador deja de ayudarte.
+
+**Cuatro duplicaciones, encontradas al trocear:**
+
+| Bloque | Estaba | Ahora | Qué tapaba |
+|---|---|---|---|
+| Roster | 4 copias (forfeit/no × A/B) | `_drawRoster`, 55→23 líneas | La regla «quien no se presenta no lista jugadores», partida en dos condiciones separadas por 28 líneas |
+| Entrenador + faltas técnicas | 2 copias | `_drawCoachBlock`, 60→22 | Los últimos `'A'`/`'B'` crudos, que iban como argumento posicional |
+| Faltas de equipo | **8 copias** (4 períodos × 2 equipos) | bucle, 77→53 | Cambiar la regla FIBA de colores obligaba a acertar en las ocho |
+| Firmas de árbitro | 2 copias | `_drawSignatures`, 41→6 | — |
+| Fecha/hora impresa | 2 copias (una por hoja) | `_displayDate`/`_displayTime` | — |
+
+La segunda hoja (reporte arbitral) eran **129 líneas embebidas dentro de un `if`**, a cuatro niveles de indentación. Ahora es `_addRefereeReportPage`.
+
+> **`_buildDocument`: 563 → 331 líneas.**
+
+**Un vocabulario partido, encontrado de paso.** `forfeitStatus` viaja en **dos** codificaciones, y no es un descuido: el campo de `MatchState` guarda `'TEAM_A'`/`'TEAM_B'`/`'BOTH'`, pero `playersPendingAttendanceByTeam(forfeitOverride:)` recibe el lado pelado `'A'`/`'B'`, que es lo que la pantalla de control tiene a mano al declarar la inasistencia. Por eso el controller comparaba contra los cuatro valores: **era defensa correcta, y me equivoqué al anotarlo como duplicado** en el commit de `TeamSide`. Lo que sí sobraba era `ef == 'BOTH'` junto a `ef == ForfeitStatus.both`. Ahora `ForfeitStatus.affects(status, side)` entiende los dos y lo usan los dos consumidores — el generador del acta solo entendía la forma larga, así que un `forfeitOverride: 'A'` no le habría vaciado el roster.
+
+**Sobre la red de seguridad, con su límite escrito.** 8 tests cubren partido normal, acta vacía, acentos (la Helvetica por defecto no los soporta y hace fallar el render), prórroga, inasistencia, faltas de banquillo, las tres firmas y el anexo. **No es un golden de bytes**: `pw.Document` estampa fecha de creación, así que dos ejecuciones del mismo acta no coinciden. Detectan que el render **revienta**, no que dibuje mal.
+
+Para el cambio con más riesgo —convertir 8 bloques de coordenadas en un bucle— eso no bastaba, así que se verificó **por equivalencia**: una sonda temporal generó la misma acta antes y después y comparó el tamaño de salida. **678219 bytes en ambos casos.** La sonda se borró después; queda descrita aquí porque es la técnica a repetir la próxima vez que se toque el dibujo.
+
 #### ⬜ Lo que queda de la Fase 9
 
 **Tareas:**
-- `pdf_generator.dart` (1.537 líneas, ~140 coordenadas `static const double`): extraer coordenadas a `ScoresheetLayout` y dividir en constructores de sección (`HeaderSection`, `PeriodTable`, `RosterTable`, `SignatureBlock`). Patrón **Builder/Composite**. Habilita un golden test de PDF (nº de páginas + extracción de texto).
+- `_buildDocument` sigue en 331 líneas: el `Stack` de la hoja principal aún tiene la cabecera, los nombres de equipo y los marcadores por período inline. Ya no hay duplicación, solo longitud.
 - Activar `strict-inference` y `avoid_dynamic_calls` **al trocear las 5 pantallas grandes**, no antes (motivo medido arriba). `prefer_final_locals` (155) y `directives_ordering` (49) siguen siendo cosméticos.
 
 **Contrato externo:** intacto. `SoftDelete.prefix` debe seguir siendo exactamente `'[DEL]-'` — es un dato que ya existe en las bases instaladas y en el backend (I2/I3).
@@ -1008,7 +1034,7 @@ Se actualiza al cerrar cada fase.
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
 | 8 | Dividir el controller | `refactor/f8-engines` | ✅ Cerrada (falta smoke en dispositivo) | **0** | 278 ✔ | 16 commits | 2026-08-10 |
-| 9 | Constantes y calidad | `refactor/f9-quality` | 🟡 8 de 9 bloques cerrados; queda `pdf_generator` | **0** | 292 ✔ | 9 commits | 2026-08-10 |
+| 9 | Constantes y calidad | `refactor/f9-quality` | ✅ Cerrada (falta smoke en dispositivo) | **0** | 303 ✔ | 13 commits | 2026-08-11 |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
 Estados: ⬜ Pendiente · 🟡 En curso · ✅ Cerrada · 🔴 Revertida

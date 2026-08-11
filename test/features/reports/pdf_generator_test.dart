@@ -7,6 +7,8 @@
 // cruzado o un índice fuera de rango lanza y el árbitro se queda sin acta con
 // el partido ya cerrado.
 
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
@@ -171,4 +173,71 @@ void main() {
       ),
     );
   });
+
+  test('genera un acta con las tres firmas escaneadas', () async {
+    // Las dos de árbitro se anclan por arriba y la de protesta por abajo:
+    // no son el mismo bloque aunque lo parezcan.
+    final png = _tinyPng();
+
+    await expectValidPdf(
+      PdfGenerator.generateBytes(
+        _matchWith(scoreA: 60, scoreB: 58),
+        'Lobos',
+        'Pumas',
+        mainReferee: 'Juan',
+        auxReferee: 'Ana',
+        mainRefSignature: png,
+        auxRefSignature: png,
+        protestSignature: png,
+      ),
+    );
+  });
+
+  test(
+    'genera el anexo de reporte arbitral cuando hay observaciones',
+    () async {
+      // La segunda hoja solo existe si hay observaciones, y lleva su propia
+      // cabecera con logos y fecha.
+      const withNotes = MatchState(
+        scoreA: 70,
+        scoreB: 70,
+        currentPeriod: 4,
+        observaciones: 'Protesta del entrenador local en el 3er cuarto.',
+      );
+
+      final withNotesBytes = await PdfGenerator.generateBytes(
+        withNotes,
+        'Lobos',
+        'Pumas',
+        tournamentName: 'Liga',
+        matchDate: DateTime(2026, 3, 1, 18, 30),
+      );
+      final withoutNotes = await PdfGenerator.generateBytes(
+        _matchWith(scoreA: 70, scoreB: 70, period: 4),
+        'Lobos',
+        'Pumas',
+        tournamentName: 'Liga',
+        matchDate: DateTime(2026, 3, 1, 18, 30),
+      );
+
+      expect(
+        withNotesBytes.length,
+        greaterThan(withoutNotes.length),
+        reason: 'el anexo debe añadir una página, no desaparecer',
+      );
+    },
+  );
 }
+
+/// PNG 1x1 transparente, lo mínimo que `pw.MemoryImage` acepta.
+Uint8List _tinyPng() => Uint8List.fromList(const [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+  0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+  0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+  0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x42, 0x60, 0x82,
+]);
