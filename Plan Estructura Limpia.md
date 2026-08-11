@@ -889,14 +889,56 @@ También sale `flutter/foundation` del finalizador: usaba `Uint8List` y `debugPr
 
 **Objetivo:** cerrar la deuda cosmética y subir el listón del analizador.
 
+Rama `refactor/f9-quality`. **En curso.** Lo cerrado hasta ahora, con lo que enseñó cada paso:
+
+#### ✅ 9.1 — Literales de estado → `MatchStatus` (25 sitios)
+
+El primer intento **rompió la regla 2** y el test de arquitectura lo cazó: `MatchesDao` vive en `core/database/` —su `.g.dart` está acoplado al de `AppDatabase`— y pasó a importar `features/match/domain/`. El propio motivo del test daba la salida: *si `core/` lo necesita, no era de la feature*.
+
+`MatchStatus` es el **vocabulario de la columna** `status`, y esa columna se define en `core/database/tables/app_tables.dart`. Se mudó a `core/constants/match_status.dart`. `TeamSide`, `EventType` y `ForfeitStatus` se quedan en el dominio de la feature porque ningún archivo de `core/` los usa — verificado por `grep`, no supuesto.
+
+El valor por defecto de la columna (`Constant('SCHEDULED')`) **se queda como literal**: es el esquema, y tocarlo obliga a regenerar el `.g.dart` para no cambiar nada (I3).
+
+#### ✅ 9.2 — Literales de lado → `TeamSide` (79 sitios)
+
+**Un reemplazo ciego de `== 'B'` habría roto el acta.** En `scoreLog.type`, `'B'` es falta de **banca** (`EventType.bench`); en `scoreLog.teamId` es el equipo **visitante** (`TeamSide.away`). La misma letra, dos significados según el campo. La sustitución fue con lista blanca de identificadores medida sobre el código, y la colisión quedó escrita en un test.
+
+De paso salió a la luz que `forfeitStatus` guarda **dos codificaciones** (`'A'`/`'B'` y `'TEAM_A'`/`'TEAM_B'`) y que `ef == 'BOTH' || ef == ForfeitStatus.both` compara lo mismo dos veces. Anotado, sin tocar.
+
+> **Reincidencia de proceso.** Volví a ejecutar `dart format lib/` global — el mismo error de la Fase 3.3, con el mismo resultado: `match_control_screen.dart` con **+2003/−729 para 9 sustituciones reales**. La causa es que 5 archivos nunca se formatearon con la versión actual del formateador, así que tocarlos explota el diff. Reconstruido desde limpio. **Regla reforzada: formatear solo archivos que ya estaban formateados; en los demás, sustituir sin formatear.**
+
+#### ✅ 9.3 — El solapamiento de `EventType` (y un crash que tapaba)
+
+La deuda que la Fase 0 dejó escrita con dueño. No era teórica:
+
+- **Crash alcanzable.** `addTeamFoul` guarda la técnica con `playerId: "Entrenador"` —un nombre, no un id— y `undoLastFoul` hacía `playerStats[lastFoul.playerId]!`. Como `isPlayerFoul('C')` devolvía `true`, ese evento entraba en el filtro. Pitar una técnica al entrenador y pulsar «deshacer última falta» reventaba la pantalla en pleno partido. Reproducido en test **antes** de arreglarlo: `Null check operator used on a null value`.
+- **Asimetría en vivo/restaurado.** En vivo la técnica es `'C'`; al reabrir el partido vuelve de la base como `'C_A'`. `teamFoulsOf` usaba `isPlayerFoul`, que aceptaba `'C'` por accidente y rechazaba `'C_A'`: el mismo partido mostraba faltas de equipo distintas antes y después de restaurarlo.
+
+`isPlayerFoul` ahora excluye las técnicas y se añade `countsTowardTeamFouls` para quien las necesita juntas (en FIBA la técnica al entrenador suma al contador del período igual que una personal). De los 4 usos de `isPlayerFoul`, solo el del PDF las excluía a mano. El test de caracterización de la Fase 0 **se actualizó a propósito**: para eso se escribió.
+
+#### ✅ 9.4 — `'[DEL]-'` → `SoftDelete`
+
+8 sitios: 4 filtros y 4 interpolaciones. `SoftDelete.mark` es **idempotente**, cosa que la interpolación suelta no era: borrar dos veces la misma sede producía `'[DEL]-[DEL]-Gimnasio'`, nombre que viajaba corrupto al backend mientras el filtro seguía ocultándolo.
+
+#### ✅ 9.5 — Fuera las 5 supresiones de `use_build_context_synchronously`
+
+27 sitios reales. No eran el mismo problema, y ahí estaba la trampa: **el guarda correcto depende de qué `context` esté en alcance.**
+
+| Caso | Guarda correcto | Por qué |
+|---|---|---|
+| `context` llega por parámetro (de método o de closure `builder: (context)`) | `context.mounted` | Ese context puede ser el de un diálogo ya cerrado aunque la pantalla siga montada |
+| Sin parámetro, usando el getter del `State` | `mounted` | `context.mounted` es justo lo que **no** se puede escribir: acceder a `this.context` desmontado lanza |
+
+El proyecto tenía los dos casos y mezclados: `home_menu` usaba `context.mounted` donde tocaba `mounted`, y `match_setup` al revés en cuatro closures de diálogo. Dos bloques `catch` no tenían guarda ninguna.
+
+> Intenté automatizarlo dos veces y las dos salieron mal: la primera versión solo entendía firmas de método y dejó 18 sitios; la segunda quiso deducir el ámbito contando llaves y paréntesis juntos, se equivocó de dirección y **subió** la cuenta a 19. Los 3 archivos que tocó se revirtieron y se hicieron a mano. Cuando el criterio depende del ámbito léxico, el `grep` no sustituye a leer el código.
+
+#### ⬜ Lo que queda de la Fase 9
+
 **Tareas:**
-- 14 literales `'FINISHED'`/`'IN_PROGRESS'` → `MatchStatus`; 17 comparaciones `teamSide == 'A'` → `TeamSide` (adopción actual ~50 %).
 - 21 `Color(0x...)` crudos → `AppColors`. `ThemeData` inline de `main.dart` → `app/theme/app_theme.dart`.
-- `'[DEL]-'` (prefijo de borrado lógico en la columna de nombre) → `SoftDelete.prefix`.
 - `pdf_generator.dart` (1.537 líneas, ~140 coordenadas `static const double`): extraer coordenadas a `ScoresheetLayout` y dividir en constructores de sección (`HeaderSection`, `PeriodTable`, `RosterTable`, `SignatureBlock`). Patrón **Builder/Composite**. Habilita un golden test de PDF (nº de páginas + extracción de texto).
 - Eliminar los 3 `catch (_) {}` silenciosos y los `debugPrint`-y-continúa de `sync_repository.dart` (hoy `SyncResult` sub-reporta los conteos).
-- Quitar los 5 `// ignore_for_file: use_build_context_synchronously` y arreglar los casos reales con `if (!context.mounted) return;`.
-- **Corregir el solapamiento de `EventType`** detectado en la Fase 0: `isPlayerFoul('C')` e `isPlayerFoul('B')` devuelven `true` (por la regla `type.length <= 2`) **al mismo tiempo** que `isTeamFoul`. Una falta de banca en vivo se cuenta como falta personal de jugador si el filtro de `isPlayerFoul` corre primero. Con sufijo de lado (`'C_A'`) sí quedan separados. El comportamiento actual está congelado en `match_constants_test.dart`; ese test es la red al corregirlo.
 - Activar las reglas diferidas de la Fase 0, en este orden (cada una en su propio commit, midiendo antes): `strict-casts` (119 errores hoy; debería caer solo tras la Fase 4), luego `strict-raw-types`, `strict-inference`, `avoid_dynamic_calls`, `prefer_final_locals`, `directives_ordering`, y `public_member_api_docs` solo en `domain/`.
 
 **Contrato externo:** intacto. `SoftDelete.prefix` debe seguir siendo exactamente `'[DEL]-'` — es un dato que ya existe en las bases instaladas y en el backend (I2/I3).
