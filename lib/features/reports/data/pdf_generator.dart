@@ -304,6 +304,22 @@ class PdfGenerator {
     await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
   }
 
+  /// Fecha para IMPRIMIR (dd/MM/yyyy). Cadena vacia si no hay fecha.
+  ///
+  /// No confundir con `MatchPayloadMapper.backendDateTime`, que es el formato
+  /// que parsea el servidor. Este es para que lo lea una persona, y las dos
+  /// hojas del acta lo usan.
+  static String _displayDate(DateTime? date) => date == null
+      ? ""
+      : "${date.day.toString().padLeft(2, '0')}/"
+            "${date.month.toString().padLeft(2, '0')}/${date.year}";
+
+  /// Hora para imprimir (HH:mm). Cadena vacia si no hay fecha.
+  static String _displayTime(DateTime? date) => date == null
+      ? ""
+      : "${date.hour.toString().padLeft(2, '0')}:"
+            "${date.minute.toString().padLeft(2, '0')}";
+
   static Future<pw.Document> _buildDocument(ScoresheetData data) async {
     // Se desempaqueta arriba para no reescribir 560 lineas de dibujo que ya
     // referencian estos nombres. Mismo criterio que `restoreFromDatabase`
@@ -351,12 +367,8 @@ class PdfGenerator {
       winningTeam = "EMPATE";
     }
 
-    final dateStr = matchDate != null
-        ? "${matchDate.day.toString().padLeft(2, '0')}/${matchDate.month.toString().padLeft(2, '0')}/${matchDate.year}"
-        : "";
-    final timeStr = matchDate != null
-        ? "${matchDate.hour.toString().padLeft(2, '0')}:${matchDate.minute.toString().padLeft(2, '0')}"
-        : "";
+    final dateStr = _displayDate(matchDate);
+    final timeStr = _displayTime(matchDate);
 
     // CARGA DE LOGOS REMOTOS (agnóstica al formato: WebP, PNG, JPEG...)
     final tournLogoProvider = await _loadLogo(tournamentLogoUrl, 'torneo');
@@ -700,134 +712,11 @@ class PdfGenerator {
       // --- NUEVA SECCIÓN: SEGUNDA HOJA PARA REPORTE ARBITRAL ---
       // =================================================================
       if (state.observaciones.trim().isNotEmpty) {
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(40), // Márgenes formales
-            build: (pw.Context context) {
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // --- ENCABEZADO OFICIAL ---
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      if (tournLogoProvider != null)
-                        pw.Image(tournLogoProvider, width: 60, height: 60)
-                      else
-                        pw.SizedBox(width: 60, height: 60),
-                      
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                          pw.Text("REPORTE ARBITRAL / ANEXO DE NOVEDADES", 
-                            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                          pw.SizedBox(height: 4),
-                          pw.Text(tournamentName.toUpperCase(), 
-                            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                        ]
-                      ),
-
-                      if (refereeLogoProvider != null)
-                        pw.Image(refereeLogoProvider, width: 60, height: 60)
-                      else
-                        pw.SizedBox(width: 60, height: 60),
-                    ]
-                  ),
-                  pw.SizedBox(height: 20),
-                  
-                  // --- DATOS DEL PARTIDO ---
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(10),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.blue900, width: 1.5),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                    ),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text("Partido: $teamAName vs $teamBName", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                            pw.Text("Categoría: $categoryName"),
-                            pw.Text("Cancha: $venueName"),
-                          ]
-                        ),
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.end,
-                          children: [
-                            pw.Text("Fecha: $dateStr", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                            pw.Text("Hora: $timeStr"),
-                            pw.Text("Marcador: $teamAName ${state.scoreA} - ${state.scoreB} $teamBName"),
-                          ]
-                        ),
-                      ]
-                    )
-                  ),
-                  pw.SizedBox(height: 30),
-
-                  // --- CUERPO DEL REPORTE ---
-                  pw.Text("DESCRIPCIÓN DE LOS HECHOS:", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
-                  pw.SizedBox(height: 10),
-                  pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.all(15),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.grey100,
-                      border: pw.Border.all(color: PdfColors.grey400),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                    ),
-                    child: pw.Text(
-                      state.observaciones,
-                      style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.5),
-                      textAlign: pw.TextAlign.justify,
-                    ),
-                  ),
-
-                  pw.Spacer(),
-
-                  // --- FIRMAS DE LOS ÁRBITROS ---
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Column(
-                        children: [
-                          if (mainRefSignature != null)
-                            pw.Image(pw.MemoryImage(mainRefSignature), width: 120, height: 60)
-                          else
-                            pw.SizedBox(height: 60),
-                          pw.Container(width: 180, height: 1.5, color: PdfColors.black),
-                          pw.SizedBox(height: 5),
-                          pw.Text("Árbitro Principal", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                          pw.Text(mainReferee, style: const pw.TextStyle(fontSize: 10)),
-                        ]
-                      ),
-                      if (auxReferee.isNotEmpty)
-                        pw.Column(
-                          children: [
-                            if (auxRefSignature != null)
-                              pw.Image(pw.MemoryImage(auxRefSignature), width: 120, height: 60)
-                            else
-                              pw.SizedBox(height: 60),
-                            pw.Container(width: 180, height: 1.5, color: PdfColors.black),
-                            pw.SizedBox(height: 5),
-                            pw.Text("Árbitro Auxiliar", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                            pw.Text(auxReferee, style: const pw.TextStyle(fontSize: 10)),
-                          ]
-                        ),
-                    ]
-                  ),
-                  pw.SizedBox(height: 20),
-                  pw.Center(
-                    child: pw.Text("Generado por Van Ball App", style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
-                  )
-                ],
-              );
-            },
-          ),
+        _addRefereeReportPage(
+          pdf,
+          data,
+          tournLogoProvider,
+          refereeLogoProvider,
         );
       }
     } catch (e) {
@@ -837,6 +726,159 @@ class PdfGenerator {
   }
 
 
+
+  /// Segunda hoja: el reporte arbitral, que solo existe si hubo
+  /// observaciones. Estaba embebido en `_buildDocument` como 130 lineas
+  /// dentro de un `if`, a cuatro niveles de indentacion del metodo.
+  static void _addRefereeReportPage(
+    pw.Document pdf,
+    ScoresheetData data,
+    pw.ImageProvider? tournLogoProvider,
+    pw.ImageProvider? refereeLogoProvider,
+  ) {
+    final state = data.state;
+    final teamAName = data.teamAName;
+    final teamBName = data.teamBName;
+    final tournamentName = data.tournamentName;
+    final categoryName = data.categoryName;
+    final venueName = data.venueName;
+    final mainReferee = data.mainReferee;
+    final auxReferee = data.auxReferee;
+    final mainRefSignature = data.mainRefSignature;
+    final auxRefSignature = data.auxRefSignature;
+    final dateStr = _displayDate(data.matchDate);
+    final timeStr = _displayTime(data.matchDate);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40), // Márgenes formales
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // --- ENCABEZADO OFICIAL ---
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  if (tournLogoProvider != null)
+                    pw.Image(tournLogoProvider, width: 60, height: 60)
+                  else
+                    pw.SizedBox(width: 60, height: 60),
+                  
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text("REPORTE ARBITRAL / ANEXO DE NOVEDADES", 
+                        style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(tournamentName.toUpperCase(), 
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    ]
+                  ),
+
+                  if (refereeLogoProvider != null)
+                    pw.Image(refereeLogoProvider, width: 60, height: 60)
+                  else
+                    pw.SizedBox(width: 60, height: 60),
+                ]
+              ),
+              pw.SizedBox(height: 20),
+              
+              // --- DATOS DEL PARTIDO ---
+              pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.blue900, width: 1.5),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text("Partido: $teamAName vs $teamBName", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text("Categoría: $categoryName"),
+                        pw.Text("Cancha: $venueName"),
+                      ]
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text("Fecha: $dateStr", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text("Hora: $timeStr"),
+                        pw.Text("Marcador: $teamAName ${state.scoreA} - ${state.scoreB} $teamBName"),
+                      ]
+                    ),
+                  ]
+                )
+              ),
+              pw.SizedBox(height: 30),
+
+              // --- CUERPO DEL REPORTE ---
+              pw.Text("DESCRIPCIÓN DE LOS HECHOS:", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+              pw.SizedBox(height: 10),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(15),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+                child: pw.Text(
+                  state.observaciones,
+                  style: const pw.TextStyle(fontSize: 12, lineSpacing: 1.5),
+                  textAlign: pw.TextAlign.justify,
+                ),
+              ),
+
+              pw.Spacer(),
+
+              // --- FIRMAS DE LOS ÁRBITROS ---
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Column(
+                    children: [
+                      if (mainRefSignature != null)
+                        pw.Image(pw.MemoryImage(mainRefSignature), width: 120, height: 60)
+                      else
+                        pw.SizedBox(height: 60),
+                      pw.Container(width: 180, height: 1.5, color: PdfColors.black),
+                      pw.SizedBox(height: 5),
+                      pw.Text("Árbitro Principal", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text(mainReferee, style: const pw.TextStyle(fontSize: 10)),
+                    ]
+                  ),
+                  if (auxReferee.isNotEmpty)
+                    pw.Column(
+                      children: [
+                        if (auxRefSignature != null)
+                          pw.Image(pw.MemoryImage(auxRefSignature), width: 120, height: 60)
+                        else
+                          pw.SizedBox(height: 60),
+                        pw.Container(width: 180, height: 1.5, color: PdfColors.black),
+                        pw.SizedBox(height: 5),
+                        pw.Text("Árbitro Auxiliar", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(auxReferee, style: const pw.TextStyle(fontSize: 10)),
+                      ]
+                    ),
+                ]
+              ),
+              pw.SizedBox(height: 20),
+              pw.Center(
+                child: pw.Text("Generado por Van Ball App", style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+              )
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   static List<pw.Widget> _drawTimeouts(MatchState state) {
     List<pw.Widget> widgets = [];
