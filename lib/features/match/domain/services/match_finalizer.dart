@@ -62,7 +62,9 @@ class MatchFinalizer {
     //    el tiempo a mano se quedaba sin la marca. No afecta al payload del
     //    backend, que no lleva los tiempos muertos —los deriva de los
     //    eventos— así que el contrato queda intacto.
-    final actaState = GameClockRules.burnUnusedAtEnd(state) ?? state;
+    final actaState = state.currentPeriod >= GameClockRules.lastPeriod
+        ? _controller.burnUnusedTimeouts()
+        : state;
 
     // 3. Logo del árbitro (vive en el torneo).
     final refereeLogoUrl = await _closing.refereeLogoUrl(

@@ -238,7 +238,12 @@ class MatchGameController extends StateNotifier<MatchState>
             usedBeforeBurnB = true;
           }
         }
-        _applyRestoreTimeout(toTeam, event.period, event.clockTime);
+        _applyRestoreTimeout(
+          toTeam,
+          event.period,
+          event.clockTime,
+          type: event.type,
+        );
         // El mismo apunte que deja `TimeoutEngine.grant` en vivo, para que el
         // estado reconstruido sea indistinguible del que dejo el partido.
         state = state.copyWith(
@@ -406,18 +411,33 @@ class MatchGameController extends StateNotifier<MatchState>
   // La quema automatica en clutch SI se reconstruye, pero no aqui: no depende
   // de ningun evento, asi que se recalcula al final de restoreFromDatabase con
   // GameClockRules.autoBurnAlreadyHappened.
-  void _applyRestoreTimeout(String teamId, int period, String clockTime) {
+  void _applyRestoreTimeout(
+    String teamId,
+    int period,
+    String clockTime, {
+    required String type,
+  }) {
+    // La quema no lleva minuto: en el acta se marca con una X.
+    if (EventType.isAutoTimeout(type)) {
+      _appendTimeoutMark(teamId, period, GameClockRules.burnMark);
+      return;
+    }
     String minStr = clockTime.split(':').first.trim();
     if (minStr.startsWith('0') && minStr.length > 1) {
       minStr = minStr.substring(1);
     }
     if (minStr.isEmpty) minStr = "0";
 
+    _appendTimeoutMark(teamId, period, minStr);
+  }
+
+  /// Anade una marca a la lista de tiempos fuera del periodo que toque.
+  void _appendTimeoutMark(String teamId, int period, String mark) {
     if (period <= 2) {
       final list = List<String>.from(
         teamId == TeamSide.home ? state.teamATimeouts1 : state.teamBTimeouts1,
       );
-      if (list.length < 2) list.add(minStr);
+      if (list.length < 2) list.add(mark);
       state = teamId == TeamSide.home
           ? state.copyWith(teamATimeouts1: list)
           : state.copyWith(teamBTimeouts1: list);
@@ -425,7 +445,7 @@ class MatchGameController extends StateNotifier<MatchState>
       final list = List<String>.from(
         teamId == TeamSide.home ? state.teamATimeouts2 : state.teamBTimeouts2,
       );
-      if (list.length < 3) list.add(minStr);
+      if (list.length < 3) list.add(mark);
       state = teamId == TeamSide.home
           ? state.copyWith(teamATimeouts2: list)
           : state.copyWith(teamBTimeouts2: list);
@@ -433,7 +453,7 @@ class MatchGameController extends StateNotifier<MatchState>
       final list = List<String>.from(
         teamId == TeamSide.home ? state.teamAOTTimeouts : state.teamBOTTimeouts,
       );
-      if (list.length < 3) list.add(minStr);
+      if (list.length < 3) list.add(mark);
       state = teamId == TeamSide.home
           ? state.copyWith(teamAOTTimeouts: list)
           : state.copyWith(teamBOTTimeouts: list);
@@ -979,15 +999,44 @@ class MatchGameController extends StateNotifier<MatchState>
 
   /// Quema los tiempos muertos de la segunda mitad que no se hayan usado al
   /// llegar al "clutch time".
-  void _applyAutoBurn() {
+  void _applyAutoBurn() => burnUnusedTimeouts();
+
+  /// Quema los tiempos fuera de la segunda mitad que no se hayan gastado y
+  /// **deja constancia en la base**.
+  ///
+  /// Se llama en dos momentos: al cruzar los dos minutos del ultimo periodo
+  /// (reloj) y al cerrar el partido (por si el reloj nunca llego a cruzarlos,
+  /// que pasa si el anotador ajusto el tiempo a mano).
+  ///
+  /// El evento se escribe como cualquier otro: en local siempre, y viaja a la
+  /// nube en la siguiente sincronizacion. Por eso funciona sin conexion sin
+  /// necesitar nada especial.
+  @override
+  MatchState burnUnusedTimeouts() {
+    final before = state;
     final burned = GameClockRules.applyAutoBurn(state);
     // `null` significa que no habia nada que quemar: no se ensucia el
     // historial de deshacer con un paso que no cambio nada.
-    if (burned == null) return;
+    if (burned == null) return state;
 
     _saveToHistory();
     state = burned;
+
+    // Un evento por cada equipo al que se le quemo, para que al reconstruir
+    // el partido la marca vuelva sola, en su sitio y sin recalcular nada.
+    if (before.teamATimeouts2.isEmpty) {
+      unawaited(
+        _logEventToDb(null, 0, 0, EventType.autoTimeoutFor(TeamSide.home)),
+      );
+    }
+    if (before.teamBTimeouts2.isEmpty) {
+      unawaited(
+        _logEventToDb(null, 0, 0, EventType.autoTimeoutFor(TeamSide.away)),
+      );
+    }
+
     _saveToDatabase();
+    return state;
   }
 
   void initializeNewMatch({

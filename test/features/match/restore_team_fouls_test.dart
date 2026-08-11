@@ -200,6 +200,49 @@ void main() {
       expect(controller.state.teamBTimeouts2, isEmpty);
     });
 
+    test('la quema persistida vuelve sola, en su sitio', () async {
+      // El evento se guarda con su reloj (2:00), asi que al reproducirse en
+      // orden cronologico cae DELANTE del tiempo fuera pedido a 1:58, sin
+      // ninguna logica que lo coloque. Es la razon de persistirla.
+      await logEvent(
+        EventType.autoTimeoutFor(TeamSide.home),
+        period: 4,
+        clockTime: '2:00',
+      );
+      await logEvent(
+        EventType.timeoutFor(TeamSide.home),
+        period: 4,
+        clockTime: '1:58',
+      );
+
+      await restore();
+
+      expect(controller.state.teamATimeouts2, ['X', '1']);
+    });
+
+    test('la quema persistida no se duplica con el respaldo', () async {
+      // El calculo de respaldo sigue ahi para las actas viejas, que no tienen
+      // el evento. No debe anadir una segunda X cuando si lo hay.
+      await logEvent(
+        EventType.autoTimeoutFor(TeamSide.away),
+        period: 4,
+        clockTime: '2:00',
+      );
+
+      await restore();
+
+      expect(controller.state.teamBTimeouts2, ['X']);
+    });
+
+    test('un acta vieja sin el evento sigue mostrando la marca', () async {
+      // Compatibilidad: los partidos ya jugados no tienen `TIMEOUT_AUTO_`.
+      // Si solo se reprodujera, sus actas perderian la X al reabrirlas.
+      await restore();
+
+      expect(controller.state.teamATimeouts2, ['X']);
+      expect(controller.state.teamBTimeouts2, ['X']);
+    });
+
     test('el pedido en CLUTCH no borra la quema, la lleva detras', () async {
       // Caso real de campo (partido COBRAS vs CLIPPERS, 11/08/2026):
       //   TIMEOUT_B P1 @ 9:09 · TIMEOUT_B P2 @ 3:56 · TIMEOUT_A P4 @ 1:54

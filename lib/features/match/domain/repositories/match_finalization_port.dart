@@ -56,4 +56,13 @@ abstract interface class MatchFinalizationPort {
   /// `FINISHED` ni `isSynced`: el partido sigue cerrado y sigue estando
   /// sincronizado, porque el cambio acaba de viajar.
   Future<void> persistOutcomeChange();
+
+  /// Quema los tiempos fuera de la segunda mitad sin usar y deja constancia
+  /// en la base. Devuelve el estado resultante, que es el que debe dibujar el
+  /// acta.
+  ///
+  /// Al cerrar el partido ya no hay ocasion de pedirlos, asi que el equipo
+  /// que no gasto el suyo lo ha perdido. Lo llama `MatchFinalizer` antes de
+  /// generar el PDF.
+  MatchState burnUnusedTimeouts();
 }

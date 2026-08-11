@@ -81,6 +81,23 @@ abstract final class EventType {
 
   static String timeoutFor(String side) => 'TIMEOUT_$side';
 
+  /// Tiempo fuera que el equipo **pierde** al llegar a los dos últimos
+  /// minutos sin haber gastado ninguno de la segunda mitad.
+  ///
+  /// Es un tipo aparte, y no un `TIMEOUT_` normal, porque no es una acción
+  /// del anotador: no se puede deshacer y en el acta se marca con una `X` en
+  /// lugar del minuto.
+  ///
+  /// **Se persiste como cualquier otro evento**, en la base local y en la
+  /// nube. Antes solo vivía en memoria y había que recalcularlo al
+  /// reconstruir el partido —tres intentos costó acertar el cálculo—. Al
+  /// guardarlo con su reloj se reproduce en orden cronológico y la marca cae
+  /// en su sitio sin ninguna lógica que la coloque.
+  static String autoTimeoutFor(String side) => 'TIMEOUT_AUTO_$side';
+
+  /// ¿Es la quema automática, y no un tiempo fuera pedido?
+  static bool isAutoTimeout(String type) => type.startsWith('TIMEOUT_AUTO_');
+
   static String possessionFor(String side) => 'POSS_$side';
 
   /// Falta de equipo persistida en DB: 'C_A', 'B_B', etc.
