@@ -819,7 +819,7 @@ El plan describía las reglas de dependencia como «verificables por `grep`». U
 | Métrica | Base | Ahora |
 |---|---|---|
 | `flutter analyze` | 0 | **0** |
-| `flutter test` | 183 verdes | **266 verdes** |
+| `flutter test` | 183 verdes | **272 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
 | Líneas de `match_game_controller.dart` | 1705 | **1398** |
@@ -856,9 +856,15 @@ El plan pedía `matchGameProvider` → `.family` + `autoDispose`. **No aplica:**
 
 Serían 26 puntos de uso tocados en el camino del partido en vivo —la zona de más riesgo— a cambio de nada. Lo que el plan quería evitar de verdad (que un partido se filtre al siguiente) ya lo resuelve `ref.invalidate`, así que **se prueba en vez de darse por hecho**: 6 tests fijan que invalidar borra período, observaciones, árbitros y log, y que entrega un notifier **nuevo** — importa porque el controller guarda el reloj y la pila de deshacer *fuera* de `MatchState`, y reutilizarlo dejaría el temporizador del partido anterior corriendo.
 
-#### ⬜ Lo que queda de la Fase 8
+#### ✅ El cierre en vivo, cubierto
 
-**`MatchSyncCoordinator`** (`finalizeAndSync`, 159 líneas). No es un motor de reglas puras sino orquestación de efectos —generar el PDF, escribirlo a disco, subirlo, marcar el partido—, así que extraerlo es una decisión de diseño, no un corte mecánico.
+Había **dos** caminos que suben un acta al mismo endpoint `sync_match`: la subida diferida (cubierta por golden desde la Fase 6) y el **cierre en vivo** (`finalizeAndSync`), que **no lo estaba** — pese a ser el que corre con el árbitro delante esperando el acta. Ahora tiene su golden.
+
+**Las dos cabeceras no son iguales, y es correcto.** La diferida manda `current_period: 4`, `time_left: "00:00"` y una clave `status`; son marcadores de «partido ya terminado» para un acta cerrada hace días. El cierre en vivo manda el estado real y omite `status`, que el backend infiere. Igual que con el mapper de rosters en la Fase 6: parecen duplicadas y no lo son, y hay un test que lo deja escrito para que nadie las «unifique».
+
+Lo que **sí** estaba duplicado literalmente era el formato de fecha del backend — la misma cadena de `padLeft` en dos sitios, para un formato que el servidor parsea. Ahora es `MatchPayloadMapper.backendDateTime`. Y el `time_left` del cierre en vivo seguía formateándose a mano, ignorando el `MatchClockFormat` recién creado.
+
+#### ⬜ Lo que queda de la Fase 8
 
 **La otra mitad de R3:** `match_finalizer` y `open_finished_match_usecase` sostienen `AppDatabase` y hacen consultas drift directas. Eso pide repositorios, no un puerto. Siguen anotados como deuda con dueño en `test/architecture_test.dart`, con un test que impide que crezca.
 
@@ -914,7 +920,7 @@ Se actualiza al cerrar cada fase.
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
-| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 6 motores + DIP; falta el coordinador de sync | **0** | 266 ✔ | 13 commits | 2026-08-10 |
+| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 Verde; queda la mitad drift de R3 | **0** | 272 ✔ | 15 commits | 2026-08-10 |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
