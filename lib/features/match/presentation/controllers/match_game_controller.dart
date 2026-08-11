@@ -551,9 +551,7 @@ void _applyRestoreSub({
         })
         .toList();
 
-    final now = DateTime.now();
-    final formattedDate =
-        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    final formattedDate = MatchPayloadMapper.backendDateTime(DateTime.now());
 
     final payload = {
       "match_id": state.matchId,
@@ -567,8 +565,7 @@ void _applyRestoreSub({
       "score_a": state.scoreA,
       "score_b": state.scoreB,
       "current_period": state.currentPeriod,
-      "time_left":
-          "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}",
+      "time_left": MatchClockFormat.format(state.timeLeft),
       "main_referee": state.mainReferee,
       "aux_referee": state.auxReferee,
       "scorekeeper": state.scorekeeper,

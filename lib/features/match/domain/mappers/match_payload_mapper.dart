@@ -131,6 +131,17 @@ abstract final class MatchPayloadMapper {
     return forfeitStatus == ForfeitStatus.teamB;
   }
 
+  /// Fecha en el formato que espera el backend: `YYYY-MM-DD HH:MM:SS`.
+  ///
+  /// Estaba escrita a mano, con la misma cadena de `padLeft`, en el cierre del
+  /// partido y en la subida diferida. Dos copias de un formato que el servidor
+  /// parsea: si una se desviara, el backend rechazaría esas actas.
+  static String backendDateTime(DateTime when) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${when.year}-${two(when.month)}-${two(when.day)} '
+        '${two(when.hour)}:${two(when.minute)}:${two(when.second)}';
+  }
+
   static int _pointsOf(String cleanType) => switch (cleanType) {
     'POINT_1' || 'FREE_THROW' => 1,
     EventType.point2 => 2,

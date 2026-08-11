@@ -530,8 +530,7 @@ class SyncRepository {
         "observaciones": match.observaciones,
         "match_date": match.matchDate == null
             ? null
-            : "${match.matchDate!.year}-${match.matchDate!.month.toString().padLeft(2, '0')}-${match.matchDate!.day.toString().padLeft(2, '0')} "
-                  "${match.matchDate!.hour.toString().padLeft(2, '0')}:${match.matchDate!.minute.toString().padLeft(2, '0')}:${match.matchDate!.second.toString().padLeft(2, '0')}",
+            : MatchPayloadMapper.backendDateTime(match.matchDate!),
         "events": eventsList,
         "rosters": rostersList,
       };
