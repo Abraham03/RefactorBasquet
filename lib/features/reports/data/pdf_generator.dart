@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/shared/services/image_loader_service.dart';
+import 'package:myapp/features/reports/domain/scoresheet_data.dart';
 
 class PdfCoords {
 
@@ -184,27 +185,27 @@ class PdfGenerator {
     Uint8List? mainRefSignature,
     Uint8List? auxRefSignature,
   }) async {
-    final pdf = await _buildDocument(
-      state,
-      teamAName,
-      teamBName,
-      tournamentName,
-      categoryName,
-      tournamentLogoUrl,
-      refereeLogoUrl,
-      venueName,
-      mainReferee,
-      auxReferee,
-      scorekeeper,
-      coachA,
-      coachB,
-      captainAId,
-      captainBId,
-      protestSignature,
-      matchDate,
-      mainRefSignature,
-      auxRefSignature
-    );
+    final pdf = await _buildDocument(ScoresheetData(
+      state: state,
+      teamAName: teamAName,
+      teamBName: teamBName,
+      tournamentName: tournamentName,
+      categoryName: categoryName,
+      tournamentLogoUrl: tournamentLogoUrl,
+      refereeLogoUrl: refereeLogoUrl,
+      venueName: venueName,
+      mainReferee: mainReferee,
+      auxReferee: auxReferee,
+      scorekeeper: scorekeeper,
+      coachA: coachA,
+      coachB: coachB,
+      captainAId: captainAId,
+      captainBId: captainBId,
+      protestSignature: protestSignature,
+      matchDate: matchDate,
+      mainRefSignature: mainRefSignature,
+      auxRefSignature: auxRefSignature,
+    ));
     return pdf.save();
   }
 
@@ -229,27 +230,27 @@ class PdfGenerator {
     Uint8List? mainRefSignature,
     Uint8List? auxRefSignature,
   }) async {
-    final pdf = await _buildDocument(
-      state,
-      teamAName,
-      teamBName,
-      tournamentName,
-      categoryName,
-      tournamentLogoUrl,
-      refereeLogoUrl,
-      venueName,
-      mainReferee,
-      auxReferee,
-      scorekeeper,
-      coachA,
-      coachB,
-      captainAId,
-      captainBId,
-      protestSignature,
-      matchDate,
-      mainRefSignature,
-      auxRefSignature
-    );
+    final pdf = await _buildDocument(ScoresheetData(
+      state: state,
+      teamAName: teamAName,
+      teamBName: teamBName,
+      tournamentName: tournamentName,
+      categoryName: categoryName,
+      tournamentLogoUrl: tournamentLogoUrl,
+      refereeLogoUrl: refereeLogoUrl,
+      venueName: venueName,
+      mainReferee: mainReferee,
+      auxReferee: auxReferee,
+      scorekeeper: scorekeeper,
+      coachA: coachA,
+      coachB: coachB,
+      captainAId: captainAId,
+      captainBId: captainBId,
+      protestSignature: protestSignature,
+      matchDate: matchDate,
+      mainRefSignature: mainRefSignature,
+      auxRefSignature: auxRefSignature,
+    ));
     final fileName = _createFileName(teamAName, teamBName);
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
@@ -278,52 +279,55 @@ class PdfGenerator {
     Uint8List? mainRefSignature,
     Uint8List? auxRefSignature,
   }) async {
-    final pdf = await _buildDocument(
-      state,
-      teamAName,
-      teamBName,
-      tournamentName,
-      categoryName,
-      tournamentLogoUrl,
-      refereeLogoUrl,
-      venueName,
-      mainReferee,
-      auxReferee,
-      scorekeeper,
-      coachA,
-      coachB,
-      captainAId,
-      captainBId,
-      protestSignature,
-      matchDate,
-      mainRefSignature,
-      auxRefSignature
-    );
+    final pdf = await _buildDocument(ScoresheetData(
+      state: state,
+      teamAName: teamAName,
+      teamBName: teamBName,
+      tournamentName: tournamentName,
+      categoryName: categoryName,
+      tournamentLogoUrl: tournamentLogoUrl,
+      refereeLogoUrl: refereeLogoUrl,
+      venueName: venueName,
+      mainReferee: mainReferee,
+      auxReferee: auxReferee,
+      scorekeeper: scorekeeper,
+      coachA: coachA,
+      coachB: coachB,
+      captainAId: captainAId,
+      captainBId: captainBId,
+      protestSignature: protestSignature,
+      matchDate: matchDate,
+      mainRefSignature: mainRefSignature,
+      auxRefSignature: auxRefSignature,
+    ));
     final fileName = _createFileName(teamAName, teamBName);
     await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
   }
 
-  static Future<pw.Document> _buildDocument(
-    MatchState state,
-    String teamAName,
-    String teamBName,
-    String tournamentName,
-    String categoryName,
-    String tournamentLogoUrl,
-    String refereeLogoUrl,
-    String venueName,
-    String mainReferee,
-    String auxReferee,
-    String scorekeeper,
-    String coachA,
-    String coachB,
-    int? captainAId,
-    int? captainBId,
-    Uint8List? protestSignature,
-    DateTime? matchDate,
-    Uint8List? mainRefSignature,
-    Uint8List? auxRefSignature,
-  ) async {
+  static Future<pw.Document> _buildDocument(ScoresheetData data) async {
+    // Se desempaqueta arriba para no reescribir 560 lineas de dibujo que ya
+    // referencian estos nombres. Mismo criterio que `restoreFromDatabase`
+    // con `MatchRestoreSnapshot` en la Fase 5.
+    final state = data.state;
+    final teamAName = data.teamAName;
+    final teamBName = data.teamBName;
+    final tournamentName = data.tournamentName;
+    final categoryName = data.categoryName;
+    final tournamentLogoUrl = data.tournamentLogoUrl;
+    final refereeLogoUrl = data.refereeLogoUrl;
+    final venueName = data.venueName;
+    final mainReferee = data.mainReferee;
+    final auxReferee = data.auxReferee;
+    final scorekeeper = data.scorekeeper;
+    final coachA = data.coachA;
+    final coachB = data.coachB;
+    final captainAId = data.captainAId;
+    final captainBId = data.captainBId;
+    final protestSignature = data.protestSignature;
+    final matchDate = data.matchDate;
+    final mainRefSignature = data.mainRefSignature;
+    final auxRefSignature = data.auxRefSignature;
+
     // Cargamos fuentes con soporte Unicode (acentos, ñ, etc.) desde los assets.
     // La Helvetica por defecto del paquete no soporta estos caracteres y hace
     // fallar el render cuando aparece texto con acentos (p.ej. la descripción
