@@ -12,6 +12,7 @@ import 'package:myapp/features/match/domain/entities/match_finalize_params.dart'
 import 'package:myapp/features/match/domain/repositories/match_closing_repository.dart';
 import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/engines/game_clock.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera
 /// firmas y logo, genera el acta en PDF, sincroniza a la nube y marca el
@@ -52,20 +53,31 @@ class MatchFinalizer {
       );
     }
 
-    // 2. Logo del árbitro (vive en el torneo).
+    // 2. El partido se cierra: quien no gastó su tiempo muerto de la segunda
+    //    mitad lo pierde, porque ya no hay ocasión de pedirlo. Se aplica
+    //    sobre el estado que va al acta.
+    //
+    //    En vivo esto ya lo hace el reloj al cruzar los dos minutos, pero
+    //    solo si el reloj llega a cruzarlos: un partido cerrado tras ajustar
+    //    el tiempo a mano se quedaba sin la marca. No afecta al payload del
+    //    backend, que no lleva los tiempos muertos —los deriva de los
+    //    eventos— así que el contrato queda intacto.
+    final actaState = GameClockRules.burnUnusedAtEnd(state) ?? state;
+
+    // 3. Logo del árbitro (vive en el torneo).
     final refereeLogoUrl = await _closing.refereeLogoUrl(
       params.tournamentId.toString(),
     );
 
-    // 3. Firmas de árbitros (recuperadas y decodificadas por el repositorio).
+    // 4. Firmas de árbitros (recuperadas y decodificadas por el repositorio).
     final signatures = await _officialRepo.getRefereeSignatures(
       mainRefereeName: params.mainReferee,
       auxRefereeName: params.auxReferee,
     );
 
-    // 4. Generar el PDF del acta.
+    // 5. Generar el PDF del acta.
     final pdfBytes = await PdfGenerator.generateBytes(
-      state,
+      actaState,
       params.teamAName,
       params.teamBName,
       tournamentName: params.tournamentName,
@@ -86,7 +98,7 @@ class MatchFinalizer {
       auxRefSignature: signatures.aux,
     );
 
-    // 5. Finalizar y sincronizar a la nube.
+    // 6. Finalizar y sincronizar a la nube.
     final bool synced = await _controller.finalizeAndSync(
       _matchApi,
       protestSignature,
@@ -95,7 +107,7 @@ class MatchFinalizer {
       params.teamBName,
     );
 
-    // 6. Marcar partido y fixture como FINISHED localmente.
+    // 7. Marcar partido y fixture como FINISHED localmente.
     await _closing.markFinished(
       matchId: state.matchId,
       fixtureId: state.fixtureId,

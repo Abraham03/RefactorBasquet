@@ -178,4 +178,71 @@ void main() {
       });
     });
   });
+
+  group('Quema al cerrar el partido', () {
+    // `burnUnusedAtEnd` NO mira el reloj, y esa es toda la diferencia con
+    // `autoBurnAlreadyHappened`. Al cerrar, el equipo que no gastó su tiempo
+    // muerto de la segunda mitad lo ha perdido igual: ya no hay ocasión de
+    // pedirlo. Importa porque el reloj guardado no siempre llega a 00:00
+    // —`setTime` no persiste y `setPeriod` reinicia a 10:00— y el acta salía
+    // sin la marca.
+
+    test('con el reloj intacto, un partido cerrado en el 4o SÍ quema', () {
+      const state = MatchState(
+        currentPeriod: 4,
+        timeLeft: Duration(minutes: 10),
+      );
+
+      expect(GameClockRules.autoBurnAlreadyHappened(state), isFalse);
+      final burned = GameClockRules.burnUnusedAtEnd(state);
+      expect(burned, isNotNull);
+      expect(burned!.teamATimeouts2, contains('X'));
+      expect(burned.teamBTimeouts2, contains('X'));
+    });
+
+    test('en prórroga también', () {
+      const state = MatchState(
+        currentPeriod: 5,
+        timeLeft: Duration(minutes: 5),
+      );
+
+      expect(
+        GameClockRules.burnUnusedAtEnd(state)!.teamATimeouts2,
+        contains('X'),
+      );
+    });
+
+    test('un partido cerrado antes del 4o no quema nada', () {
+      // Inasistencia declarada en el 2o: no hubo segunda mitad que jugar.
+      const state = MatchState(
+        currentPeriod: 2,
+        timeLeft: Duration(minutes: 3),
+      );
+
+      expect(GameClockRules.burnUnusedAtEnd(state), isNull);
+    });
+
+    test('no toca al equipo que sí gastó el suyo', () {
+      const state = MatchState(
+        currentPeriod: 4,
+        timeLeft: Duration(minutes: 10),
+        teamATimeouts2: ['7'],
+      );
+
+      final burned = GameClockRules.burnUnusedAtEnd(state)!;
+      expect(burned.teamATimeouts2, ['7']);
+      expect(burned.teamBTimeouts2, contains('X'));
+    });
+
+    test('devuelve null si los dos ya gastaron: nada que quemar', () {
+      const state = MatchState(
+        currentPeriod: 4,
+        timeLeft: Duration(minutes: 10),
+        teamATimeouts2: ['7'],
+        teamBTimeouts2: ['5'],
+      );
+
+      expect(GameClockRules.burnUnusedAtEnd(state), isNull);
+    });
+  });
 }

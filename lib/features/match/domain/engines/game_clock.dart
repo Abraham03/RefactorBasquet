@@ -88,6 +88,21 @@ abstract final class GameClockRules {
       state.currentPeriod > lastPeriod ||
       (state.currentPeriod == lastPeriod && state.timeLeft <= autoBurnAt);
 
+  /// Quema los tiempos muertos sin usar de un partido que **se acaba de
+  /// cerrar**, o `null` si no había nada que quemar.
+  ///
+  /// **No mira el reloj, y es a propósito.** [autoBurnAlreadyHappened] sirve
+  /// para un partido en curso: ahí el umbral de los dos minutos es la regla.
+  /// Pero al cerrar, el equipo que no gastó su tiempo muerto de la segunda
+  /// mitad lo ha perdido igual, porque ya no queda ocasión de pedirlo.
+  ///
+  /// La diferencia importa porque el reloj guardado **no siempre llega a
+  /// 00:00**: `setTime` y `adjustTime` no persisten, y `setPeriod` reinicia a
+  /// 10:00. Un acta cerrada tras ajustar el tiempo a mano se quedaba sin la
+  /// marca de quema aunque el partido hubiera terminado.
+  static MatchState? burnUnusedAtEnd(MatchState state) =>
+      state.currentPeriod >= lastPeriod ? applyAutoBurn(state) : null;
+
   static MatchState? applyAutoBurn(MatchState state) {
     final listA = List<String>.from(state.teamATimeouts2);
     final listB = List<String>.from(state.teamBTimeouts2);

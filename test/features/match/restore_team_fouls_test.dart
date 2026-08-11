@@ -163,6 +163,24 @@ void main() {
       expect(controller.state.teamBTimeouts2, contains('X'));
     });
 
+    test('un partido CERRADO la aplica aunque el reloj no llegara', () async {
+      // El caso que se escapó en la primera corrección: `setTime` no
+      // persiste y `setPeriod` reinicia el reloj a 10:00, así que un acta
+      // cerrada tras ajustar el tiempo a mano guarda "10:00" en el último
+      // período. Mirando el reloj no se quemaba nada; mirando que el partido
+      // llegó al último período, sí.
+      await (db.update(db.matches)..where((t) => t.id.equals('M1'))).write(
+        const MatchesCompanion(
+          currentPeriod: Value(4),
+          clockTime: Value('10:00'),
+        ),
+      );
+      await restore();
+
+      expect(controller.state.teamATimeouts2, contains('X'));
+      expect(controller.state.teamBTimeouts2, contains('X'));
+    });
+
     test('no se inventa si el partido no llegó al umbral', () async {
       await (db.update(db.matches)..where((t) => t.id.equals('M1'))).write(
         const MatchesCompanion(

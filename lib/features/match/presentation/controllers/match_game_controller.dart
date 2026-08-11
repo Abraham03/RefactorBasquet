@@ -339,10 +339,16 @@ class MatchGameController extends StateNotifier<MatchState>
     //
     // Sin esto, el acta de un partido reabierto salía sin la marca del tiempo
     // muerto que los equipos pierden al llegar a los dos últimos minutos.
-    if (GameClockRules.autoBurnAlreadyHappened(state)) {
-      final burned = GameClockRules.applyAutoBurn(state);
-      if (burned != null) state = burned;
-    }
+    // Un partido CERRADO ya no admite mas tiempos muertos, asi que la quema
+    // se aplica por haber llegado al ultimo periodo y no por el reloj: el
+    // guardado no siempre llega a 00:00 (`setTime` no persiste y `setPeriod`
+    // reinicia a 10:00). Uno en curso si depende del umbral de dos minutos.
+    final burned = markFinished
+        ? GameClockRules.burnUnusedAtEnd(state)
+        : (GameClockRules.autoBurnAlreadyHappened(state)
+              ? GameClockRules.applyAutoBurn(state)
+              : null);
+    if (burned != null) state = burned;
   }
 
   // Reconstruye un tiempo muerto durante el restore, respetando los topes por
