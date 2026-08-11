@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/features/scoreboard/presentation/theme/scoreboard_colors.dart';
 
 // <div class="table-actions"></div>
 
@@ -55,7 +56,7 @@ class TvScoreboardWidget extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          color: Color(0xFF050505), // Negro profundo mate para look profesional
+          color: ScoreboardColors.background, // Negro profundo mate para look profesional
         ),
         child: Column(
           children: [
@@ -83,7 +84,7 @@ class TvScoreboardWidget extends StatelessWidget {
                       child: Text("$minutes:$seconds",
                           // El tamaño se ajusta ligeramente (0.35) para asegurar que la fuente no se corte
                           style: digitalStyle(h * 0.35, 
-                              state.isRunning ? const Color(0xFFFF3131) : Colors.red.shade900)),
+                              state.isRunning ? ScoreboardColors.clockRunning : Colors.red.shade900)),
                     ),
                   ),
 
@@ -101,14 +102,14 @@ class TvScoreboardWidget extends StatelessWidget {
               height: h * 0.12,
               child: Row(
                 children: [
-                  _buildTeamBanner(teamAName, const Color(0xFF0066FF), true), // Azul Pro
+                  _buildTeamBanner(teamAName, ScoreboardColors.teamABanner, true), // Azul Pro
                   
                   // Caja de Periodo Estilo Broadcast
                   Container(
                     width: w * 0.15,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF151515),
+                      color: ScoreboardColors.panel,
                       border: Border.all(color: Colors.white10, width: 1),
                     ),
                     child: Column(
@@ -120,7 +121,7 @@ class TvScoreboardWidget extends StatelessWidget {
                     ),
                   ),
 
-                  _buildTeamBanner(teamBName, const Color(0xFFD81B60), false), // Rosa Pro
+                  _buildTeamBanner(teamBName, ScoreboardColors.teamBBanner, false), // Rosa Pro
                 ],
               ),
             ),
@@ -132,13 +133,13 @@ class TvScoreboardWidget extends StatelessWidget {
                 child: Row(
                   children: [
                     // Columna Equipo A
-                    _buildScoreColumn(state.scoreA, teamAFouls, state.teamATimeouts1, state.teamATimeouts2, state.teamAOTTimeouts, const Color(0xFF00D4FF), state.currentPeriod, h, digitalStyle),
+                    _buildScoreColumn(state.scoreA, teamAFouls, state.teamATimeouts1, state.teamATimeouts2, state.teamAOTTimeouts, ScoreboardColors.teamAScore, state.currentPeriod, h, digitalStyle),
                     
                     // Divisor de cristal sutil
                     Container(width: 1, height: h * 0.25, color: Colors.white12),
 
                     // Columna Equipo B
-                    _buildScoreColumn(state.scoreB, teamBFouls, state.teamBTimeouts1, state.teamBTimeouts2, state.teamBOTTimeouts, const Color(0xFFFF1E63), state.currentPeriod, h, digitalStyle),
+                    _buildScoreColumn(state.scoreB, teamBFouls, state.teamBTimeouts1, state.teamBTimeouts2, state.teamBOTTimeouts, ScoreboardColors.teamBScore, state.currentPeriod, h, digitalStyle),
                   ],
                 ),
               ),
@@ -154,7 +155,7 @@ class TvScoreboardWidget extends StatelessWidget {
   
   /// INDICADOR DE POSESIÓN (FLECHAS) MODIFICADO CON ESCALA VISUAL
   Widget _buildPossessionIndicator({required bool isActive, required double h, required bool isLeft}) {
-    const Color activeColor = Color(0xFFCCFF00); // Verde Neón
+    const Color activeColor = ScoreboardColors.possession; // Verde Neón
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 300),
       opacity: isActive ? 1.0 : 0.05,

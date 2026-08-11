@@ -11,6 +11,7 @@ import 'package:myapp/core/di/providers.dart' as di;
 import 'package:myapp/features/teams/presentation/providers/team_providers.dart';
 import 'package:myapp/shared/widgets/app_background.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 
 
 class TeamDetailScreen extends ConsumerWidget {
@@ -204,7 +205,7 @@ class TeamDetailScreen extends ConsumerWidget {
         return await showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E2432),
+            backgroundColor: AppColors.surfaceVariant,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -267,7 +268,7 @@ class TeamDetailScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2432),
+        backgroundColor: AppColors.surfaceVariant,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -360,7 +361,7 @@ class TeamDetailScreen extends ConsumerWidget {
                 final confirmSwap = await showDialog<bool>(
                   context: context,
                   builder: (swapCtx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1E2432),
+                    backgroundColor: AppColors.surfaceVariant,
                     title: const Text("🔄 Número Ocupado",
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     content: Text(

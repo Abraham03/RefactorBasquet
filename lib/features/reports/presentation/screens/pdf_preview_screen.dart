@@ -5,6 +5,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:printing/printing.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 
 class PdfPreviewScreen extends StatefulWidget {
   final MatchState state;
@@ -149,7 +150,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Vista Previa del Acta", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1A1F2B),
+        backgroundColor: AppColors.surface,
         foregroundColor: Colors.white,
         actions: [
           IconButton(

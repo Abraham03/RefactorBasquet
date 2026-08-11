@@ -14,6 +14,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/id_generator.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 
 class TeamManagementScreen extends ConsumerWidget {
   final String tournamentId;
@@ -187,7 +188,7 @@ class TeamManagementScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2432),
+        backgroundColor: AppColors.surfaceVariant,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -612,7 +613,7 @@ void _showEditTeamLocalDialog(
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1E2432),
+      backgroundColor: AppColors.surfaceVariant,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Row(
         children: [

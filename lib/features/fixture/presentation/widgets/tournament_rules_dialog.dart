@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 
 class TournamentRulesDialog extends StatefulWidget {
   final bool showVueltas; // true = Generación Automática | false = Constructor Manual
@@ -42,7 +43,7 @@ class _TournamentRulesDialogState extends State<TournamentRulesDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E2432),
+      backgroundColor: AppColors.surfaceVariant,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [

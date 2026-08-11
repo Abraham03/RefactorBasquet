@@ -20,6 +20,7 @@ import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/id_generator.dart';
 import 'package:myapp/core/constants/soft_delete.dart';
+import 'package:myapp/core/constants/app_colors.dart';
 /// Desenvuelve un [Result] o relanza su error tipado.
 ///
 /// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
@@ -569,7 +570,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
           builder: (_, scrollController) {
             return Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E2432).withValues(alpha: 0.95),
+                color: AppColors.surfaceVariant.withValues(alpha: 0.95),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 border: Border.all(color: Colors.white12),
               ),
@@ -918,7 +919,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2B),
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
@@ -1338,7 +1339,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2B),
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [

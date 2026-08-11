@@ -65,7 +65,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E2432),
+          color: AppColors.surfaceVariant,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           border: Border.all(color: Colors.white10),
         ),
@@ -169,7 +169,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
             child: Container(
               height: MediaQuery.of(context).size.height * 0.45,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E2432).withValues(alpha: 0.9),
+                color: AppColors.surfaceVariant.withValues(alpha: 0.9),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(24),
                 ),
@@ -897,7 +897,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                         final bool? confirm = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            backgroundColor: const Color(0xFF1A1F2B),
+                            backgroundColor: AppColors.surface,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15),
                             ),
