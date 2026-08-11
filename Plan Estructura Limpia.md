@@ -814,26 +814,34 @@ El plan describía las reglas de dependencia como «verificables por `grep`». U
 
 **Rollback:** por engine. Si un engine falla en campo se revierte ese commit y el controller vuelve a su implementación previa.
 
-#### 🟡 En curso — 3 de 7 engines
+#### 🟡 En curso — 5 de 7 engines
 
 | Métrica | Base | Ahora |
 |---|---|---|
 | `flutter analyze` | 0 | **0** |
-| `flutter test` | 183 verdes | **220 verdes** |
+| `flutter test` | 183 verdes | **250 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
-| Líneas de `match_game_controller.dart` | 1705 | **1489** |
-| Engines extraídos | 0 | **3** |
+| Líneas de `match_game_controller.dart` | 1705 | **1399** |
+| Engines extraídos | 0 | **5** |
 
-**1. `ScoreEngine` — anotación y falta.** Vivían en un método de 96 líneas mezcladas con la persistencia; nunca tuvieron un test. Devuelve un resultado **sellado** (`ScoreApplied | ScoreRejected`): antes los rechazos eran tres `return` mudos y el controller ya había guardado en el historial de deshacer **antes** de saber si la acción se aplicaría, así que una acción rechazada ensuciaba la pila.
+| Engine | Qué era antes | Qué destapó |
+|---|---|---|
+| `ScoreEngine` | 96 líneas mezcladas con persistencia | Los rechazos eran `return` mudos **después** de guardar en la pila de deshacer: una acción rechazada la ensuciaba |
+| `GameClock` | `Timer?` suelto; probar reglas exigía esperar segundos reales | Estrena `fake_async`. Cubre que arrancar dos veces no deje **dos** temporizadores (reloj al doble de velocidad) |
+| `MatchHistory` | Lista suelta; deshacer sin tests pese a usarse en vivo | `TimeoutUndo` quita **ese** evento del log, no el último: entre medias puede haber canastas |
+| `TimeoutEngine` | 3 métodos con un `if` de período cada uno | Lo que escribe acaba **impreso en el acta**. El minuto anotado no es un redondeo normal y es deliberado |
+| `SubstitutionEngine` | 79 líneas con las ramas A y B duplicadas | Se aplicaba **a ciegas**: si el que salía no estaba en cancha, el entrante se añadía igual → **seis jugadores en cancha** |
 
-**2. `GameClock` — el reloj.** El `Timer? _timer` era un campo suelto: probar sus reglas exigía esperar segundos **reales**. Se parte en reglas puras (`GameClockRules`) y un envoltorio con cadencia inyectable, que estrena `fake_async` — añadido en la Fase 0 y hasta ahora sin usar. Cubre que la quema automática de tiempos muertos salta **una sola vez** al cruzar 2:00 del último período (se compara por igualdad, no por «menor que»: si no, cada tick del último minuto volvería a quemar), que se persiste cada 5 s y no en cada tick, y que arrancar el reloj dos veces no deja **dos** temporizadores corriendo.
+**Un cambio de comportamiento deliberado**, en `SubstitutionEngine`: ahora valida y rechaza cambios ilegales. Se verificaron los dos llamadores antes de añadirlo — el diálogo de la UI elige de las listas de cancha/banca y `undoLastSub` invierte los papeles, así que ambos pasan cambios válidos; el restore usa otro método (`_applyRestoreSub`) y no pasa por aquí.
 
-**3. `MatchHistory` — deshacer.** `_history` era una lista suelta; deshacer se usa en medio de un partido en vivo y no tenía tests. Se separan la pila general (con su límite, descartando el **más antiguo**) y `TimeoutUndo`, que no es un paso atrás cualquiera: quita **ese** tiempo muerto y su evento del log, no el último evento — entre medias puede haber habido canastas. Y devuelve al cupo del tramo correcto (1-2 primera mitad, 3-4 segunda, 5+ prórroga).
+**Patrón común a los cinco:** cuando la operación no cambia nada devuelven `null` o `Rejected` en vez de un estado idéntico. Eso evita meter en la pila de deshacer pasos vacíos, que obligarían al anotador a pulsar deshacer dos veces.
 
-#### ⬜ Faltan 4 engines y dos cambios estructurales
+**Corrección al plan:** el engine 4 se llamaba «`FoulEngine` (faltas de equipo y bonus)». Al abrir el código, el conjunto de reglas denso no son las faltas de equipo —que son casi triviales— sino los **tiempos muertos**. Se extrajo lo que de verdad tiene reglas.
 
-`FoulEngine` (faltas de equipo y bonus), `SubstitutionService`, `MatchPersistence` y `MatchSyncCoordinator`. Tampoco se ha hecho el paso a `matchGameProvider.family` + `autoDispose`, ni roto la dependencia de `MatchFinalizer` sobre el controller — que es lo que cerraría las 2 violaciones R3 restantes.
+#### ⬜ Faltan 2 engines y dos cambios estructurales
+
+`MatchPersistence` y `MatchSyncCoordinator`. Y los dos de más riesgo, que tocan el ciclo de vida del partido: el paso a `matchGameProvider.family` + `autoDispose`, y romper la dependencia de `MatchFinalizer` sobre el controller — que es lo que cerraría las 2 violaciones R3 restantes.
 
 ---
 
@@ -887,7 +895,7 @@ Se actualiza al cerrar cada fase.
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
-| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 3 de 7 engines | **0** | 220 ✔ | 4 commits | 2026-08-10 |
+| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 5 de 7 engines | **0** | 250 ✔ | 7 commits | 2026-08-10 |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
