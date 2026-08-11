@@ -20,6 +20,9 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  language:
+    # Medido en la Fase 9: 1 issue. Practicamente gratis.
+    strict-raw-types: true
   exclude:
     - "**/*.g.dart"
     - "build/**"

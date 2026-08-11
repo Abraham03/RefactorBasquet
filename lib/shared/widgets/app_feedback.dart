@@ -11,24 +11,20 @@ import 'package:flutter/material.dart';
 ///   final ctrl = context.showLoading("Subiendo...");   se queda abierto
 ///   ctrl.close();                                       lo cierras tú
 extension AppFeedback on BuildContext {
-  void showSuccess(String message) =>
-      _show(message, _FeedbackKind.success);
+  void showSuccess(String message) => _show(message, _FeedbackKind.success);
 
-  void showError(String message) =>
-      _show(message, _FeedbackKind.error);
+  void showError(String message) => _show(message, _FeedbackKind.error);
 
-  void showInfo(String message) =>
-      _show(message, _FeedbackKind.info);
+  void showInfo(String message) => _show(message, _FeedbackKind.info);
 
-  void showWarning(String message) =>
-      _show(message, _FeedbackKind.warning);
+  void showWarning(String message) => _show(message, _FeedbackKind.warning);
 
   /// Muestra un SnackBar persistente con spinner (operaciones largas).
   /// Devuelve un controlador para cerrarlo manualmente al terminar.
   LoadingSnackBar showLoading(String message) {
     final messenger = ScaffoldMessenger.of(this);
     messenger.hideCurrentSnackBar();
-    final controller = messenger.showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -36,24 +32,27 @@ extension AppFeedback on BuildContext {
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2),
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
             const SizedBox(width: 15),
             Expanded(
-              child: Text(message,
-                  style: const TextStyle(fontWeight: FontWeight.w500)),
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
             ),
           ],
         ),
         backgroundColor: Colors.blueGrey.shade800,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(minutes: 5), // largo; lo cerramos a mano
       ),
     );
-    return LoadingSnackBar._(messenger, controller);
+    return LoadingSnackBar._(messenger);
   }
 
   void _show(String message, _FeedbackKind kind) {
@@ -66,15 +65,16 @@ extension AppFeedback on BuildContext {
             Icon(kind.icon, color: Colors.white),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(message,
-                  style: const TextStyle(fontWeight: FontWeight.w500)),
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
             ),
           ],
         ),
         backgroundColor: kind.color,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       ),
@@ -85,11 +85,19 @@ extension AppFeedback on BuildContext {
 /// Controlador para cerrar un SnackBar de carga.
 class LoadingSnackBar {
   final ScaffoldMessengerState _messenger;
-  // ignore: unused_field
-  final ScaffoldFeatureController _controller;
 
-  LoadingSnackBar._(this._messenger, this._controller);
+  LoadingSnackBar._(this._messenger);
 
+  /// Guardaba tambien el `ScaffoldFeatureController` que devuelve
+  /// `showSnackBar`, sin usarlo y con un `ignore: unused_field` encima. Se
+  /// quita: era un tipo generico crudo que `strict-raw-types` marca.
+  ///
+  /// Ojo, `hideCurrentSnackBar` cierra el snackbar VISIBLE, que no tiene por
+  /// que ser este. Hoy no muerde porque las pantallas cierran el "cargando"
+  /// antes de mostrar el resultado. Si algun dia hace falta cerrar
+  /// exactamente este, hay que volver a guardar el controller (tipado como
+  /// `ScaffoldFeatureController<SnackBar, SnackBarClosedReason>`) y llamar a
+  /// su `close()`.
   void close() => _messenger.hideCurrentSnackBar();
 }
 
