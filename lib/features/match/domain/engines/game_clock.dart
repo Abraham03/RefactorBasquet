@@ -1,0 +1,124 @@
+import 'dart:async';
+
+import 'package:myapp/features/match/domain/entities/match_state.dart';
+
+/// Qué debe ocurrir tras avanzar el reloj un segundo.
+///
+/// El motor decide; el controller ejecuta los efectos (persistir, parar). Así
+/// las reglas del reloj se prueban sin `Timer` y sin base de datos.
+class ClockTick {
+  const ClockTick({
+    required this.timeLeft,
+    required this.expired,
+    required this.shouldAutoBurn,
+    required this.shouldPersist,
+  });
+
+  /// Tiempo restante después del tick.
+  final Duration timeLeft;
+
+  /// Se acabó el período: hay que parar el reloj.
+  final bool expired;
+
+  /// Se cruzó el minuto 2:00 del último período: toca quemar los tiempos
+  /// muertos de la segunda mitad que no se hayan usado.
+  final bool shouldAutoBurn;
+
+  /// Toca escribir el reloj en la base de datos.
+  final bool shouldPersist;
+}
+
+/// Las reglas del reloj de juego.
+///
+/// Vivían dentro del callback de `Timer.periodic` en el controller, así que
+/// para probarlas había que esperar segundos reales.
+abstract final class GameClockRules {
+  /// Período en el que aplica el "clutch time".
+  static const int lastPeriod = 4;
+
+  /// A falta de este tiempo en el último período se queman los tiempos
+  /// muertos no usados de la segunda mitad.
+  static const Duration autoBurnAt = Duration(minutes: 2);
+
+  /// El reloj se persiste cada tantos segundos, no en cada tick: escribir en
+  /// la base de datos una vez por segundo durante 40 minutos es innecesario.
+  static const int persistEverySeconds = 5;
+
+  /// Calcula el efecto de avanzar un segundo desde [state].
+  static ClockTick advance(MatchState state) {
+    if (state.timeLeft.inSeconds <= 0) {
+      return const ClockTick(
+        timeLeft: Duration.zero,
+        expired: true,
+        shouldAutoBurn: false,
+        // Al agotarse SÍ se persiste, aunque no toque por cadencia: es el
+        // final del período y hay que dejarlo guardado.
+        shouldPersist: true,
+      );
+    }
+
+    final next = state.timeLeft - const Duration(seconds: 1);
+
+    return ClockTick(
+      timeLeft: next,
+      expired: false,
+      // Se compara por igualdad, no por "menor que": el auto-burn debe
+      // dispararse UNA vez, justo al cruzar el umbral.
+      shouldAutoBurn:
+          state.currentPeriod == lastPeriod &&
+          next.inSeconds == autoBurnAt.inSeconds,
+      shouldPersist: next.inSeconds % persistEverySeconds == 0,
+    );
+  }
+
+  /// Quema un tiempo muerto de la segunda mitad a cada equipo que no haya
+  /// gastado ninguno.
+  ///
+  /// Devuelve `null` si no había nada que quemar, para que el llamador no
+  /// guarde en el historial de deshacer un paso que no cambió nada.
+  static MatchState? applyAutoBurn(MatchState state) {
+    final listA = List<String>.from(state.teamATimeouts2);
+    final listB = List<String>.from(state.teamBTimeouts2);
+
+    var changed = false;
+    if (listA.isEmpty) {
+      listA.add('X');
+      changed = true;
+    }
+    if (listB.isEmpty) {
+      listB.add('X');
+      changed = true;
+    }
+
+    if (!changed) return null;
+    return state.copyWith(teamATimeouts2: listA, teamBTimeouts2: listB);
+  }
+}
+
+/// El reloj en sí: un `Timer` periódico con la cadencia inyectable.
+///
+/// Se separa de las reglas para poder acelerarlo en los tests. Antes el
+/// `Timer` era un campo suelto del controller (`Timer? _timer`), fuera del
+/// estado y sin forma de sustituirlo.
+class GameClock {
+  GameClock({this.interval = const Duration(seconds: 1)});
+
+  final Duration interval;
+  Timer? _timer;
+
+  bool get isRunning => _timer != null;
+
+  /// Arranca el reloj. Reiniciar uno ya en marcha es seguro: se cancela el
+  /// anterior para no dejar dos temporizadores compitiendo.
+  void start(void Function() onTick) {
+    _timer?.cancel();
+    _timer = Timer.periodic(interval, (_) => onTick());
+  }
+
+  void stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void dispose() => stop();
+}

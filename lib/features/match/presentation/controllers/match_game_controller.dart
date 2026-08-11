@@ -9,6 +9,7 @@ import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/engines/game_clock.dart';
 import 'package:myapp/features/match/domain/engines/score_engine.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:flutter/foundation.dart';
@@ -21,11 +22,16 @@ import 'package:myapp/core/utils/id_generator.dart';
 
 class MatchGameController extends StateNotifier<MatchState> {
   final MatchesDao _dao;
-  Timer? _timer;
+
+  /// El reloj de juego. Se inyecta para poder acelerarlo en los tests: antes
+  /// era un `Timer?` suelto, imposible de sustituir.
+  final GameClock _clock;
   bool _isFinished = false;
   final List<MatchState> _history = [];
 
-  MatchGameController(this._dao) : super(const MatchState());
+  MatchGameController(this._dao, {GameClock? clock})
+    : _clock = clock ?? GameClock(),
+      super(const MatchState());
 
   int getTeamFouls(String teamId) => teamFoulsOf(state, teamId);
 
@@ -805,28 +811,25 @@ void _applyRestoreSub({
   }
 
   void _start() {
-    _timer?.cancel();
     state = state.copyWith(isRunning: true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.timeLeft.inSeconds > 0) {
-        final newTime = state.timeLeft - const Duration(seconds: 1);
-        bool triggerAutoBurn =
-            state.currentPeriod == 4 && newTime.inSeconds == 120;
+    _clock.start(_onTick);
+  }
 
-        state = state.copyWith(timeLeft: newTime);
-        if (triggerAutoBurn) _applyAutoBurn();
+  /// Un segundo de reloj. Las REGLAS (cuando quemar tiempos muertos, cada
+  /// cuanto persistir, cuando se acabo) viven en GameClockRules, que es puro
+  /// y esta cubierto por tests; aqui solo quedan los efectos.
+  void _onTick() {
+    final tick = GameClockRules.advance(state);
 
-        // Persistir el reloj cada 5s para poder restaurarlo tras salir/reanudar
-        // sin escribir en la BD cada segundo.
-        if (newTime.inSeconds % 5 == 0) {
-          _saveToDatabase();
-        }
+    if (tick.expired) {
+      _pause();
+      _saveToDatabase();
+      return;
+    }
 
-      } else {
-        _pause();
-        _saveToDatabase();
-      }
-    });
+    state = state.copyWith(timeLeft: tick.timeLeft);
+    if (tick.shouldAutoBurn) _applyAutoBurn();
+    if (tick.shouldPersist) _saveToDatabase();
   }
 
   // IDs de jugadores marcados presentes manualmente (asistieron sin jugar).
@@ -844,25 +847,17 @@ void _applyRestoreSub({
     return played || _manualAttendance.contains(playerDbId);
   }
 
+  /// Quema los tiempos muertos de la segunda mitad que no se hayan usado al
+  /// llegar al "clutch time".
   void _applyAutoBurn() {
-    bool changed = false;
-    List<String> listA = List.from(state.teamATimeouts2);
-    List<String> listB = List.from(state.teamBTimeouts2);
+    final burned = GameClockRules.applyAutoBurn(state);
+    // `null` significa que no habia nada que quemar: no se ensucia el
+    // historial de deshacer con un paso que no cambio nada.
+    if (burned == null) return;
 
-    if (listA.isEmpty) {
-      listA.add("X");
-      changed = true;
-    }
-    if (listB.isEmpty) {
-      listB.add("X");
-      changed = true;
-    }
-
-    if (changed) {
-      _saveToHistory();
-      state = state.copyWith(teamATimeouts2: listA, teamBTimeouts2: listB);
-      _saveToDatabase();
-    }
+    _saveToHistory();
+    state = burned;
+    _saveToDatabase();
   }
 
   void initializeNewMatch({
@@ -880,8 +875,8 @@ void _applyRestoreSub({
     required String auxReferee,
     required String scorekeeper,
   }) {
-    _timer?.cancel();
-    _timer = null;
+    // Un partido nuevo arranca con el reloj parado.
+    _clock.stop();
     _dao.updateMatchMetadata(
       matchId,
       fixtureId,
@@ -1055,14 +1050,13 @@ void _applyRestoreSub({
   /// Detiene el reloj y marca el partido como finalizado, para que los
   /// guardados posteriores no reviertan el estado a IN_PROGRESS.
   void markAsFinished() {
-    _timer?.cancel();
+    _clock.stop();
     _isFinished = true;
     state = state.copyWith(isRunning: false);
   }
 
   void _pause() {
-    _timer?.cancel();
-    _timer = null;
+    _clock.stop();
     state = state.copyWith(isRunning: false);
     _saveToDatabase();
   }
@@ -1330,7 +1324,7 @@ void undoLastSubstitution() {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _clock.dispose();
     super.dispose();
   }
 
