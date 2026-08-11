@@ -609,61 +609,29 @@ class PdfGenerator {
 
                 ..._drawTimeouts(state),
 
-                if (state.forfeitStatus == 'TEAM_A' || state.forfeitStatus == 'BOTH') ...[
-                  ..._buildRosterList(
-                    players: const [], 
-                    stats: state.playerStats,
-                    scoreLog: state.scoreLog,
-                    startXNum: PdfCoords.teamAColNumX,
-                    startXName: PdfCoords.teamAColNameX,
-                    startXCaptain: PdfCoords.teamAColCaptainX,
-                    startXFouls: PdfCoords.teamAColFoulsX,
-                    startY: PdfCoords.teamAListStartY,
-                    entryX: PdfCoords.teamAColEntryX,
-                    captainId: captainAId,
-                  ),
-                ] else ...[
-                  ..._buildRosterList(
-                    players: _getSortedRosterFromStats(state, 'A'),
-                    stats: state.playerStats,
-                    scoreLog: state.scoreLog,
-                    startXNum: PdfCoords.teamAColNumX,
-                    startXName: PdfCoords.teamAColNameX,
-                    startXCaptain: PdfCoords.teamAColCaptainX,
-                    startXFouls: PdfCoords.teamAColFoulsX,
-                    startY: PdfCoords.teamAListStartY,
-                    entryX: PdfCoords.teamAColEntryX,
-                    captainId: captainAId,
-                  ),
-                ],
+                ..._drawRoster(
+                  state,
+                  TeamSide.home,
+                  numX: PdfCoords.teamAColNumX,
+                  nameX: PdfCoords.teamAColNameX,
+                  captainX: PdfCoords.teamAColCaptainX,
+                  foulsX: PdfCoords.teamAColFoulsX,
+                  startY: PdfCoords.teamAListStartY,
+                  entryX: PdfCoords.teamAColEntryX,
+                  captainId: captainAId,
+                ),
 
-                if (state.forfeitStatus == 'TEAM_B' || state.forfeitStatus == 'BOTH') ...[
-                  ..._buildRosterList(
-                    players: const [], 
-                    stats: state.playerStats,
-                    scoreLog: state.scoreLog,
-                    startXNum: PdfCoords.teamBColNumX,
-                    startXName: PdfCoords.teamBColNameX,
-                    startXCaptain: PdfCoords.teamBColCaptainX,
-                    startXFouls: PdfCoords.teamBColFoulsX,
-                    startY: PdfCoords.teamBListStartY,
-                    entryX: PdfCoords.teamBColEntryX,
-                    captainId: captainBId,
-                  ),
-                ] else ...[
-                  ..._buildRosterList(
-                    players: _getSortedRosterFromStats(state, 'B'),
-                    stats: state.playerStats,
-                    scoreLog: state.scoreLog,
-                    startXNum: PdfCoords.teamBColNumX,
-                    startXName: PdfCoords.teamBColNameX,
-                    startXCaptain: PdfCoords.teamBColCaptainX,
-                    startXFouls: PdfCoords.teamBColFoulsX,
-                    startY: PdfCoords.teamBListStartY,
-                    entryX: PdfCoords.teamBColEntryX,
-                    captainId: captainBId,
-                  ),
-                ],
+                ..._drawRoster(
+                  state,
+                  TeamSide.away,
+                  numX: PdfCoords.teamBColNumX,
+                  nameX: PdfCoords.teamBColNameX,
+                  captainX: PdfCoords.teamBColCaptainX,
+                  foulsX: PdfCoords.teamBColFoulsX,
+                  startY: PdfCoords.teamBListStartY,
+                  entryX: PdfCoords.teamBColEntryX,
+                  captainId: captainBId,
+                ),
                 
 
                 _drawText(
@@ -1012,6 +980,39 @@ class PdfGenerator {
       }
     }
     return widgets;
+  }
+
+  /// Dibuja el roster de un lado, vacio si ese equipo no se presento.
+  ///
+  /// Este bloque estaba CUATRO veces: forfeit/no-forfeit por equipo A/B. Las
+  /// cuatro copias eran identicas salvo `players` y las coordenadas, asi que
+  /// la regla de "quien no se presenta no lista jugadores" vivia repartida en
+  /// dos condiciones separadas por 28 lineas.
+  static List<pw.Widget> _drawRoster(
+    MatchState state,
+    String side, {
+    required double numX,
+    required double nameX,
+    required double captainX,
+    required double foulsX,
+    required double startY,
+    required double entryX,
+    int? captainId,
+  }) {
+    final forfeited = ForfeitStatus.affects(state.forfeitStatus, side);
+
+    return _buildRosterList(
+      players: forfeited ? const [] : _getSortedRosterFromStats(state, side),
+      stats: state.playerStats,
+      scoreLog: state.scoreLog,
+      startXNum: numX,
+      startXName: nameX,
+      startXCaptain: captainX,
+      startXFouls: foulsX,
+      startY: startY,
+      entryX: entryX,
+      captainId: captainId,
+    );
   }
 
   static List<pw.Widget> _buildRosterList({

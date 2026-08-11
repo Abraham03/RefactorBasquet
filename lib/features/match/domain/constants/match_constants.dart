@@ -22,6 +22,25 @@ abstract final class ForfeitStatus {
   static const String teamA = 'TEAM_A';
   static const String teamB = 'TEAM_B';
   static const String both = 'BOTH';
+
+  /// ¿Afecta la inasistencia [status] al equipo [side] (`TeamSide.home/away`)?
+  ///
+  /// **Acepta dos vocabularios a propósito**, porque el código los usa los
+  /// dos y no es un descuido:
+  ///   - `MatchState.forfeitStatus` guarda `'TEAM_A'`/`'TEAM_B'`/`'BOTH'`.
+  ///   - `playersPendingAttendanceByTeam(forfeitOverride:)` recibe el lado
+  ///     pelado `'A'`/`'B'`, que es lo que la pantalla de control tiene a
+  ///     mano al declarar la inasistencia.
+  ///
+  /// Antes cada consumidor escribía su propia cadena de `||`, y el generador
+  /// del acta solo entendía la forma larga: un `forfeitOverride: 'A'` no le
+  /// habría vaciado el roster.
+  static bool affects(String status, String side) {
+    if (status == both) return true;
+    return side == TeamSide.home
+        ? status == teamA || status == TeamSide.home
+        : status == teamB || status == TeamSide.away;
+  }
 }
 
 /// Tipos de evento que se guardan en gameEvents.type y en scoreLog.

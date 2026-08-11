@@ -705,16 +705,12 @@ class MatchGameController extends StateNotifier<MatchState>
     String? forfeitOverride,
   }) {
     final ef = forfeitOverride ?? state.forfeitStatus;
-    final forfeitA =
-        ef == TeamSide.home ||
-        ef == 'BOTH' ||
-        ef == ForfeitStatus.teamA ||
-        ef == ForfeitStatus.both;
-    final forfeitB =
-        ef == TeamSide.away ||
-        ef == 'BOTH' ||
-        ef == ForfeitStatus.teamB ||
-        ef == ForfeitStatus.both;
+    // `ef` puede venir en dos vocabularios: el campo guarda 'TEAM_A'/'TEAM_B'
+    // y el override que manda la pantalla de control es el lado pelado
+    // 'A'/'B'. `ForfeitStatus.affects` entiende los dos; antes esta cadena de
+    // `||` estaba escrita a mano aqui, con `ef == 'BOTH'` repetido dos veces.
+    final forfeitA = ForfeitStatus.affects(ef, TeamSide.home);
+    final forfeitB = ForfeitStatus.affects(ef, TeamSide.away);
 
     if (forfeitA && forfeitB) return {};
 

@@ -54,6 +54,36 @@ void main() {
       expect(ForfeitStatus.teamB, 'TEAM_B');
       expect(ForfeitStatus.both, 'BOTH');
     });
+
+    test('affects entiende la forma larga', () {
+      expect(ForfeitStatus.affects(ForfeitStatus.teamA, TeamSide.home), isTrue);
+      expect(
+        ForfeitStatus.affects(ForfeitStatus.teamA, TeamSide.away),
+        isFalse,
+      );
+      expect(ForfeitStatus.affects(ForfeitStatus.teamB, TeamSide.away), isTrue);
+      expect(
+        ForfeitStatus.affects(ForfeitStatus.teamB, TeamSide.home),
+        isFalse,
+      );
+    });
+
+    test('affects entiende tambien el lado pelado', () {
+      // `playersPendingAttendanceByTeam(forfeitOverride:)` recibe 'A'/'B'
+      // desde la pantalla de control, no 'TEAM_A'/'TEAM_B'. El generador del
+      // acta solo entendia la forma larga: con un override 'A' no habria
+      // vaciado el roster del local.
+      expect(ForfeitStatus.affects(TeamSide.home, TeamSide.home), isTrue);
+      expect(ForfeitStatus.affects(TeamSide.home, TeamSide.away), isFalse);
+      expect(ForfeitStatus.affects(TeamSide.away, TeamSide.away), isTrue);
+    });
+
+    test('BOTH afecta a los dos, y NONE a ninguno', () {
+      expect(ForfeitStatus.affects(ForfeitStatus.both, TeamSide.home), isTrue);
+      expect(ForfeitStatus.affects(ForfeitStatus.both, TeamSide.away), isTrue);
+      expect(ForfeitStatus.affects(ForfeitStatus.none, TeamSide.home), isFalse);
+      expect(ForfeitStatus.affects(ForfeitStatus.none, TeamSide.away), isFalse);
+    });
   });
 
   group('EventType — constructores de tipos compuestos', () {
