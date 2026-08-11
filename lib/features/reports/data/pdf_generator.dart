@@ -557,64 +557,26 @@ class PdfGenerator {
                   color: PdfColors.blue900,
                 ),
 
-                if (coachA.isNotEmpty)
-                  _drawText(
-                    coachA,
-                    x: PdfCoords.coachAX,
-                    y: PdfCoords.coachAY,
-                    fontSize: 10,
-                    isBold: true,
-                    color: PdfColors.blue900,
-                  )
-                else
-                  _drawHorizontalLine(
-                    PdfCoords.coachAX,
-                    PdfCoords.coachAY,
-                    150,
-                  ),
-
-                ..._drawCoachFoulsMarks(
+                ..._drawCoachBlock(
                   state,
-                  'A',
-                  PdfCoords.coachAFoulsX,
-                  PdfCoords.coachAY,
+                  TeamSide.home,
+                  name: coachA,
+                  nameX: PdfCoords.coachAX,
+                  nameY: PdfCoords.coachAY,
+                  coachFoulsX: PdfCoords.coachAFoulsX,
+                  benchFoulsX: PdfCoords.benchAFoulsX,
+                  benchY: PdfCoords.benchAY,
                 ),
 
-                ..._drawBenchFoulsMarks(
+                ..._drawCoachBlock(
                   state,
-                  'A',
-                  PdfCoords.benchAFoulsX,
-                  PdfCoords.benchAY,
-                ),
-
-                if (coachB.isNotEmpty)
-                  _drawText(
-                    coachB,
-                    x: PdfCoords.coachBX,
-                    y: PdfCoords.coachBY,
-                    fontSize: 10,
-                    isBold: true,
-                    color: PdfColors.blue900,
-                  )
-                else
-                  _drawHorizontalLine(
-                    PdfCoords.coachBX,
-                    PdfCoords.coachBY,
-                    150,
-                  ),
-
-                ..._drawCoachFoulsMarks(
-                  state,
-                  'B',
-                  PdfCoords.coachBFoulsX,
-                  PdfCoords.coachBY,
-                ),
-
-                ..._drawBenchFoulsMarks(
-                  state,
-                  'B',
-                  PdfCoords.benchBFoulsX,
-                  PdfCoords.benchBY,
+                  TeamSide.away,
+                  name: coachB,
+                  nameX: PdfCoords.coachBX,
+                  nameY: PdfCoords.coachBY,
+                  coachFoulsX: PdfCoords.coachBFoulsX,
+                  benchFoulsX: PdfCoords.benchBFoulsX,
+                  benchY: PdfCoords.benchBY,
                 ),
 
                 ..._drawTeamFoulsSection(state),
@@ -1030,6 +992,43 @@ class PdfGenerator {
   /// cuatro copias eran identicas salvo `players` y las coordenadas, asi que
   /// la regla de "quien no se presenta no lista jugadores" vivia repartida en
   /// dos condiciones separadas por 28 lineas.
+  /// Nombre del entrenador y sus faltas tecnicas (coach + banca) de un lado.
+  ///
+  /// Estaba dos veces, una por equipo, con las mismas 30 lineas y solo las
+  /// coordenadas cambiadas. Los `'A'`/`'B'` que se pasaban a
+  /// `_drawCoachFoulsMarks` eran literales crudos: la sustitucion por
+  /// `TeamSide` de la Fase 9.2 no los alcanzo porque iban como argumento
+  /// posicional, no en una comparacion.
+  ///
+  /// Si no hay entrenador se imprime una linea para rellenar a mano, que es
+  /// lo que espera la mesa cuando el equipo llega sin banquillo.
+  static List<pw.Widget> _drawCoachBlock(
+    MatchState state,
+    String side, {
+    required String name,
+    required double nameX,
+    required double nameY,
+    required double coachFoulsX,
+    required double benchFoulsX,
+    required double benchY,
+  }) {
+    return [
+      if (name.isNotEmpty)
+        _drawText(
+          name,
+          x: nameX,
+          y: nameY,
+          fontSize: 10,
+          isBold: true,
+          color: PdfColors.blue900,
+        )
+      else
+        _drawHorizontalLine(nameX, nameY, 150),
+      ..._drawCoachFoulsMarks(state, side, coachFoulsX, nameY),
+      ..._drawBenchFoulsMarks(state, side, benchFoulsX, benchY),
+    ];
+  }
+
   static List<pw.Widget> _drawRoster(
     MatchState state,
     String side, {
@@ -1286,80 +1285,56 @@ class PdfGenerator {
     return allPlayers;
   }
 
+  /// Casillas de faltas de equipo por periodo, para los dos equipos.
+  ///
+  /// Eran OCHO bloques copiados —4 periodos x 2 equipos, 9 lineas cada uno—
+  /// que solo variaban en coordenada y color. Con eso, cambiar la regla de
+  /// colores obligaba a acertar en los ocho.
+  ///
+  /// REGLA FIBA DE COLORES: los cuartos impares van en rojo y los pares en
+  /// azul. Los pares ademas se dibujan 80pt a la derecha, y el 3o y 4o bajan
+  /// a la segunda fila.
   static List<pw.Widget> _drawTeamFoulsSection(MatchState state) {
-    List<pw.Widget> widgets = [];
+    return [
+      ..._drawTeamFoulsFor(
+        state,
+        TeamSide.home,
+        baseX: PdfCoords.teamAFoulsX,
+        firstRowY: PdfCoords.teamAFoulsPeriod1Y,
+        secondRowY: PdfCoords.teamAFoulsPeriod3Y,
+      ),
+      ..._drawTeamFoulsFor(
+        state,
+        TeamSide.away,
+        baseX: PdfCoords.teamBFoulsX,
+        firstRowY: PdfCoords.teamBFoulsPeriod1Y,
+        secondRowY: PdfCoords.teamBFoulsPeriod3Y,
+      ),
+    ];
+  }
 
-    // --- REGLA FIBA DE COLORES ---
-    const PdfColor colorQ1Q3 = PdfColors.red;
-    const PdfColor colorQ2Q4 = PdfColors.blue900;
+  static List<pw.Widget> _drawTeamFoulsFor(
+    MatchState state,
+    String side, {
+    required double baseX,
+    required double firstRowY,
+    required double secondRowY,
+  }) {
+    const double secondColumnOffset = 80.0;
+    final widgets = <pw.Widget>[];
 
-    // ----- EQUIPO A -----
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'A', 1),
-        startX: PdfCoords.teamAFoulsX,
-        startY: PdfCoords.teamAFoulsPeriod1Y,
-        foulColor: colorQ1Q3, // 1er Cuarto: Rojo
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'A', 2),
-        startX: PdfCoords.teamAFoulsX + 80.0,
-        startY: PdfCoords.teamAFoulsPeriod1Y,
-        foulColor: colorQ2Q4, // 2do Cuarto: Azul
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'A', 3),
-        startX: PdfCoords.teamAFoulsX,
-        startY: PdfCoords.teamAFoulsPeriod3Y,
-        foulColor: colorQ1Q3, // 3er Cuarto: Rojo
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'A', 4),
-        startX: PdfCoords.teamAFoulsX + 80.0,
-        startY: PdfCoords.teamAFoulsPeriod3Y,
-        foulColor: colorQ2Q4, // 4to Cuarto: Azul
-      ),
-    );
+    for (var period = 1; period <= 4; period++) {
+      final isEvenQuarter = period.isEven;
+      widgets.addAll(
+        _drawFoulMarks(
+          count: _countTeamFouls(state, side, period),
+          startX: baseX + (isEvenQuarter ? secondColumnOffset : 0.0),
+          startY: period <= 2 ? firstRowY : secondRowY,
+          foulColor: isEvenQuarter ? PdfColors.blue900 : PdfColors.red,
+        ),
+      );
+    }
 
-    // ----- EQUIPO B -----
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'B', 1),
-        startX: PdfCoords.teamBFoulsX,
-        startY: PdfCoords.teamBFoulsPeriod1Y,
-        foulColor: colorQ1Q3, // 1er Cuarto: Rojo
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'B', 2),
-        startX: PdfCoords.teamBFoulsX + 80.0,
-        startY: PdfCoords.teamBFoulsPeriod1Y,
-        foulColor: colorQ2Q4, // 2do Cuarto: Azul
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'B', 3),
-        startX: PdfCoords.teamBFoulsX,
-        startY: PdfCoords.teamBFoulsPeriod3Y,
-        foulColor: colorQ1Q3, // 3er Cuarto: Rojo
-      ),
-    );
-    widgets.addAll(
-      _drawFoulMarks(
-        count: _countTeamFouls(state, 'B', 4),
-        startX: PdfCoords.teamBFoulsX + 80.0,
-        startY: PdfCoords.teamBFoulsPeriod3Y,
-        foulColor: colorQ2Q4, // 4to Cuarto: Azul
-      ),
-    );
     return widgets;
   }
 
