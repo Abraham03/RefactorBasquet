@@ -819,7 +819,7 @@ El plan describía las reglas de dependencia como «verificables por `grep`». U
 | Métrica | Base | Ahora |
 |---|---|---|
 | `flutter analyze` | 0 | **0** |
-| `flutter test` | 183 verdes | **259 verdes** |
+| `flutter test` | 183 verdes | **266 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
 | Líneas de `match_game_controller.dart` | 1705 | **1398** |
@@ -842,13 +842,25 @@ El plan describía las reglas de dependencia como «verificables por `grep`». U
 - El motor 4 se llamaba «`FoulEngine` (faltas de equipo y bonus)». Al abrir el código, el conjunto de reglas denso no son las faltas de equipo —casi triviales— sino los **tiempos muertos**. Se extrajo lo que de verdad tiene reglas.
 - `MatchPersistence` se materializó como `MatchClockFormat`: lo único con lógica propia en la persistencia era el formato del reloj. Envolver dos llamadas al DAO en una clase habría sido ceremonia.
 
-#### ⬜ Lo que falta, y por qué es otra cosa
+#### ✅ El dominio deja de depender de la UI
 
-**`MatchSyncCoordinator`** (`finalizeAndSync`, 159 líneas) no es un motor de reglas puras: es orquestación de efectos —generar el PDF, escribirlo a disco, subirlo, marcar el partido—. Extraerlo es una decisión de diseño distinta a las seis anteriores, no un corte mecánico.
+`MatchFinalizer` y `OutcomeChanger` viven en `domain/` y dependían de `MatchGameController`, que es `presentation/` — la inversión más grave de todas. Ahora piden un **`MatchFinalizationPort`** que declara las **tres** cosas que usan de verdad, en vez de los ~55 métodos del controller. El guard de arquitectura crece con la regla **3b**: ningún `domain/` importa `presentation/`.
 
-**Los dos cambios estructurales**, que son los de mayor riesgo de toda la fase porque tocan el ciclo de vida del partido y no reglas aisladas:
-- `matchGameProvider` → `.family` + `autoDispose`. Hoy es un provider global único: el estado de un partido sobrevive al siguiente y las pantallas lo resetean con `ref.invalidate`.
-- Romper la dependencia de `MatchFinalizer` sobre el controller. Es lo que cerraría las **2 violaciones R3 restantes** (`match_finalizer` y `open_finished_match_usecase`, ambas anotadas como deuda con dueño en `test/architecture_test.dart`).
+#### ✅ Ciclo de vida: probado, no reescrito — desviación razonada
+
+El plan pedía `matchGameProvider` → `.family` + `autoDispose`. **No aplica:**
+
+- `scoreboardBroadcasterProvider` escucha el estado **a nivel de app** para emitirlo a la TV, sin saber de qué partido se trata. Con una `family` habría que inventar un «id del partido activo», que es reintroducir el mismo singleton con un rodeo.
+- `autoDispose` **nunca dispararía**: ese difusor mantiene la escucha viva mientras la app existe.
+- Y sobre todo: la app tiene **un partido en vivo a la vez** por naturaleza. Una mesa de anotación, un juego. El «singleton» no es un descuido, es el dominio.
+
+Serían 26 puntos de uso tocados en el camino del partido en vivo —la zona de más riesgo— a cambio de nada. Lo que el plan quería evitar de verdad (que un partido se filtre al siguiente) ya lo resuelve `ref.invalidate`, así que **se prueba en vez de darse por hecho**: 6 tests fijan que invalidar borra período, observaciones, árbitros y log, y que entrega un notifier **nuevo** — importa porque el controller guarda el reloj y la pila de deshacer *fuera* de `MatchState`, y reutilizarlo dejaría el temporizador del partido anterior corriendo.
+
+#### ⬜ Lo que queda de la Fase 8
+
+**`MatchSyncCoordinator`** (`finalizeAndSync`, 159 líneas). No es un motor de reglas puras sino orquestación de efectos —generar el PDF, escribirlo a disco, subirlo, marcar el partido—, así que extraerlo es una decisión de diseño, no un corte mecánico.
+
+**La otra mitad de R3:** `match_finalizer` y `open_finished_match_usecase` sostienen `AppDatabase` y hacen consultas drift directas. Eso pide repositorios, no un puerto. Siguen anotados como deuda con dueño en `test/architecture_test.dart`, con un test que impide que crezca.
 
 ---
 
@@ -902,7 +914,7 @@ Se actualiza al cerrar cada fase.
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
-| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 6 motores; falta lo estructural | **0** | 259 ✔ | 9 commits | 2026-08-10 |
+| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 6 motores + DIP; falta el coordinador de sync | **0** | 266 ✔ | 13 commits | 2026-08-10 |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
