@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
+import 'package:myapp/features/match/domain/engines/match_history.dart';
 import 'package:myapp/features/match/domain/engines/score_engine.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:flutter/foundation.dart';
@@ -27,7 +28,7 @@ class MatchGameController extends StateNotifier<MatchState> {
   /// era un `Timer?` suelto, imposible de sustituir.
   final GameClock _clock;
   bool _isFinished = false;
-  final List<MatchState> _history = [];
+  final MatchHistory _history = MatchHistory();
 
   MatchGameController(this._dao, {GameClock? clock})
     : _clock = clock ?? GameClock(),
@@ -974,20 +975,19 @@ void _applyRestoreSub({
 
   void initMatch(String matchId) {}
 
-  void _saveToHistory() {
-    if (_history.length > 50) _history.removeAt(0);
-    _history.add(state);
-  }
+  void _saveToHistory() => _history.push(state);
 
   void undo() {
-    if (_history.isNotEmpty) {
-      final previousState = _history.removeLast();
-      state = previousState.copyWith(
-        timeLeft: state.timeLeft,
-        isRunning: state.isRunning,
-      );
-      _saveToDatabase();
-    }
+    final previous = _history.pop();
+    if (previous == null) return;
+
+    // El reloj NO se deshace: el tiempo sigue corriendo mientras el anotador
+    // corrige, y devolverlo atras falsearia el acta.
+    state = previous.copyWith(
+      timeLeft: state.timeLeft,
+      isRunning: state.isRunning,
+    );
+    _saveToDatabase();
   }
 
   void setTime(Duration newTime) {
@@ -1159,50 +1159,11 @@ void _applyRestoreSub({
 
 // Añade el undo de Tiempo Fuera (Opcional pero recomendado)
 void undoLastTimeout() {
-  // 1. Buscar el último tiempo fuera en el log
-  final lastTO = state.scoreLog.where((e) => EventType.isTimeout(e.type)).lastOrNull;
-  if (lastTO == null) return;
-  
+  final undone = TimeoutUndo.undoLast(state);
+  if (undone == null) return;
+
   _saveToHistory();
-
-  // 2. Identificar qué lista de la memoria RAM debemos limpiar
-  List<String> to1A = List.from(state.teamATimeouts1);
-  List<String> to2A = List.from(state.teamATimeouts2);
-  List<String> toOTA = List.from(state.teamAOTTimeouts);
-  
-  List<String> to1B = List.from(state.teamBTimeouts1);
-  List<String> to2B = List.from(state.teamBTimeouts2);
-  List<String> toOTB = List.from(state.teamBOTTimeouts);
-
-  if (lastTO.teamId == 'A') {
-    if (lastTO.period <= 2) {
-      if (to1A.isNotEmpty) to1A.removeLast();
-    } else if (lastTO.period <= 4) {
-      if (to2A.isNotEmpty) to2A.removeLast();
-    } else {
-      if (toOTA.isNotEmpty) toOTA.removeLast();
-    }
-  } else {
-    if (lastTO.period <= 2) {
-      if (to1B.isNotEmpty) to1B.removeLast();
-    } else if (lastTO.period <= 4) {
-      if (to2B.isNotEmpty) to2B.removeLast();
-    } else {
-      if (toOTB.isNotEmpty) toOTB.removeLast();
-    }
-  }
-
-  // 3. Actualizar el estado: Limpiar la lista del equipo y remover del log
-  state = state.copyWith(
-    teamATimeouts1: to1A,
-    teamATimeouts2: to2A,
-    teamAOTTimeouts: toOTA,
-    teamBTimeouts1: to1B,
-    teamBTimeouts2: to2B,
-    teamBOTTimeouts: toOTB,
-    scoreLog: state.scoreLog.where((e) => e != lastTO).toList(),
-  );
-
+  state = undone;
   _saveToDatabase();
 }
 
