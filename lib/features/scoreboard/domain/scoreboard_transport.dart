@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:myapp/features/scoreboard/data/websocket_server.dart';
 import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 

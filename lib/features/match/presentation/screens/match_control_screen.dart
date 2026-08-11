@@ -11,6 +11,7 @@ import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_prov
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/presentation/screens/protest_signature_screen.dart';
 import 'package:myapp/features/reports/presentation/screens/pdf_preview_screen.dart';
 

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/shared/services/image_loader_service.dart';
 

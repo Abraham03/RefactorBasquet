@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 // <div class="table-actions"></div>
 

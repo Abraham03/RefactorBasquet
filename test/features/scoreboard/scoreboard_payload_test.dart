@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 void main() {
   const meta = ScoreboardMeta(teamAName: 'Lobos', teamBName: 'Águilas');
@@ -91,7 +91,7 @@ void main() {
 
     test('acepta la forma legacy (mapa plano = MatchState)', () {
       const state = MatchState(scoreA: 10, scoreB: 7, currentPeriod: 2);
-      final legacy = jsonEncode(state.toJson());
+      final legacy = jsonEncode(state.toScoreboardJson());
 
       final payload = ScoreboardPayload.tryDecode(legacy);
       expect(payload, isNotNull);

@@ -8,6 +8,7 @@ import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera
 /// firmas y logo, genera el acta en PDF, sincroniza a la nube y marca el

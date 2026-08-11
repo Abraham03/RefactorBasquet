@@ -1,7 +1,67 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:meta/meta.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
+
+/// Serialización del estado del partido **para el cable del marcador**.
+///
+/// Vivía como `MatchState.toJson()`/`fromJson()` dentro del archivo del
+/// controller. Estaba en el sitio equivocado por dos motivos:
+///
+/// 1. Obligaba a `scoreboard/domain` a importar `match/presentation`, es decir
+///    la regla de dependencia al revés.
+/// 2. Un `toJson` en la entidad da a entender que serializa la entidad. No lo
+///    hace: emite **14 de sus 30 campos**, los que la TV necesita para pintar.
+///    Quien añadiera un campo a `MatchState` esperaría verlo viajar, y no
+///    viajaría. Ahora el recorte es explícito y vive donde se decide.
+///
+/// **Lo que NO viaja, y por qué:** `scoreLog` y `playerStats` son las listas
+/// más grandes del estado y el receptor no las usa — las faltas de equipo se
+/// calculan en el emisor (`teamAFouls`) y se mandan ya resueltas. Enviarlas
+/// multiplicaría el tamaño de cada mensaje, que se emite con cada tick.
+extension ScoreboardWire on MatchState {
+  /// **Las claves son el contrato con los receptores** (invariante I4 del
+  /// plan). Una TV con la build anterior debe seguir decodificando esto, así
+  /// que solo se pueden AÑADIR claves, nunca renombrar ni quitar.
+  Map<String, dynamic> toScoreboardJson() => {
+    'scoreA': scoreA,
+    'scoreB': scoreB,
+    // En segundos: `Duration` no es serializable a JSON.
+    'timeLeft': timeLeft.inSeconds,
+    'isRunning': isRunning,
+    'currentPeriod': currentPeriod,
+    'possession': possession,
+    'teamATimeouts1': teamATimeouts1,
+    'teamATimeouts2': teamATimeouts2,
+    'teamAOTTimeouts': teamAOTTimeouts,
+    'teamBTimeouts1': teamBTimeouts1,
+    'teamBTimeouts2': teamBTimeouts2,
+    'teamBOTTimeouts': teamBOTTimeouts,
+    'forfeitStatus': forfeitStatus,
+    'observaciones': observaciones,
+  };
+
+  /// Reconstruye lo que cabe en el cable. Todo lleva valor por defecto: un
+  /// emisor con otra versión puede omitir campos y la TV sigue pintando.
+  static MatchState fromScoreboardJson(Map<String, dynamic> json) {
+    return MatchState(
+      scoreA: json['scoreA'] as int? ?? 0,
+      scoreB: json['scoreB'] as int? ?? 0,
+      timeLeft: Duration(seconds: json['timeLeft'] as int? ?? 0),
+      isRunning: json['isRunning'] as bool? ?? false,
+      currentPeriod: json['currentPeriod'] as int? ?? 1,
+      possession: json['possession'] as String? ?? '',
+      teamATimeouts1: List<String>.from(json['teamATimeouts1'] ?? const []),
+      teamATimeouts2: List<String>.from(json['teamATimeouts2'] ?? const []),
+      teamAOTTimeouts: List<String>.from(json['teamAOTTimeouts'] ?? const []),
+      teamBTimeouts1: List<String>.from(json['teamBTimeouts1'] ?? const []),
+      teamBTimeouts2: List<String>.from(json['teamBTimeouts2'] ?? const []),
+      teamBOTTimeouts: List<String>.from(json['teamBOTTimeouts'] ?? const []),
+      forfeitStatus: json['forfeitStatus'] as String? ?? 'NONE',
+      observaciones: json['observaciones'] as String? ?? '',
+    );
+  }
+}
 
 /// Metadatos del partido que [MatchState] no transporta pero el marcador de TV
 /// necesita. La pantalla de control solo los escribe; la difusión los lee.
@@ -84,14 +144,14 @@ class ScoreboardPayload {
   }
 
   Map<String, dynamic> toJson() => {
-        'v': schemaVersion,
-        'state': state.toJson(),
-        'teamAName': teamAName,
-        'teamBName': teamBName,
-        'teamAFouls': teamAFouls,
-        'teamBFouls': teamBFouls,
-        'isFinished': isFinished,
-      };
+    'v': schemaVersion,
+    'state': state.toScoreboardJson(),
+    'teamAName': teamAName,
+    'teamBName': teamBName,
+    'teamAFouls': teamAFouls,
+    'teamBFouls': teamBFouls,
+    'isFinished': isFinished,
+  };
 
   String encode() => jsonEncode(toJson());
 
@@ -102,7 +162,7 @@ class ScoreboardPayload {
     if (json.containsKey('state')) {
       final rawState = json['state'];
       return ScoreboardPayload(
-        state: MatchState.fromJson(
+        state: ScoreboardWire.fromScoreboardJson(
           rawState is Map<String, dynamic> ? rawState : const {},
         ),
         teamAName: json['teamAName'] as String? ?? 'Equipo A',
@@ -115,7 +175,7 @@ class ScoreboardPayload {
 
     // Forma legacy: el mapa ES el MatchState.
     return ScoreboardPayload(
-      state: MatchState.fromJson(json),
+      state: ScoreboardWire.fromScoreboardJson(json),
       teamAName: 'Equipo A',
       teamBName: 'Equipo B',
       teamAFouls: 0,

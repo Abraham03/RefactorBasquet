@@ -16,7 +16,7 @@ import 'package:myapp/features/scoreboard/domain/scoreboard_payload.dart';
 // Importa MatchState por donde vive HOY. Tras el movimiento este import
 // cambia, pero las CLAVES del JSON no pueden cambiar: eso es lo que el test
 // vigila.
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 /// Un estado con todos los campos que cruzan el cable puestos a valores
 /// distintos entre sí, para que un intercambio de claves se note.

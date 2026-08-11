@@ -6,6 +6,7 @@ import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 import 'package:myapp/features/scoreboard/data/websocket_server.dart';
 import 'package:myapp/features/scoreboard/data/ws_scoreboard_subscriber.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 
 /// Servidor WebSocket de la LAN. Una sola instancia por `ProviderScope`;

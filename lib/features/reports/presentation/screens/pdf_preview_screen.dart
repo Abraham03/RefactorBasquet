@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:printing/printing.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 class PdfPreviewScreen extends StatefulWidget {
   final MatchState state;

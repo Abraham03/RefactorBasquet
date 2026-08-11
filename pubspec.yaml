@@ -45,6 +45,7 @@ dependencies:
   http_parser: ^4.0.2  # MediaType del multipart de PDF (antes importado sin declarar)
   signature: ^5.4.0
   intl: ^0.20.0
+  meta: ^1.15.0        # anotaciones (@immutable) sin arrastrar Flutter al dominio
   # --- NUEVAS DEPENDENCIAS PARA RED LOCAL Y PANTALLAS ---
   shelf: ^1.4.1                 # Para levantar el servidor HTTP local
   shelf_web_socket: ^1.0.4      # Para el canal de comunicación en tiempo real
