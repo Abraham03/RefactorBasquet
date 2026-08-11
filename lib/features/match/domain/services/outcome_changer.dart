@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
 
 /// Cambia el desenlace de un partido finalizado: aplica la regla de marcador,
 /// regenera el PDF y sincroniza los 5 campos. SRP: orquesta, no decide la
@@ -13,7 +13,7 @@ class OutcomeChanger {
   OutcomeChanger(this._api);
 
   Future<Result<String?>> change({
-    required MatchGameController controller,
+    required MatchFinalizationPort controller,
     required String newOutcome, // 'NONE','TEAM_A','TEAM_B','BOTH'
     Uint8List? signature,
     String? observaciones,

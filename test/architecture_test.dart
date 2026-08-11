@@ -138,6 +138,26 @@ void main() {
     });
   });
 
+  group('Regla 3b — domain/ no depende de presentation/', () {
+    test('ningún domain/ importa presentation/', () {
+      // Es la inversión más grave: el dominio son las reglas del negocio y no
+      // pueden necesitar la capa de UI para funcionar. `MatchFinalizer` y
+      // `OutcomeChanger` dependían de `MatchGameController`; ahora piden un
+      // `MatchFinalizationPort`, que declara las TRES cosas que usan en vez de
+      // los ~55 métodos del controller.
+      final offenders = <String>[];
+      for (final file in _libFiles()) {
+        final path = _rel(file);
+        if (!path.contains('/domain/')) continue;
+        if (_importsOf(file).any((i) => i.contains('/presentation/'))) {
+          offenders.add(path);
+        }
+      }
+
+      expect(offenders, isEmpty);
+    });
+  });
+
   group('Regla — una sola fuente por dependencia', () {
     test('databaseProvider y apiClientProvider se declaran una vez', () {
       for (final name in ['databaseProvider', 'apiClientProvider']) {

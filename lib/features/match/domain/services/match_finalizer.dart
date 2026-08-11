@@ -7,7 +7,7 @@ import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
-import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
+import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 
 /// Orquesta el cierre de un partido: reconcilia jugadores offline, recupera
@@ -22,7 +22,7 @@ class MatchFinalizer {
   final MatchApi _matchApi;
   final TeamApi _teamApi;
   final OfficialRepositoryContract _officialRepo;
-  final MatchGameController _controller;
+  final MatchFinalizationPort _controller;
 
   MatchFinalizer(
     this._db,

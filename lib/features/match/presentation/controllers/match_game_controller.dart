@@ -23,8 +23,10 @@ import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart
 import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/id_generator.dart';
+import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
 
-class MatchGameController extends StateNotifier<MatchState> {
+class MatchGameController extends StateNotifier<MatchState>
+    implements MatchFinalizationPort {
   final MatchesDao _dao;
 
   /// El reloj de juego. Se inyecta para poder acelerarlo en los tests: antes
@@ -436,6 +438,7 @@ void _applyRestoreSub({
     _saveToDatabase();
   }
 
+  @override
   Future<bool> finalizeAndSync(
     MatchApi api,
     Uint8List? signatureBytes,
@@ -675,6 +678,7 @@ void _applyRestoreSub({
   ///
   /// [api] necesario SOLO para el caso NONE sin eventos locales (forfeit→normal):
   /// recalcula el marcador real desde score_logs en el backend (online-only).
+  @override
   Future<MatchState> changeOutcome(
     String tipo,
     MatchApi api, {
@@ -1310,6 +1314,7 @@ void undoLastSubstitution() {
     Err(:final error) => throw error,
   };
 
+  @override
   Future<void> reconcileOfflinePlayers(TeamApi api) async {
     // Extraemos solo los jugadores que tienen un ID negativo
     final offlinePlayers = state.playerStats.values.where((p) => p.dbId < 0).toList();
