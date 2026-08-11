@@ -88,15 +88,34 @@ abstract final class EventType {
     }
   }
 
-  /// ¿Es una falta de jugador? (excluye puntos, cambios, tiempos muertos,
-  /// posesión y faltas de coach/banca con sufijo).
+  /// ¿Es una falta imputada a un JUGADOR concreto?
   ///
   /// Regla histórica del proyecto: los códigos de falta son cortos
   /// (P, P1, T1, U, D...) de 2 caracteres o menos, o contienen 'FOUL'.
+  ///
+  /// **Corregido en la Fase 9.** Esa regla de «2 caracteres o menos» hacía
+  /// que `isPlayerFoul('C')` e `isPlayerFoul('B')` —técnica al entrenador y
+  /// a la banca, en su forma en vivo— devolvieran `true` a la vez que
+  /// `isTeamFoul`. No era teórico: `undoLastFoul()` cogía esa falta y hacía
+  /// `playerStats[lastFoul.playerId]!` con `playerId == "Entrenador"`, que no
+  /// es una clave de `playerStats`. Registrar una técnica al entrenador y
+  /// pulsar «deshacer última falta» reventaba la pantalla en pleno partido.
+  ///
+  /// Quien quiera el total del período (personales **y** técnicas de
+  /// banquillo, que en FIBA suman igual) tiene [countsTowardTeamFouls].
   static bool isPlayerFoul(String type) {
     if (isSub(type) || isTimeout(type) || isPossession(type)) return false;
+    if (isTeamFoul(type)) return false;
     return type.contains('FOUL') || type.length <= 2;
   }
+
+  /// ¿Suma al contador de faltas de equipo del período?
+  ///
+  /// Las personales de los jugadores y las técnicas de banquillo cuentan
+  /// igual. Existe porque [isPlayerFoul] ya no las mezcla, y el contador del
+  /// marcador sí las necesita juntas.
+  static bool countsTowardTeamFouls(String type) =>
+      isPlayerFoul(type) || isTeamFoul(type);
 
   /// ¿Es falta del equipo (coach 'C' / banca 'B'), en vivo o con sufijo?
   static bool isTeamFoul(String type) =>

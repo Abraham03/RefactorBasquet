@@ -267,11 +267,18 @@ class MatchState {
 /// Funcion pura sobre [MatchState]: la difusion del marcador la necesita y no
 /// debe depender del notifier, que puede estar ya destruido tras un
 /// `ref.invalidate(matchGameProvider)`.
+/// Usa [EventType.countsTowardTeamFouls] y no `isPlayerFoul` porque las
+/// técnicas de banquillo suman al contador del período igual que las
+/// personales. Antes salía bien **solo en vivo** y por accidente: el tipo en
+/// vivo es `'C'`, que `isPlayerFoul` aceptaba por tener 2 caracteres. En un
+/// partido reabierto el mismo evento vuelve de la base como `'C_A'`, que no
+/// pasaba el filtro, así que el mismo partido mostraba faltas distintas
+/// antes y después de restaurarlo.
 int teamFoulsOf(MatchState state, String teamId) {
   return state.scoreLog.where((e) {
     return e.teamId == teamId &&
         e.period == state.currentPeriod &&
         e.points == 0 &&
-        EventType.isPlayerFoul(e.type);
+        EventType.countsTowardTeamFouls(e.type);
   }).length;
 }

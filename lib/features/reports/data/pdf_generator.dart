@@ -1319,11 +1319,12 @@ class PdfGenerator {
   static int _countTeamFouls(MatchState state, String teamId, int period) {
     return state.scoreLog.where((event) {
       bool isMatch = event.teamId == teamId && event.period == period;
-      // Asegurarnos de que tenga 0 puntos, pero que NO sea falta de Coach (C) ni Banca (B),
-      // ni un cambio (SUB) ni un tiempo muerto (TIMEOUT), que también tienen points == 0.
-      bool isFoul = event.points == 0 &&
-          EventType.isPlayerFoul(event.type) &&
-          !EventType.isTeamFoul(event.type);
+      // Este era el ÚNICO sitio que excluía a mano las faltas de Coach (C) y
+      // Banca (B); los otros tres usos de isPlayerFoul se las tragaban. Desde
+      // la Fase 9 el predicado ya las excluye, así que el `!isTeamFoul`
+      // sobra. El `points == 0` sigue haciendo falta: cambios y tiempos
+      // muertos también puntúan 0.
+      bool isFoul = event.points == 0 && EventType.isPlayerFoul(event.type);
       return isMatch && isFoul;
     }).length;
   }

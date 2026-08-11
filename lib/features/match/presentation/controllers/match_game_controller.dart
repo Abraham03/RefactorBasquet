@@ -1218,14 +1218,30 @@ class MatchGameController extends StateNotifier<MatchState>
     _saveToDatabase();
   }
 
+  /// Deshace la última falta, sea de jugador o técnica de banquillo.
+  ///
+  /// Coge la última de CUALQUIER tipo, no la última de jugador: si acabas de
+  /// pitar una técnica al entrenador y pulsas deshacer, esperas que se vaya
+  /// esa, no una personal de hace dos minutos.
   void undoLastFoul() {
     final lastFoul = state.scoreLog
-        .where((e) => EventType.isPlayerFoul(e.type))
+        .where((e) => EventType.countsTowardTeamFouls(e.type))
         .lastOrNull;
     if (lastFoul == null) return;
     _saveToHistory();
 
-    final currentStats = state.playerStats[lastFoul.playerId]!;
+    // Las técnicas de banquillo no cuelgan de ningún jugador: `addTeamFoul`
+    // guarda "Entrenador"/"Banca" en `playerId`, que no es una clave de
+    // `playerStats`. Basta con sacar el evento del log.
+    final currentStats = state.playerStats[lastFoul.playerId];
+    if (currentStats == null) {
+      state = state.copyWith(
+        scoreLog: state.scoreLog.where((e) => e != lastFoul).toList(),
+      );
+      _saveToDatabase();
+      return;
+    }
+
     List<String> newFoulDetails = List.from(currentStats.foulDetails)
       ..remove(lastFoul.type);
 

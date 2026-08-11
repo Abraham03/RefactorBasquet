@@ -148,25 +148,67 @@ void main() {
       expect(EventType.isTeamFoul('POINT_2'), isFalse);
     });
 
-    // Comportamiento actual documentado, NO deseado: 'C' y 'B' sin sufijo
-    // (la forma "en vivo" de una falta de banca) caen en AMBOS predicados,
-    // porque isPlayerFoul acepta cualquier tipo de <= 2 caracteres.
-    // Quien filtre con isPlayerFoul antes que con isTeamFoul contará una
-    // falta de banca como falta personal de jugador.
+    // CORREGIDO EN LA FASE 9.
     //
-    // Se congela aquí para que el refactor no lo cambie por accidente: si
-    // este test empieza a fallar, es que alguien alteró la clasificación de
-    // faltas, lo cual cambia el acta impresa y el payload al backend.
-    // La corrección va en la Fase 9, deliberadamente y con este test como red.
-    test('solapamiento conocido: C y B en vivo son ambos predicados', () {
-      expect(EventType.isPlayerFoul('C'), isTrue);
-      expect(EventType.isTeamFoul('C'), isTrue);
-      expect(EventType.isPlayerFoul('B'), isTrue);
-      expect(EventType.isTeamFoul('B'), isTrue);
+    // Hasta aquí este test congelaba el comportamiento contrario: 'C' y 'B'
+    // (la forma «en vivo» de una técnica de banquillo) caían en AMBOS
+    // predicados, porque isPlayerFoul aceptaba cualquier tipo de <= 2
+    // caracteres. Se dejó escrito en la Fase 0 como deuda con dueño, con la
+    // corrección planificada para la Fase 9 y este test como red.
+    //
+    // Ahora los predicados son disjuntos.
+    test('un tipo de falta no puede ser de jugador Y de banquillo', () {
+      for (final type in ['C', 'B', 'C_A', 'B_B']) {
+        expect(EventType.isTeamFoul(type), isTrue, reason: 'para "$type"');
+        expect(
+          EventType.isPlayerFoul(type),
+          isFalse,
+          reason: '"$type" es técnica de banquillo, no falta de jugador',
+        );
+      }
 
-      // Con sufijo de lado sí quedan bien separados.
-      expect(EventType.isPlayerFoul('C_A'), isFalse);
-      expect(EventType.isTeamFoul('C_A'), isTrue);
+      for (final type in ['P', 'P1', 'T1', 'U', 'D', 'FOUL']) {
+        expect(EventType.isPlayerFoul(type), isTrue, reason: 'para "$type"');
+        expect(EventType.isTeamFoul(type), isFalse, reason: 'para "$type"');
+      }
+    });
+
+    test('countsTowardTeamFouls suma las personales y las técnicas', () {
+      // En FIBA la técnica al entrenador suma al contador del período igual
+      // que una personal. Este predicado existe porque isPlayerFoul ya no
+      // las mezcla, y el marcador sí las necesita juntas.
+      for (final type in ['P', 'U', 'C', 'B', 'C_A', 'B_B']) {
+        expect(
+          EventType.countsTowardTeamFouls(type),
+          isTrue,
+          reason: 'para "$type"',
+        );
+      }
+
+      for (final type in [
+        'POINT_2',
+        'SUB_A_OUT_1_IN_2',
+        'TIMEOUT_A',
+        'POSS_A',
+      ]) {
+        expect(
+          EventType.countsTowardTeamFouls(type),
+          isFalse,
+          reason: 'para "$type"',
+        );
+      }
+    });
+
+    test('la forma en vivo y la persistida se clasifican igual', () {
+      // El bug de fondo era la asimetría: en vivo la técnica es 'C' y al
+      // reabrir el partido vuelve de la base como 'C_A'. Antes, 'C' contaba
+      // en las faltas de equipo y 'C_A' no, así que el mismo partido mostraba
+      // números distintos antes y después de restaurarlo.
+      expect(
+        EventType.countsTowardTeamFouls('C'),
+        EventType.countsTowardTeamFouls('C_A'),
+      );
+      expect(EventType.isPlayerFoul('B'), EventType.isPlayerFoul('B_B'));
     });
   });
 }
