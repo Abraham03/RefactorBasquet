@@ -17,6 +17,7 @@ import 'package:myapp/shared/widgets/app_network_image.dart';
 import 'package:myapp/features/match/presentation/providers/starters_providers.dart';
 import 'package:myapp/core/utils/id_generator.dart';
 import 'package:myapp/core/constants/match_status.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class StartersSelectionScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -848,7 +849,7 @@ class _StartersSelectionScreenState
         db.MatchRostersCompanion.insert(
           matchId: widget.matchId,
           playerId: p.id.toString(),
-          teamSide: 'A',
+          teamSide: TeamSide.home,
           jerseyNumber: p.defaultNumber,
           isCaptain: drift.Value(p.id == _captainAId),
           isStarter: drift.Value(_startersA.contains(p.id)),
@@ -860,7 +861,7 @@ class _StartersSelectionScreenState
         db.MatchRostersCompanion.insert(
           matchId: widget.matchId,
           playerId: p.id.toString(),
-          teamSide: 'B',
+          teamSide: TeamSide.away,
           jerseyNumber: p.defaultNumber,
           isCaptain: drift.Value(p.id == _captainBId),
           isStarter: drift.Value(_startersB.contains(p.id)),

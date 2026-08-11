@@ -4,6 +4,7 @@ import 'package:myapp/core/database/daos/roster_with_name.dart';
 import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class AttendanceEditScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -81,8 +82,12 @@ class _AttendanceEditScreenState extends ConsumerState<AttendanceEditScreen> {
             );
           }
           final roster = snap.data!;
-          final teamA = roster.where((r) => r.teamSide == 'A').toList();
-          final teamB = roster.where((r) => r.teamSide == 'B').toList();
+          final teamA = roster
+              .where((r) => r.teamSide == TeamSide.home)
+              .toList();
+          final teamB = roster
+              .where((r) => r.teamSide == TeamSide.away)
+              .toList();
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [

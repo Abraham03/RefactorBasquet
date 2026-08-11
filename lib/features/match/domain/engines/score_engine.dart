@@ -1,4 +1,5 @@
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 /// Resultado de intentar registrar una acción de un jugador.
 ///
@@ -76,9 +77,9 @@ abstract final class ScoreEngine {
       return const ScoreRejected(ScoreRejection.disqualified);
     }
 
-    final newScoreA = state.scoreA + (teamId == 'A' ? points : 0);
-    final newScoreB = state.scoreB + (teamId == 'B' ? points : 0);
-    final scoreAfter = teamId == 'A' ? newScoreA : newScoreB;
+    final newScoreA = state.scoreA + (teamId == TeamSide.home ? points : 0);
+    final newScoreB = state.scoreB + (teamId == TeamSide.away ? points : 0);
+    final scoreAfter = teamId == TeamSide.home ? newScoreA : newScoreB;
 
     // La lista interna se copia, no se muta: el estado anterior sigue en el
     // historial de deshacer y comparte el mapa.
@@ -87,7 +88,7 @@ abstract final class ScoreEngine {
       periodScores[state.currentPeriod] ?? const [0, 0],
     );
     if (points > 0) {
-      currentPeriod[teamId == 'A' ? 0 : 1] += points;
+      currentPeriod[teamId == TeamSide.home ? 0 : 1] += points;
     }
     periodScores[state.currentPeriod] = currentPeriod;
 
@@ -133,7 +134,7 @@ abstract final class ScoreEngine {
 
   /// Un jugador cuenta para su equipo tanto en cancha como en banca.
   static bool _belongsTo(MatchState state, String playerId, String teamId) {
-    if (teamId == 'A') {
+    if (teamId == TeamSide.home) {
       return state.teamAOnCourt.contains(playerId) ||
           state.teamABench.contains(playerId);
     }

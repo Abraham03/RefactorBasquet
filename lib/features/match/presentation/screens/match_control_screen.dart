@@ -24,6 +24,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
 import 'package:flutter/foundation.dart';
 import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class MatchControlScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -161,7 +162,7 @@ void initState() {
     final state = ref.read(matchGameProvider);
     List<String> teammates = [];
     
-    if (teamSide == 'A') {
+    if (teamSide == TeamSide.home) {
       teammates = [...state.teamAOnCourt, ...state.teamABench];
     } else {
       teammates = [...state.teamBOnCourt, ...state.teamBBench];
@@ -577,8 +578,8 @@ PopupMenuItem<String> _buildUndoMenuItem({
   final bool isDisqualified = stats.fouls >= 5;
   // Comparar por ID único, no por nombre: dos jugadores pueden llamarse igual
   // (p.ej. dos "PATY" con distinto dorsal) y el nombre marcaría a ambos.
-  final bool isCaptain = (teamId == 'A' && stats.dbId == widget.captainAId) ||
-                         (teamId == 'B' && stats.dbId == widget.captainBId);
+  final bool isCaptain = (teamId == TeamSide.home && stats.dbId == widget.captainAId) ||
+                         (teamId == TeamSide.away && stats.dbId == widget.captainBId);
 
   final bool isSelectedForSwap = _playerToSubstituteId == playerKey;
 
@@ -1036,7 +1037,7 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
                   const SizedBox(height: 24),
                   if (isDisqualified) ...[
                     const Icon(Icons.block, size: 50, color: Colors.redAccent), const SizedBox(height: 10), const Text("No se pueden agregar más eventos a este jugador.", textAlign: TextAlign.center, style: TextStyle(color: Colors.white54)), const SizedBox(height: 20),
-                    SizedBox(width: double.infinity, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)), icon: const Icon(Icons.swap_horiz), label: const Text("REALIZAR SUSTITUCIÓN AHORA"), onPressed: () { Navigator.pop(context); final onCourt = teamId == 'A' ? state.teamAOnCourt : state.teamBOnCourt; final bench = teamId == 'A' ? state.teamABench : state.teamBBench; _showSubstitutionDialog(context, teamId, onCourt, bench, controller, state, preSelectedOut: playerKey); }))
+                    SizedBox(width: double.infinity, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)), icon: const Icon(Icons.swap_horiz), label: const Text("REALIZAR SUSTITUCIÓN AHORA"), onPressed: () { Navigator.pop(context); final onCourt = teamId == TeamSide.home ? state.teamAOnCourt : state.teamBOnCourt; final bench = teamId == TeamSide.home ? state.teamABench : state.teamBBench; _showSubstitutionDialog(context, teamId, onCourt, bench, controller, state, preSelectedOut: playerKey); }))
                   ] else
                     Wrap(
                       spacing: 12, runSpacing: 12, alignment: WrapAlignment.center,
@@ -1447,8 +1448,8 @@ void _showEditPlayerDialog(BuildContext context, MatchGameController controller,
                     children: grouped.entries.map((entry) {
                       final side = entry.key;
                       final players = entry.value;
-                      final teamName = side == 'A' ? widget.teamAName : widget.teamBName;
-                      final teamColor = side == 'A' ? AppColors.primary : AppColors.secondary;
+                      final teamName = side == TeamSide.home ? widget.teamAName : widget.teamBName;
+                      final teamColor = side == TeamSide.home ? AppColors.primary : AppColors.secondary;
                       final allSelected = players.every((p) => present.contains(p.dbId));
 
                       return Padding(
@@ -1781,8 +1782,8 @@ class _TeamViewData {
   _TeamViewData(this.onCourt, this.bench, this.relevantStats, this.possession);
 
   factory _TeamViewData.from(MatchState st, String team) {
-    final onCourt = team == 'A' ? st.teamAOnCourt : st.teamBOnCourt;
-    final bench = team == 'A' ? st.teamABench : st.teamBBench;
+    final onCourt = team == TeamSide.home ? st.teamAOnCourt : st.teamBOnCourt;
+    final bench = team == TeamSide.home ? st.teamABench : st.teamBBench;
     // Solo los stats de los jugadores de ESTE equipo (cancha + banca).
     final ids = {...onCourt, ...bench};
     final relevant = <String, PlayerStats>{};

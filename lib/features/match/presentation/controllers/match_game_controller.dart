@@ -97,8 +97,8 @@ class MatchGameController extends StateNotifier<MatchState>
     final seededBenchB = List<String>.from(state.teamBBench);
 
     for (final r in seedRosters) {
-      if (seededStats.containsKey(r.playerId))
-        continue; // ya existe (titular o banca de nube)
+      // Ya existe (titular o banca venida de la nube).
+      if (seededStats.containsKey(r.playerId)) continue;
 
       final local = await (_dao.db.select(
         _dao.db.players,
@@ -113,7 +113,7 @@ class MatchGameController extends StateNotifier<MatchState>
         hasPlayed: false,
       );
 
-      if (r.teamSide == 'A') {
+      if (r.teamSide == TeamSide.home) {
         if (!seededBenchA.contains(r.playerId)) seededBenchA.add(r.playerId);
       } else {
         if (!seededBenchB.contains(r.playerId)) seededBenchB.add(r.playerId);
@@ -160,7 +160,7 @@ class MatchGameController extends StateNotifier<MatchState>
           hasPlayed: true,
         );
       }
-      if (r.teamSide == 'A') {
+      if (r.teamSide == TeamSide.home) {
         benchA.remove(r.playerId);
         if (!courtA.contains(r.playerId)) courtA.add(r.playerId);
       } else {
@@ -206,7 +206,9 @@ class MatchGameController extends StateNotifier<MatchState>
       // reconstruye las listas teamATimeouts1/2/OT (y B) y termina la
       // iteración con 'continue' para que no caiga en la lógica de abajo.
       if (EventType.isTimeout(event.type)) {
-        final toTeam = event.type.endsWith('_B') ? 'B' : 'A';
+        final toTeam = event.type.endsWith('_${TeamSide.away}')
+            ? TeamSide.away
+            : TeamSide.home;
         _applyRestoreTimeout(toTeam, event.period, event.clockTime);
         continue;
       }
@@ -218,7 +220,7 @@ class MatchGameController extends StateNotifier<MatchState>
         continue;
       }
 
-      String teamId = 'A';
+      String teamId = TeamSide.home;
       String? pName;
       String pNumber = "00";
       int dbId = 0;
@@ -233,12 +235,12 @@ class MatchGameController extends StateNotifier<MatchState>
             .firstOrNull;
 
         if (pB != null) {
-          teamId = 'B';
+          teamId = TeamSide.away;
           pName = pB.name;
           pNumber = pB.defaultNumber.toString();
           dbId = pB.id;
         } else if (pA != null) {
-          teamId = 'A';
+          teamId = TeamSide.home;
           pName = pA.name;
           pNumber = pA.defaultNumber.toString();
           dbId = pA.id;
@@ -248,7 +250,9 @@ class MatchGameController extends StateNotifier<MatchState>
             _dao.db.players,
           )..where((p) => p.id.equals(event.playerId!))).getSingleOrNull();
           if (localPlayer != null) {
-            teamId = localPlayer.teamId == teamAId ? 'A' : 'B';
+            teamId = localPlayer.teamId == teamAId
+                ? TeamSide.home
+                : TeamSide.away;
             pName = localPlayer.name;
             pNumber = localPlayer.defaultNumber
                 .toString(); // <--- Aquí rescatamos el numero
@@ -256,7 +260,7 @@ class MatchGameController extends StateNotifier<MatchState>
           }
         }
       } else if (event.type.endsWith('_B')) {
-        teamId = 'B';
+        teamId = TeamSide.away;
         pIdKey = "Banca_$teamId";
       } else if (event.type.endsWith('_C')) {
         teamId = 'C';
@@ -325,32 +329,33 @@ class MatchGameController extends StateNotifier<MatchState>
   // en vivo, no de un evento), por lo que es una aproximación fiel a lo registrado.
   void _applyRestoreTimeout(String teamId, int period, String clockTime) {
     String minStr = clockTime.split(':').first.trim();
-    if (minStr.startsWith('0') && minStr.length > 1)
+    if (minStr.startsWith('0') && minStr.length > 1) {
       minStr = minStr.substring(1);
+    }
     if (minStr.isEmpty) minStr = "0";
 
     if (period <= 2) {
       final list = List<String>.from(
-        teamId == 'A' ? state.teamATimeouts1 : state.teamBTimeouts1,
+        teamId == TeamSide.home ? state.teamATimeouts1 : state.teamBTimeouts1,
       );
       if (list.length < 2) list.add(minStr);
-      state = teamId == 'A'
+      state = teamId == TeamSide.home
           ? state.copyWith(teamATimeouts1: list)
           : state.copyWith(teamBTimeouts1: list);
     } else if (period == 3 || period == 4) {
       final list = List<String>.from(
-        teamId == 'A' ? state.teamATimeouts2 : state.teamBTimeouts2,
+        teamId == TeamSide.home ? state.teamATimeouts2 : state.teamBTimeouts2,
       );
       if (list.length < 3) list.add(minStr);
-      state = teamId == 'A'
+      state = teamId == TeamSide.home
           ? state.copyWith(teamATimeouts2: list)
           : state.copyWith(teamBTimeouts2: list);
     } else {
       final list = List<String>.from(
-        teamId == 'A' ? state.teamAOTTimeouts : state.teamBOTTimeouts,
+        teamId == TeamSide.home ? state.teamAOTTimeouts : state.teamBOTTimeouts,
       );
       if (list.length < 3) list.add(minStr);
-      state = teamId == 'A'
+      state = teamId == TeamSide.home
           ? state.copyWith(teamAOTTimeouts: list)
           : state.copyWith(teamBOTTimeouts: list);
     }
@@ -396,8 +401,8 @@ class MatchGameController extends StateNotifier<MatchState>
       );
     }
 
-    int newScoreA = state.scoreA + (teamId == 'A' ? points : 0);
-    int newScoreB = state.scoreB + (teamId == 'B' ? points : 0);
+    int newScoreA = state.scoreA + (teamId == TeamSide.home ? points : 0);
+    int newScoreB = state.scoreB + (teamId == TeamSide.away ? points : 0);
 
     final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
     newScoreLog.add(
@@ -408,7 +413,7 @@ class MatchGameController extends StateNotifier<MatchState>
         dbPlayerId: dbPlayerId,
         playerNumber: pNumber,
         points: points,
-        scoreAfter: teamId == 'A' ? newScoreA : newScoreB,
+        scoreAfter: teamId == TeamSide.home ? newScoreA : newScoreB,
         type: type,
       ),
     );
@@ -417,7 +422,7 @@ class MatchGameController extends StateNotifier<MatchState>
     if (!newPeriodScores.containsKey(period)) {
       newPeriodScores[period] = [0, 0];
     }
-    newPeriodScores[period]![teamId == 'A' ? 0 : 1] += points;
+    newPeriodScores[period]![teamId == TeamSide.home ? 0 : 1] += points;
 
     state = state.copyWith(
       playerStats: newPlayerStatsMap,
@@ -453,10 +458,10 @@ class MatchGameController extends StateNotifier<MatchState>
     }
 
     final court = List<String>.from(
-      teamId == 'A' ? state.teamAOnCourt : state.teamBOnCourt,
+      teamId == TeamSide.home ? state.teamAOnCourt : state.teamBOnCourt,
     );
     final bench = List<String>.from(
-      teamId == 'A' ? state.teamABench : state.teamBBench,
+      teamId == TeamSide.home ? state.teamABench : state.teamBBench,
     );
     court.remove(outId);
     if (!bench.contains(outId)) bench.add(outId);
@@ -476,7 +481,7 @@ class MatchGameController extends StateNotifier<MatchState>
         ),
       );
 
-    if (teamId == 'A') {
+    if (teamId == TeamSide.home) {
       state = state.copyWith(
         playerStats: newStats,
         teamAOnCourt: court,
@@ -668,10 +673,10 @@ class MatchGameController extends StateNotifier<MatchState>
       final pid = int.tryParse(r.playerId) ?? 0;
 
       final bool teamForfeited =
-          (r.teamSide == 'A' &&
+          (r.teamSide == TeamSide.home &&
               (state.forfeitStatus == ForfeitStatus.teamA ||
                   state.forfeitStatus == ForfeitStatus.both)) ||
-          (r.teamSide == 'B' &&
+          (r.teamSide == TeamSide.away &&
               (state.forfeitStatus == ForfeitStatus.teamB ||
                   state.forfeitStatus == ForfeitStatus.both));
 
@@ -701,19 +706,22 @@ class MatchGameController extends StateNotifier<MatchState>
   }) {
     final ef = forfeitOverride ?? state.forfeitStatus;
     final forfeitA =
-        ef == 'A' ||
+        ef == TeamSide.home ||
         ef == 'BOTH' ||
         ef == ForfeitStatus.teamA ||
         ef == ForfeitStatus.both;
     final forfeitB =
-        ef == 'B' ||
+        ef == TeamSide.away ||
         ef == 'BOTH' ||
         ef == ForfeitStatus.teamB ||
         ef == ForfeitStatus.both;
 
     if (forfeitA && forfeitB) return {};
 
-    final Map<String, List<PlayerStats>> result = {'A': [], 'B': []};
+    final Map<String, List<PlayerStats>> result = {
+      TeamSide.home: [],
+      TeamSide.away: [],
+    };
 
     state.playerStats.forEach((key, ps) {
       if (ps.isStarter || ps.isOnCourt || ps.points > 0 || ps.fouls > 0) return;
@@ -721,8 +729,8 @@ class MatchGameController extends StateNotifier<MatchState>
           state.teamAOnCourt.contains(key) || state.teamABench.contains(key)
           ? 'A'
           : 'B';
-      if (side == 'A' && forfeitA) return;
-      if (side == 'B' && forfeitB) return;
+      if (side == TeamSide.home && forfeitA) return;
+      if (side == TeamSide.away && forfeitB) return;
       result[side]!.add(ps);
     });
 
@@ -737,18 +745,18 @@ class MatchGameController extends StateNotifier<MatchState>
     int newScoreA = 0;
     int newScoreB = 0;
 
-    if (defaultingTeam == 'A') {
+    if (defaultingTeam == TeamSide.home) {
       newScoreB = 20; // Pierde A por default 0-20
-    } else if (defaultingTeam == 'B') {
+    } else if (defaultingTeam == TeamSide.away) {
       newScoreA = 20; // Pierde B por default 20-0
     }
 
     state = state.copyWith(
       scoreA: newScoreA,
       scoreB: newScoreB,
-      forfeitStatus: defaultingTeam == 'A'
+      forfeitStatus: defaultingTeam == TeamSide.home
           ? 'TEAM_A'
-          : (defaultingTeam == 'B' ? 'TEAM_B' : 'BOTH'),
+          : (defaultingTeam == TeamSide.away ? 'TEAM_B' : 'BOTH'),
       timeLeft: const Duration(seconds: 0),
     );
 
@@ -779,8 +787,8 @@ class MatchGameController extends StateNotifier<MatchState>
       if (state.scoreLog.isNotEmpty) {
         // Hay eventos locales: el marcador real se recalcula sin red.
         for (final e in state.scoreLog) {
-          if (e.teamId == 'A') a += e.points;
-          if (e.teamId == 'B') b += e.points;
+          if (e.teamId == TeamSide.home) a += e.points;
+          if (e.teamId == TeamSide.away) b += e.points;
         }
       } else {
         // forfeit→normal sin eventos locales (la descarga los borró):
@@ -831,7 +839,7 @@ class MatchGameController extends StateNotifier<MatchState>
         dbPlayerId: 0,
         playerNumber: "",
         points: 0,
-        scoreAfter: (teamId == 'A' ? state.scoreA : state.scoreB),
+        scoreAfter: (teamId == TeamSide.home ? state.scoreA : state.scoreB),
         type: type,
       ),
     );
@@ -1189,14 +1197,16 @@ class MatchGameController extends StateNotifier<MatchState>
 
     // 2. Revertir marcador global y de periodo
     final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
-    newPeriodScores[lastPoint.period]![lastPoint.teamId == 'A' ? 0 : 1] -=
+    newPeriodScores[lastPoint.period]![lastPoint.teamId == TeamSide.home
+            ? 0
+            : 1] -=
         lastPoint.points;
 
     state = state.copyWith(
-      scoreA: lastPoint.teamId == 'A'
+      scoreA: lastPoint.teamId == TeamSide.home
           ? state.scoreA - lastPoint.points
           : state.scoreA,
-      scoreB: lastPoint.teamId == 'B'
+      scoreB: lastPoint.teamId == TeamSide.away
           ? state.scoreB - lastPoint.points
           : state.scoreB,
       playerStats: {...state.playerStats, lastPoint.playerId: newStats},
@@ -1326,7 +1336,7 @@ class MatchGameController extends StateNotifier<MatchState>
     required int number,
     required TeamApi api,
   }) async {
-    final teamId = teamSide == 'A' ? state.teamAId : state.teamBId;
+    final teamId = teamSide == TeamSide.home ? state.teamAId : state.teamBId;
     if (teamId == null) {
       throw Exception(
         "Error crítico: ID del equipo no encontrado en el partido.",
@@ -1334,7 +1344,7 @@ class MatchGameController extends StateNotifier<MatchState>
     }
 
     final isNumberTaken = state.playerStats.values.any((p) {
-      final belongsToTeam = teamSide == 'A'
+      final belongsToTeam = teamSide == TeamSide.home
           ? (state.teamAOnCourt.contains(p.dbId.toString()) ||
                 state.teamABench.contains(p.dbId.toString()))
           : (state.teamBOnCourt.contains(p.dbId.toString()) ||
@@ -1392,7 +1402,7 @@ class MatchGameController extends StateNotifier<MatchState>
     List<String> freshBenchA = List.from(state.teamABench);
     List<String> freshBenchB = List.from(state.teamBBench);
 
-    if (teamSide == 'A') {
+    if (teamSide == TeamSide.home) {
       freshBenchA.add(playerKey);
     } else {
       freshBenchB.add(playerKey);

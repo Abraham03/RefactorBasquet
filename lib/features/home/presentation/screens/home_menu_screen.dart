@@ -37,6 +37,7 @@ import 'package:myapp/core/constants/app_colors.dart';
 import 'package:myapp/features/scoreboard/data/external_display_service.dart';
 import 'package:myapp/features/scoreboard/presentation/providers/scoreboard_providers.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class HomeMenuScreen extends ConsumerStatefulWidget {
   const HomeMenuScreen({super.key});
@@ -1074,10 +1075,10 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       String rawType = event.type;
       String teamSide = roster?.teamSide ?? 'A';
       if (rawType.endsWith('_A')) {
-        teamSide = 'A';
+        teamSide = TeamSide.home;
         rawType = rawType.replaceAll('_A', '');
       } else if (rawType.endsWith('_B')) {
-        teamSide = 'B';
+        teamSide = TeamSide.away;
         rawType = rawType.replaceAll('_B', '');
       }
       
@@ -1086,7 +1087,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
       if (rawType == 'POINT_2') points = 2;
       if (rawType == 'POINT_3') points = 3;
       
-      bool isTeamA = teamSide == 'A';
+      bool isTeamA = teamSide == TeamSide.home;
       if (points > 0) {
         if (isTeamA) {
           runningScoreA += points;

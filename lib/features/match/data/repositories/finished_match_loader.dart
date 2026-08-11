@@ -9,6 +9,7 @@ import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/services/outcome_changer.dart';
 import 'package:myapp/core/constants/match_status.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 /// Lo que necesita la pantalla de "cambiar resultado" para arrancar.
 class PreparedMatch {
@@ -123,10 +124,10 @@ class FinishedMatchLoader {
     )..where((t) => t.id.equals('${acta.teamBId}'))).getSingleOrNull();
 
     final captainA = rosters
-        .where((r) => r.teamSide == 'A' && r.isCaptain)
+        .where((r) => r.teamSide == TeamSide.home && r.isCaptain)
         .firstOrNull;
     final captainB = rosters
-        .where((r) => r.teamSide == 'B' && r.isCaptain)
+        .where((r) => r.teamSide == TeamSide.away && r.isCaptain)
         .firstOrNull;
 
     Set<int> startersOf(String side) => rosters

@@ -17,6 +17,25 @@ void main() {
       expect(TeamSide.home, 'A');
       expect(TeamSide.away, 'B');
     });
+
+    test("'B' significa DOS cosas distintas según el campo", () {
+      // Esta colisión es una trampa real: al sustituir los literales por
+      // constantes en la Fase 9, un reemplazo ciego de `== 'B'` convirtió
+      // el filtro de faltas de banca del acta en una comparación de equipo.
+      //
+      // `scoreLog.type == 'B'`      -> falta de BANCA  (EventType.bench)
+      // `scoreLog.teamId == 'B'`    -> equipo VISITANTE (TeamSide.away)
+      //
+      // Se dejan iguales a propósito —son los valores que ya viven en las
+      // bases instaladas y en el backend—, pero quien lea un `'B'` suelto
+      // tiene que mirar de qué campo cuelga.
+      expect(TeamSide.away, EventType.bench);
+      expect(
+        TeamSide.away == EventType.bench,
+        isTrue,
+        reason: 'si alguna deja de ser "B", revisa los dos usos por separado',
+      );
+    });
   });
 
   group('MatchStatus', () {

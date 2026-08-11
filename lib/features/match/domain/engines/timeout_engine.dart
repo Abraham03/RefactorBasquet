@@ -1,5 +1,6 @@
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 /// Los tres cupos de tiempos muertos de un partido.
 ///
@@ -42,7 +43,7 @@ abstract final class TimeoutEngine {
   static MatchState? grant(MatchState state, String teamId) {
     final period = state.currentPeriod;
     final slot = TimeoutSlot.forPeriod(period);
-    final isTeamA = teamId == 'A';
+    final isTeamA = teamId == TeamSide.home;
 
     final current = List<String>.from(_listFor(state, slot, isTeamA: isTeamA));
     final mark = minuteMark(state.timeLeft);

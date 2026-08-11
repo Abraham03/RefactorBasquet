@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class ScoreboardWidget extends StatelessWidget {
   final MatchState state;
@@ -67,7 +68,7 @@ class ScoreboardWidget extends StatelessWidget {
                     const SizedBox(height: 6),
                     GestureDetector(
                       onTap: (isReadOnly || isFinished) ? null : () => controller?.setPossession('A'),
-                      child: Icon(Icons.sports_basketball, color: state.possession == 'A' ? Colors.limeAccent : Colors.white24, size: 28),
+                      child: Icon(Icons.sports_basketball, color: state.possession == TeamSide.home ? Colors.limeAccent : Colors.white24, size: 28),
                     )
                   ],
                 ),
@@ -114,7 +115,7 @@ class ScoreboardWidget extends StatelessWidget {
                     const SizedBox(height: 6),
                     GestureDetector(
                       onTap: (isReadOnly || isFinished) ? null : () => controller?.setPossession('B'),
-                      child: Icon(Icons.sports_basketball, color: state.possession == 'B' ? Colors.limeAccent : Colors.white24, size: 28),
+                      child: Icon(Icons.sports_basketball, color: state.possession == TeamSide.away ? Colors.limeAccent : Colors.white24, size: 28),
                     )
                   ],
                 ),

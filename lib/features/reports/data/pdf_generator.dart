@@ -953,7 +953,7 @@ class PdfGenerator {
 
     // Filtra solo las faltas tipo 'B' (Banca)
     final benchEvents = state.scoreLog.where((e) {
-      return e.teamId == teamId && e.type == 'B';
+      return e.teamId == teamId && e.type == EventType.bench;
     }).toList();
 
     for (int i = 0; i < 3; i++) {
@@ -1214,7 +1214,7 @@ class PdfGenerator {
     // Obtenemos los nombres de los jugadores basándonos en a qué equipo pertenecen
     // Utilizaremos los nombres que estén en las listas combinadas del estado.
     List<String> allPlayers = [];
-    if (teamSide == 'A') {
+    if (teamSide == TeamSide.home) {
       allPlayers = [...state.teamAOnCourt, ...state.teamABench];
     } else {
       allPlayers = [...state.teamBOnCourt, ...state.teamBBench];
@@ -1371,12 +1371,12 @@ class PdfGenerator {
       double blockX =
           PdfCoords.runScoreCol1X +
           (blockIndex * PdfCoords.runScoreBlockSpacing);
-      double finalX = (event.teamId == 'A')
+      double finalX = (event.teamId == TeamSide.home)
           ? blockX
           : blockX + PdfCoords.runScoreTeamSpacing;
       double finalY = PdfCoords.runScoreStartY + (rowInBlock * stepY);
       // Ajuste exacto para centrar el número en su propia "celda"
-      double playerNumX = (event.teamId == 'A')
+      double playerNumX = (event.teamId == TeamSide.home)
           ? finalX - 24.0  // Mueve el número del Equipo A a la izquierda
           : finalX + 18.0; // Mueve el número del Equipo B a la derecha
       widgets.add(
@@ -1450,7 +1450,7 @@ class PdfGenerator {
     
     double y = PdfCoords.runScoreStartY + (rowInBlock * stepY) + 10;
     // CORRECCIÓN CLAVE: Ajuste manual exacto igual que en el cierre final
-    double lineX = (teamId == 'A') ? blockX - 27 : blockX + 10;
+    double lineX = (teamId == TeamSide.home) ? blockX - 27 : blockX + 10;
     
     return pw.Positioned(
       left: lineX,
@@ -1493,7 +1493,7 @@ class PdfGenerator {
     
     // CORRECCIÓN CLAVE: Ajuste manual exacto para las líneas de cierre 
     // sin importar el teamSpacing o el playerOffset.
-    double lineX = (teamId == 'A') ? blockX - 27 : blockX + 10;
+    double lineX = (teamId == TeamSide.home) ? blockX - 27 : blockX + 10;
     
     List<pw.Widget> closingWidgets = [];
     

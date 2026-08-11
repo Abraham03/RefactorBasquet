@@ -23,6 +23,7 @@ import 'package:myapp/core/errors/app_exception.dart';
 import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/constants/match_status.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 class FixtureListScreen extends ConsumerStatefulWidget {
   final String tournamentId;
@@ -996,10 +997,14 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                           dbBase.matchRosters,
                         )..where((t) => t.matchId.equals(localMatch.id))).get();
                         final capA = dbRosters
-                            .where((r) => r.teamSide == 'A' && r.isCaptain)
+                            .where(
+                              (r) => r.teamSide == TeamSide.home && r.isCaptain,
+                            )
                             .firstOrNull;
                         final capB = dbRosters
-                            .where((r) => r.teamSide == 'B' && r.isCaptain)
+                            .where(
+                              (r) => r.teamSide == TeamSide.away && r.isCaptain,
+                            )
                             .firstOrNull;
 
                         if (context.mounted) {

@@ -1,4 +1,5 @@
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 /// Los cambios de jugador.
 ///
@@ -20,7 +21,7 @@ abstract final class SubstitutionEngine {
     // no significa nada, y al reproducirlo en el restore lo sacaría de cancha.
     if (playerOutId == playerInId) return null;
 
-    final isTeamA = teamId == 'A';
+    final isTeamA = teamId == TeamSide.home;
     final onCourt = List<String>.from(
       isTeamA ? state.teamAOnCourt : state.teamBOnCourt,
     );

@@ -1,4 +1,5 @@
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 /// La pila de deshacer del partido.
 ///
@@ -85,7 +86,7 @@ class _TimeoutLists {
   /// Los períodos 1-2 son la primera mitad, 3-4 la segunda, y de 5 en adelante
   /// prórroga: cada tramo tiene su cupo propio de tiempos muertos.
   void removeLastFor({required String teamId, required int period}) {
-    final isTeamA = teamId == 'A';
+    final isTeamA = teamId == TeamSide.home;
     final list = switch (period) {
       <= 2 => isTeamA ? a1 : b1,
       <= 4 => isTeamA ? a2 : b2,

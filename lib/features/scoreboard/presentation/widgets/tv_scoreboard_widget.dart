@@ -3,6 +3,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
+import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
 // <div class="table-actions"></div>
 
@@ -68,7 +69,7 @@ class TvScoreboardWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Lado Izquierdo: Flecha de Posesión A
-                  _buildPossessionIndicator(isActive: state.possession == 'A', h: h, isLeft: true),
+                  _buildPossessionIndicator(isActive: state.possession == TeamSide.home, h: h, isLeft: true),
 
                   // Separación proporcional entre la flecha izquierda y el reloj (4% de la pantalla)
                   // Puedes aumentar o disminuir este valor si quieres las flechas más cerca o lejos de los números
@@ -90,7 +91,7 @@ class TvScoreboardWidget extends StatelessWidget {
                   SizedBox(width: w * 0.04),
 
                   // Lado Derecho: Flecha de Posesión B
-                  _buildPossessionIndicator(isActive: state.possession == 'B', h: h, isLeft: false),
+                  _buildPossessionIndicator(isActive: state.possession == TeamSide.away, h: h, isLeft: false),
                 ],
               ),
             ),
