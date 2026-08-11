@@ -12,6 +12,7 @@ import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
 import 'package:myapp/features/match/domain/engines/match_history.dart';
 import 'package:myapp/features/match/domain/engines/score_engine.dart';
+import 'package:myapp/features/match/domain/engines/substitution_engine.dart';
 import 'package:myapp/features/match/domain/engines/timeout_engine.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:flutter/foundation.dart';
@@ -1037,63 +1038,30 @@ void _applyRestoreSub({
     }
   }
 
+  /// Cambio de jugador.
+  ///
+  /// Las reglas viven en SubstitutionEngine, que ademas VALIDA que el que sale
+  /// este en cancha y el que entra en banca. Antes se aplicaba a ciegas: un
+  /// doble toque podia dejar seis jugadores en cancha o duplicar a uno.
   void substitutePlayer(String teamId, String playerOutId, String playerInId) {
+    final result = SubstitutionEngine.substitute(
+      state,
+      teamId: teamId,
+      playerOutId: playerOutId,
+      playerInId: playerInId,
+    );
+    if (result == null) return;
+
     _saveToHistory();
-    final newStats = Map<String, PlayerStats>.from(state.playerStats);
+    state = result;
 
-    if (newStats.containsKey(playerOutId)) {
-      newStats[playerOutId] = newStats[playerOutId]!.copyWith(isOnCourt: false);
-    }
-
-    if (newStats.containsKey(playerInId)) {
-      newStats[playerInId] = newStats[playerInId]!.copyWith(
-        isOnCourt: true,
-        hasPlayed: true,
-      );
-    }
-
-    if (teamId == 'A') {
-      final newOnCourt = List<String>.from(state.teamAOnCourt)
-        ..remove(playerOutId)
-        ..add(playerInId);
-      final newBench = List<String>.from(state.teamABench)
-        ..remove(playerInId)
-        ..add(playerOutId);
-      state = state.copyWith(
-        teamAOnCourt: newOnCourt,
-        teamABench: newBench,
-        playerStats: newStats,
-      );
-    } else {
-      final newOnCourt = List<String>.from(state.teamBOnCourt)
-        ..remove(playerOutId)
-        ..add(playerInId);
-      final newBench = List<String>.from(state.teamBBench)
-        ..remove(playerInId)
-        ..add(playerOutId);
-      state = state.copyWith(
-        teamBOnCourt: newOnCourt,
-        teamBBench: newBench,
-        playerStats: newStats,
-      );
-    }
     _saveToDatabase();
-
-
-    // Registramos un evento especial en el ScoreLog para poder deshacerlo selectivamente
-  final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
-  newScoreLog.add(ScoreEvent(
-    period: state.currentPeriod,
-    teamId: teamId,
-    playerId: playerOutId, // Quién salió
-    playerNumber: playerInId, // Quién entró (usamos este campo para guardar el ID del entrante)
-    points: 0,
-    scoreAfter: 0,
-    type: 'SUB', // Tipo especial
-  ));
-
-    state = state.copyWith(scoreLog: newScoreLog); 
-    _logEventToDb(null, 0, 0, EventType.subEvent(side: teamId, outId: playerOutId, inId: playerInId));
+    _logEventToDb(
+      null,
+      0,
+      0,
+      EventType.subEvent(side: teamId, outId: playerOutId, inId: playerInId),
+    );
   }
 
   // --- LÓGICA DE UNDO SELECTIVO ---
