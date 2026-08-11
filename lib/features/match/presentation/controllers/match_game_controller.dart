@@ -522,6 +522,17 @@ class MatchGameController extends StateNotifier<MatchState>
     }
   }
 
+  @override
+  Future<void> persistOutcomeChange() {
+    return _dao.applyOutcomeChange(
+      state.matchId,
+      scoreA: state.scoreA,
+      scoreB: state.scoreB,
+      forfeitStatus: state.forfeitStatus,
+      observaciones: state.observaciones,
+    );
+  }
+
   void setObservaciones(String text) {
     state = state.copyWith(observaciones: text);
     _saveToDatabase();
@@ -827,7 +838,12 @@ class MatchGameController extends StateNotifier<MatchState>
       state = state.copyWith(scoreA: a, scoreB: b, forfeitStatus: 'NONE');
     }
     if (observaciones != null) setObservaciones(observaciones);
-    unawaited(_saveToDatabase());
+
+    // Aqui NO se persiste. `_saveToDatabase` escribiria IN_PROGRESS y
+    // marcaria el acta como pendiente de subir, asi que estaba protegido por
+    // el guarda de `_isFinished`... y con el, el cambio de desenlace no
+    // llegaba nunca a la base local. Lo baja `persistOutcomeChange`, que el
+    // orquestador llama SOLO cuando la nube ya acepto el cambio.
     return state; // ← el orquestador usa este retorno, no accede a state directo
   }
 

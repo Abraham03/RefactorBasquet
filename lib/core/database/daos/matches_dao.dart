@@ -54,6 +54,37 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
     );
   }
 
+  /// Guarda el desenlace corregido de un partido YA finalizado.
+  ///
+  /// Existe porque [updateMatchStatus] no sirve aquí: escribe `IN_PROGRESS` y
+  /// `isSynced: false`, que es lo correcto mientras se juega y lo contrario de
+  /// lo que hace falta al corregir un acta cerrada. El controller se protegía
+  /// de eso saltándose la escritura entera cuando el partido estaba
+  /// finalizado, así que el cambio de desenlace **no llegaba nunca a la base
+  /// local**: la nube quedaba bien y el teléfono seguía mostrando el marcador
+  /// viejo hasta la siguiente descarga del catálogo.
+  ///
+  /// No toca `status` ni `isSynced`: el partido sigue cerrado, y sigue
+  /// sincronizado porque el llamador solo invoca esto cuando el servidor ya
+  /// aceptó el cambio.
+  Future<void> applyOutcomeChange(
+    String matchId, {
+    required int scoreA,
+    required int scoreB,
+    required String forfeitStatus,
+    required String observaciones,
+  }) async {
+    await (update(matches)..where((t) => t.id.equals(matchId))).write(
+      MatchesCompanion(
+        scoreA: Value(scoreA),
+        scoreB: Value(scoreB),
+        forfeitStatus: Value(forfeitStatus),
+        observaciones: Value(observaciones),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// Devuelve la fila del partido por su ID, o null si no existe.
   Future<BasketballMatch?> getMatchById(String matchId) {
     return (select(

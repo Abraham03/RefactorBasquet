@@ -51,7 +51,7 @@ class OutcomeChanger {
     );
 
     // 3. Sincronizar los 5 campos + PDF por el endpoint estrecho.
-    return _api.updateMatchOutcome(
+    final result = await _api.updateMatchOutcome(
       matchId: updated.matchId,
       forfeitStatus: updated.forfeitStatus,
       observaciones: updated.observaciones,
@@ -61,6 +61,20 @@ class OutcomeChanger {
       tournamentId: pdfParams.tournamentId,
       pdfBytes: pdfBytes,
     );
+
+    // 4. Solo con el visto bueno del servidor se baja a la base local.
+    //
+    // El orden importa y es al revés de lo que parece natural. Esta operación
+    // es online-only: no se encola, y si falla el usuario ve el error y no
+    // pasa nada más. Guardar antes de subir dejaría al teléfono mostrando un
+    // resultado que la nube no tiene, y sin ninguna señal de que están
+    // desalineados.
+    //
+    // Antes no se guardaba en ningún momento: la nube quedaba bien y el
+    // teléfono seguía con el marcador viejo hasta la siguiente descarga.
+    if (result is Ok) await controller.persistOutcomeChange();
+
+    return result;
   }
 }
 

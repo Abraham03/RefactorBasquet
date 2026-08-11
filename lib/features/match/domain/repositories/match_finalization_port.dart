@@ -43,4 +43,17 @@ abstract interface class MatchFinalizationPort {
     Uint8List? signature,
     String? observaciones,
   });
+
+  /// Baja a la base local el desenlace que la nube ya aceptó.
+  ///
+  /// **Va aparte de [changeOutcome] a propósito.** El cambio de desenlace es
+  /// online-only: se manda por su endpoint y no se encola. Si se guardara
+  /// antes de subir y la subida fallase, el teléfono mostraría un resultado
+  /// que el servidor no tiene. Por eso el llamador invoca esto **solo** tras
+  /// una respuesta correcta.
+  ///
+  /// Escribe marcador, inasistencia y observaciones. No toca el estado
+  /// `FINISHED` ni `isSynced`: el partido sigue cerrado y sigue estando
+  /// sincronizado, porque el cambio acaba de viajar.
+  Future<void> persistOutcomeChange();
 }
