@@ -14,6 +14,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/engines/game_clock.dart';
 import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
 import 'package:myapp/features/match/presentation/controllers/match_game_controller.dart';
 
@@ -44,7 +45,12 @@ void main() {
     await db.close();
   });
 
-  Future<void> logEvent(String type, {String? playerId, int period = 4}) {
+  Future<void> logEvent(
+    String type, {
+    String? playerId,
+    int period = 4,
+    String clockTime = '05:00',
+  }) {
     return db
         .into(db.gameEvents)
         .insert(
@@ -52,7 +58,7 @@ void main() {
             matchId: 'M1',
             type: type,
             period: period,
-            clockTime: '05:00',
+            clockTime: clockTime,
             playerId: Value(playerId),
           ),
         );
@@ -192,6 +198,62 @@ void main() {
 
       expect(controller.state.teamATimeouts2, isEmpty);
       expect(controller.state.teamBTimeouts2, isEmpty);
+    });
+
+    test('el pedido en CLUTCH no borra la quema, la lleva detras', () async {
+      // Caso real de campo (partido COBRAS vs CLIPPERS, 11/08/2026):
+      //   TIMEOUT_B P1 @ 9:09 · TIMEOUT_B P2 @ 3:56 · TIMEOUT_A P4 @ 1:54
+      //
+      // En vivo el acta salio con A2 = ['X', '1']: la quema salto a los 2:00
+      // con la lista vacia y el local pidio el suyo despues, a 1:54. Al
+      // reabrir salia ['1'] y se perdia la X, porque la quema solo se aplicaba
+      // cuando la lista estaba VACIA.
+      await logEvent(
+        EventType.timeoutFor(TeamSide.away),
+        period: 1,
+        clockTime: '9:09',
+      );
+      await logEvent(
+        EventType.timeoutFor(TeamSide.away),
+        period: 2,
+        clockTime: '3:56',
+      );
+      await logEvent(
+        EventType.timeoutFor(TeamSide.home),
+        period: 4,
+        clockTime: '1:54',
+      );
+
+      await restore();
+
+      expect(
+        controller.state.teamATimeouts2,
+        ['X', '1'],
+        reason: 'la quema ocurre a los 2:00, ANTES del pedido de 1:54',
+      );
+      expect(controller.state.teamBTimeouts1, ['9', '3']);
+      expect(
+        controller.state.teamBTimeouts2,
+        ['X'],
+        reason:
+            'el visitante gasto los dos de la primera mitad, no los de la segunda',
+      );
+    });
+
+    test('quien gasto en el TERCER periodo no pierde ninguno', () async {
+      // La otra cara: ['1'] puede ser el minuto 1 del cuarto (despues de la
+      // quema, toca X) o el minuto 1 del tercero (antes, no toca). La lista
+      // sola no lo distingue.
+      await logEvent(
+        EventType.timeoutFor(TeamSide.home),
+        period: 3,
+        clockTime: '1:00',
+      );
+
+      await restore();
+
+      expect(controller.state.teamATimeouts2, ['1']);
+      expect(controller.state.teamBTimeouts2, [GameClockRules.burnMark]);
     });
 
     test('respeta el tiempo muerto que el equipo sí pidió', () async {

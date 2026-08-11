@@ -71,11 +71,6 @@ abstract final class GameClockRules {
     );
   }
 
-  /// Quema un tiempo muerto de la segunda mitad a cada equipo que no haya
-  /// gastado ninguno.
-  ///
-  /// Devuelve `null` si no había nada que quemar, para que el llamador no
-  /// guarde en el historial de deshacer un paso que no cambió nada.
   /// ¿El partido ya pasó el momento de la quema automática?
   ///
   /// Sirve para RESTAURAR: la quema no deja evento en `gameEvents` ni columna
@@ -87,6 +82,36 @@ abstract final class GameClockRules {
   static bool autoBurnAlreadyHappened(MatchState state) =>
       state.currentPeriod > lastPeriod ||
       (state.currentPeriod == lastPeriod && state.timeLeft <= autoBurnAt);
+
+  /// Marca con la que se anota en el acta un tiempo muerto perdido.
+  static const String burnMark = 'X';
+
+  /// ¿Ese tiempo muerto se pidió **antes** del momento de la quema?
+  ///
+  /// Los del tercer período, y los del cuarto por encima del umbral, van
+  /// antes. Los del cuarto por debajo son de «clutch time»: llegan después
+  /// de que la quema ya haya ocurrido.
+  static bool requestedBeforeBurn(int period, Duration clock) =>
+      period < lastPeriod || (period == lastPeriod && clock > autoBurnAt);
+
+  /// Coloca la marca de quema en la lista de la segunda mitad.
+  ///
+  /// **Va al principio**, y eso es lo que hace falta acertar: la quema ocurre
+  /// al cruzar los dos minutos, así que precede a cualquier tiempo muerto
+  /// pedido después. Un equipo que solo pidió en el clutch acaba con
+  /// `['X', '1']`, no con `['1']` ni con `['1', 'X']`.
+  ///
+  /// [usedBeforeBurn] no se puede deducir de la lista: al reconstruir un
+  /// partido, `['1']` puede ser un tiempo muerto pedido en el minuto 1 del
+  /// cuarto período —después de la quema, luego toca X— o en el minuto 1 del
+  /// tercero —antes, luego no—. Lo sabe quien reproduce los eventos.
+  static List<String> withBurnMark(
+    List<String> secondHalf, {
+    required bool usedBeforeBurn,
+  }) {
+    if (usedBeforeBurn || secondHalf.contains(burnMark)) return secondHalf;
+    return [burnMark, ...secondHalf];
+  }
 
   /// Quema los tiempos muertos sin usar de un partido que **se acaba de
   /// cerrar**, o `null` si no había nada que quemar.
@@ -103,17 +128,27 @@ abstract final class GameClockRules {
   static MatchState? burnUnusedAtEnd(MatchState state) =>
       state.currentPeriod >= lastPeriod ? applyAutoBurn(state) : null;
 
+  /// Quema un tiempo muerto de la segunda mitad a cada equipo que no haya
+  /// gastado ninguno.
+  ///
+  /// Devuelve `null` si no había nada que quemar, para que el llamador no
+  /// guarde en el historial de deshacer un paso que no cambió nada.
+  ///
+  /// Es la versión **en vivo**: mira solo si la lista está vacía, porque en
+  /// ese instante nadie ha podido pedir uno después. Para reconstruir un
+  /// partido guardado hace falta [withBurnMark], que sabe colocar la marca
+  /// delante de los que se pidieron en el clutch.
   static MatchState? applyAutoBurn(MatchState state) {
     final listA = List<String>.from(state.teamATimeouts2);
     final listB = List<String>.from(state.teamBTimeouts2);
 
     var changed = false;
     if (listA.isEmpty) {
-      listA.add('X');
+      listA.add(burnMark);
       changed = true;
     }
     if (listB.isEmpty) {
-      listB.add('X');
+      listB.add(burnMark);
       changed = true;
     }
 

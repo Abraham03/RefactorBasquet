@@ -56,7 +56,9 @@ abstract final class TimeoutEngine {
       case TimeoutSlot.secondHalf:
         // En el "clutch time" el equipo que no haya gastado ninguno pierde
         // uno: no se pueden guardar los tres para los dos últimos minutos.
-        if (_isClutchTime(state) && current.isEmpty) current.add('X');
+        if (_isClutchTime(state) && current.isEmpty) {
+          current.add(GameClockRules.burnMark);
+        }
         if (current.length >= secondHalfLimit) return null;
         current.add(mark);
 

@@ -184,6 +184,9 @@ class MatchGameController extends StateNotifier<MatchState>
               ..orderBy([(t) => drift.OrderingTerm.asc(t.createdAt)]))
             .get();
 
+    var usedBeforeBurnA = false;
+    var usedBeforeBurnB = false;
+
     // 4. Procesar eventos acumulativamente
     for (var event in events) {
       // --- REPLAY DE CAMBIOS (SUB): el ID vive en 'type', no en playerId ---
@@ -209,6 +212,22 @@ class MatchGameController extends StateNotifier<MatchState>
         final toTeam = event.type.endsWith('_${TeamSide.away}')
             ? TeamSide.away
             : TeamSide.home;
+        // Si el tiempo muerto de la segunda mitad se pidio ANTES de cruzar los
+        // dos minutos, el equipo no pierde ninguno. La lista sola no lo dice:
+        // ['1'] puede ser el minuto 1 del cuarto periodo (despues de la quema)
+        // o el minuto 1 del tercero (antes).
+        final slot = TimeoutSlot.forPeriod(event.period);
+        if (slot == TimeoutSlot.secondHalf &&
+            GameClockRules.requestedBeforeBurn(
+              event.period,
+              MatchClockFormat.parse(event.clockTime),
+            )) {
+          if (toTeam == TeamSide.home) {
+            usedBeforeBurnA = true;
+          } else {
+            usedBeforeBurnB = true;
+          }
+        }
         _applyRestoreTimeout(toTeam, event.period, event.clockTime);
         continue;
       }
@@ -339,16 +358,28 @@ class MatchGameController extends StateNotifier<MatchState>
     //
     // Sin esto, el acta de un partido reabierto salía sin la marca del tiempo
     // muerto que los equipos pierden al llegar a los dos últimos minutos.
-    // Un partido CERRADO ya no admite mas tiempos muertos, asi que la quema
-    // se aplica por haber llegado al ultimo periodo y no por el reloj: el
-    // guardado no siempre llega a 00:00 (`setTime` no persiste y `setPeriod`
-    // reinicia a 10:00). Uno en curso si depende del umbral de dos minutos.
-    final burned = markFinished
-        ? GameClockRules.burnUnusedAtEnd(state)
-        : (GameClockRules.autoBurnAlreadyHappened(state)
-              ? GameClockRules.applyAutoBurn(state)
-              : null);
-    if (burned != null) state = burned;
+    // La quema no deja evento en `gameEvents`, asi que se reconstruye aqui.
+    //
+    // Un partido CERRADO la aplica por haber llegado al ultimo periodo, no
+    // por el reloj: el guardado no siempre llega a 00:00 (`setTime` no
+    // persiste y `setPeriod` reinicia a 10:00). Uno EN CURSO si depende del
+    // umbral, porque todavia se pueden pedir.
+    final reachedBurn = markFinished
+        ? state.currentPeriod >= GameClockRules.lastPeriod
+        : GameClockRules.autoBurnAlreadyHappened(state);
+
+    if (reachedBurn) {
+      state = state.copyWith(
+        teamATimeouts2: GameClockRules.withBurnMark(
+          state.teamATimeouts2,
+          usedBeforeBurn: usedBeforeBurnA,
+        ),
+        teamBTimeouts2: GameClockRules.withBurnMark(
+          state.teamBTimeouts2,
+          usedBeforeBurn: usedBeforeBurnB,
+        ),
+      );
+    }
   }
 
   // Reconstruye un tiempo muerto durante el restore, respetando los topes por
