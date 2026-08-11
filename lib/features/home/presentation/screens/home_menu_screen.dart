@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use
 
 import 'dart:async';
 import 'dart:ui';
@@ -972,7 +972,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
         ref.invalidate(tournamentsListProvider);
       }
 
-      if (context.mounted) {
+      if (mounted) {
         loading.close();
         context.showSuccess("☁️ Sincronización exitosa.\n${result.toSummary()}");
         if (result.hasSkipped) {
@@ -981,7 +981,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
         }
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         loading.close();
         unawaited(showDialog(
           context: context,

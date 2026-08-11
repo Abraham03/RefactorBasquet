@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: deprecated_member_use
 
 import 'dart:async';
 import 'dart:ui';
@@ -259,7 +259,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
       builder: (ctx) => const TournamentRulesDialog(showVueltas: true),
     );
 
-    if (rules == null || !mounted) return;
+    if (rules == null || !context.mounted) return;
 
     // Si ya hay calendario local, confirmamos antes de sobrescribir.
     final db = ref.read(databaseProvider);
@@ -268,12 +268,12 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     )..where((f) => f.tournamentId.equals(widget.tournamentId))).get();
 
     if (existing.isNotEmpty) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final confirm = await _confirmOverwrite(context);
       if (confirm != true) return;
     }
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     unawaited(
       showDialog(
         context: context,
@@ -337,17 +337,17 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
       ref.invalidate(localFixtureProvider(widget.tournamentId));
       if (mounted) setState(() => _selectedRound = null);
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context);
       context.showSuccess("Calendario generado con éxito");
     } on AppException catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context);
       // El mensaje ya viene listo para el usuario. Antes habia que limpiar a
       // mano el prefijo "Exception: " que Dart anade al envolver strings.
       context.showError(e.message);
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context);
       context.showError(e.toString().replaceFirst('Exception: ', ''));
     }

@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -352,6 +352,10 @@ class TeamDetailScreen extends ConsumerWidget {
                         teamId: teamIdInt,
                         excludePlayerId: duplicatePlayer.id,
                       );
+
+                // `findLowestFreeNumber` consulta la base: si el diálogo se
+                // cerró mientras tanto, este `context` ya no sirve.
+                if (!context.mounted) return;
 
                 final confirmSwap = await showDialog<bool>(
                   context: context,

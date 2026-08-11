@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -114,7 +113,7 @@ class _ProtestSignatureScreenState extends State<ProtestSignatureScreen> {
                     onPressed: () async {
                       if (_controller.isNotEmpty) {
                         final Uint8List? data = await _controller.toPngBytes();
-                        if (data != null && mounted) {
+                        if (data != null && context.mounted) {
                           Navigator.pop(context, data);
                         }
                       } else {

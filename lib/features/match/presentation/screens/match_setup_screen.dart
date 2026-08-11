@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -794,7 +794,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   mode: drift.InsertMode.insertOrReplace,
                 );
 
-                if (mounted) {
+                if (context.mounted) {
                   Navigator.pop(context);
                   ref.invalidate(tournamentDataByIdProvider(widget.tournamentId));
                   if(isSyncedStatus){
@@ -896,7 +896,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                   ),
                 );
 
-                if (mounted) {
+                if (context.mounted) {
                   Navigator.pop(context);
                   ref.invalidate(tournamentDataByIdProvider(widget.tournamentId));
                   if(isSyncedStatus){
@@ -981,6 +981,9 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
         context.showSuccess("Sede eliminada exitosamente.");
       }
     } catch (e) {
+        // El borrado es asincrono: la pantalla puede haberse
+        // cerrado antes de que falle.
+        if (!mounted) return;
         context.showError("Error al eliminar sede: $e");
     }
   }
@@ -1143,7 +1146,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                         mode: drift.InsertMode.insertOrReplace,
                       );
 
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pop(context);
                     ref.invalidate(tournamentDataByIdProvider(widget.tournamentId));
                     if (isSyncedStatus) {
@@ -1310,7 +1313,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                       ),
                     );
 
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pop(context);
                     ref.invalidate(tournamentDataByIdProvider(widget.tournamentId));
                     if (isSyncedStatus) {
@@ -1401,6 +1404,9 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
         context.showSuccess("Oficial eliminado exitosamente.");
       }
     } catch (e) {
+      // El borrado es asincrono: la pantalla puede haberse
+      // cerrado antes de que falle.
+      if (!mounted) return;
       context.showError("Error al eliminar oficial. $e");
     }
   }
