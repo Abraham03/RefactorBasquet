@@ -16,6 +16,7 @@ import 'package:http/testing.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/core/errors/app_exception.dart';
 import 'package:myapp/core/network/api_client.dart';
+import 'package:myapp/core/network/result.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/data/repositories/finished_match_loader.dart';
@@ -134,6 +135,7 @@ void main() {
             auxReferee: const Value('Ana'),
             scorekeeper: const Value('Luis'),
             status: const Value('FINISHED'),
+            venueId: const Value('7'),
           ),
         );
   }
@@ -169,6 +171,56 @@ void main() {
 
       expect(prepared.snapshot.rosterA.map((p) => p.name), ['Pedro']);
       expect(prepared.snapshot.rosterB, isEmpty);
+    });
+  });
+
+  group('datos del acta al reabrir (regresión de campo)', () {
+    // El usuario reportó que al cambiar un resultado, el acta regenerada salía
+    // sin el nombre del entrenador y sin la sede. Estos tres campos alimentan
+    // `OutcomeChanger`, que es quien vuelve a dibujar el PDF.
+
+    test('el acta lleva los entrenadores de los dos equipos', () async {
+      await seedLocalActa('M1');
+      final fixture = await seedFixture(matchId: 'M1');
+
+      final prepared = await useCase(fixture);
+      final params = (prepared as Ok<PreparedMatch>).value.pdfParams;
+
+      expect(params.coachA, 'Coach A');
+      expect(params.coachB, 'Coach B');
+    });
+
+    test('la sede sale del PARTIDO, no del calendario', () async {
+      // Se puede cambiar en el setup, así que la del acta es
+      // `matches.venueId`. Antes se leía `fixture.venueName`, casi siempre
+      // null, y la sede salía en blanco.
+      await db
+          .into(db.venues)
+          .insert(
+            VenuesCompanion.insert(
+              id: const Value('7'),
+              name: 'Gimnasio Municipal',
+            ),
+          );
+      await seedLocalActa('M1');
+      final fixture = await seedFixture(matchId: 'M1');
+
+      final prepared = await useCase(fixture);
+      final params = (prepared as Ok<PreparedMatch>).value.pdfParams;
+
+      expect(params.venueName, 'Gimnasio Municipal');
+    });
+
+    test('sin sede en el partido, cae al calendario', () async {
+      // No se siembra `venues`, así que la búsqueda por `matches.venueId`
+      // no encuentra nada y queda el nombre que traía el calendario.
+      await seedLocalActa('M1');
+      final fixture = await seedFixture(matchId: 'M1');
+
+      final prepared = await useCase(fixture);
+      final params = (prepared as Ok<PreparedMatch>).value.pdfParams;
+
+      expect(params.venueName, 'Gimnasio');
     });
   });
 

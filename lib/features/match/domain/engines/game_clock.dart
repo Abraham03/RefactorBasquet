@@ -76,6 +76,18 @@ abstract final class GameClockRules {
   ///
   /// Devuelve `null` si no había nada que quemar, para que el llamador no
   /// guarde en el historial de deshacer un paso que no cambió nada.
+  /// ¿El partido ya pasó el momento de la quema automática?
+  ///
+  /// Sirve para RESTAURAR: la quema no deja evento en `gameEvents` ni columna
+  /// propia —solo toca el estado en memoria—, así que al reabrir un partido
+  /// terminado había que recalcularla o el acta salía sin ella.
+  ///
+  /// Cierto en el último período a partir del umbral, y en cualquier prórroga
+  /// (para llegar a prórroga hubo que atravesar el final del cuarto período).
+  static bool autoBurnAlreadyHappened(MatchState state) =>
+      state.currentPeriod > lastPeriod ||
+      (state.currentPeriod == lastPeriod && state.timeLeft <= autoBurnAt);
+
   static MatchState? applyAutoBurn(MatchState state) {
     final listA = List<String>.from(state.teamATimeouts2);
     final listB = List<String>.from(state.teamBTimeouts2);

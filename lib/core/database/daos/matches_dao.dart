@@ -79,7 +79,16 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
         mainReferee: Value(mainRef),
         auxReferee: Value(auxRef),
         scorekeeper: Value(scorek),
-        isSynced: const Value(false),
+        // Solo se marca pendiente de subir al INICIAR un partido. Al reabrir
+        // uno finalizado —para corregir su desenlace— se deja como estaba.
+        //
+        // Escribir `false` aquí sin condición era un bug de verdad: reabrir
+        // un acta ya subida la devolvía a la cola de pendientes, y la
+        // siguiente sincronización la volvía a mandar entera, PDF incluido,
+        // duplicándola en el servidor. El bloque de abajo ya cuidaba de no
+        // revertir el estado del calendario; esta línea deshacía la mitad de
+        // ese cuidado.
+        isSynced: markInProgress ? const Value(false) : const Value.absent(),
       ),
     );
 

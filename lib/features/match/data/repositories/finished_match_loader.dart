@@ -108,6 +108,17 @@ class FinishedMatchLoader {
         )
         .toList();
 
+    // La sede del ACTA es la del partido (`matches.venueId`), no la que
+    // tuviera programada el calendario: se puede cambiar en el setup, y al
+    // reabrir el acta salía en blanco porque se leía `fixture.venueName`,
+    // que muchas veces es null. El calendario queda de respaldo.
+    final venue = (acta.venueId == null || acta.venueId!.isEmpty)
+        ? null
+        : await (_db.select(
+            _db.venues,
+          )..where((v) => v.id.equals(acta.venueId!))).getSingleOrNull();
+    final venueName = venue?.name ?? fixture.venueName ?? '';
+
     final rosters = await _rostersForActa(acta.matchId);
     await _hydrateEventsIfMissing(acta.matchId);
 
@@ -163,7 +174,7 @@ class FinishedMatchLoader {
           categoryName: tournament?.category ?? '',
           tournamentLogoUrl: tournament?.logoUrl ?? '',
           refereeLogoUrl: tournament?.refereeLogoUrl ?? '',
-          venueName: fixture.venueName ?? '',
+          venueName: venueName,
           mainReferee: acta.mainReferee,
           auxReferee: acta.auxReferee,
           scorekeeper: acta.scorekeeper,

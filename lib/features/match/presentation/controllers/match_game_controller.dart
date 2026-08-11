@@ -259,14 +259,24 @@ class MatchGameController extends StateNotifier<MatchState>
             dbId = int.tryParse(localPlayer.id) ?? 0;
           }
         }
-      } else if (event.type.endsWith('_B')) {
-        teamId = TeamSide.away;
-        pIdKey = "Banca_$teamId";
-      } else if (event.type.endsWith('_C')) {
-        teamId = 'C';
-        pIdKey = "Coach_$teamId";
       } else if (EventType.isTimeout(event.type)) {
         pIdKey = "TIMEOUT_$teamId";
+      }
+
+      // Las faltas de equipo se guardan como 'C_A'/'B_B' y en vivo son 'C'/'B'.
+      // Se normaliza a la forma en vivo para que el estado restaurado sea
+      // indistinguible del que dejó el partido: el acta filtra por 'C' y 'B',
+      // y con la forma larga no dibujaba ni las faltas del entrenador ni las
+      // de banca al reabrir el partido.
+      //
+      // Lo que había aquí eran dos ramas rotas: `endsWith('_C')` no se cumple
+      // nunca —ningún tipo acaba en '_C', el código va DELANTE— y la de
+      // `endsWith('_B')` acertaba el equipo por casualidad, porque 'C_B' y
+      // 'B_B' acaban igual.
+      final teamFoulCode = EventType.teamFoulCode(event.type);
+      if (teamFoulCode != null) {
+        teamId = EventType.teamFoulSide(event.type) ?? teamId;
+        pIdKey = teamFoulCode == EventType.coach ? "Entrenador" : "Banca";
       }
 
       int pts = 0;
@@ -287,7 +297,8 @@ class MatchGameController extends StateNotifier<MatchState>
             pName ?? (EventType.isTimeout(event.type) ? "TIMEOUT" : "OTROS"),
         points: pts,
         fouls: fls,
-        type: event.type,
+        // Normalizado: 'C_A' entra al scoreLog como 'C', igual que en vivo.
+        type: teamFoulCode ?? event.type,
         period: event.period,
         pNumber: pNumber,
         dbPlayerId: dbId,
@@ -320,13 +331,26 @@ class MatchGameController extends StateNotifier<MatchState>
         );
       }
     }
+
+    // La quema automática de tiempos muertos no deja evento en `gameEvents`
+    // —solo toca el estado en memoria—, así que hay que recalcularla. Va aquí
+    // al final, y no dentro del bucle, porque necesita el período y el reloj
+    // ya restaurados.
+    //
+    // Sin esto, el acta de un partido reabierto salía sin la marca del tiempo
+    // muerto que los equipos pierden al llegar a los dos últimos minutos.
+    if (GameClockRules.autoBurnAlreadyHappened(state)) {
+      final burned = GameClockRules.applyAutoBurn(state);
+      if (burned != null) state = burned;
+    }
   }
 
   // Reconstruye un tiempo muerto durante el restore, respetando los topes por
   // sección (2 en cuartos 1-2, 3 en cuartos 3-4, 3 en extras). El marcador del
   // minuto se deriva del reloj guardado del evento (clockTime, ej. "04:59" -> "4").
-  // Nota: el "X" de quema automática en clutch no se reconstruye (depende del reloj
-  // en vivo, no de un evento), por lo que es una aproximación fiel a lo registrado.
+  // La quema automatica en clutch SI se reconstruye, pero no aqui: no depende
+  // de ningun evento, asi que se recalcula al final de restoreFromDatabase con
+  // GameClockRules.autoBurnAlreadyHappened.
   void _applyRestoreTimeout(String teamId, int period, String clockTime) {
     String minStr = clockTime.split(':').first.trim();
     if (minStr.startsWith('0') && minStr.length > 1) {

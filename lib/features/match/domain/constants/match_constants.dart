@@ -142,4 +142,29 @@ abstract final class EventType {
       type == bench ||
       type.startsWith('C_') ||
       type.startsWith('B_');
+
+  /// Código de una falta de equipo, sin el sufijo de lado: `'C_A'` → `'C'`.
+  ///
+  /// Devuelve `null` si no es falta de equipo.
+  ///
+  /// Existe porque el MISMO evento tiene dos formas: en vivo es `'C'` y al
+  /// volver de la base es `'C_A'`. Los consumidores comparaban contra una de
+  /// las dos y fallaban con la otra —el acta de un partido reabierto salía
+  /// sin las faltas del entrenador ni las de banca—, así que ahora se
+  /// normaliza al restaurar y esta es la función que lo hace.
+  static String? teamFoulCode(String type) {
+    if (type == coach || type.startsWith('C_')) return coach;
+    if (type == bench || type.startsWith('B_')) return bench;
+    return null;
+  }
+
+  /// Lado al que pertenece una falta de equipo persistida: `'C_A'` → `'A'`.
+  ///
+  /// Devuelve `null` para la forma en vivo (`'C'`), que no lleva lado: ahí el
+  /// equipo va en `ScoreEvent.teamId`, no en el tipo.
+  static String? teamFoulSide(String type) {
+    if (!isTeamFoul(type) || type.length < 3) return null;
+    final side = type.substring(2);
+    return side == TeamSide.home || side == TeamSide.away ? side : null;
+  }
 }
