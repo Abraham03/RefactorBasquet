@@ -864,9 +864,24 @@ Había **dos** caminos que suben un acta al mismo endpoint `sync_match`: la subi
 
 Lo que **sí** estaba duplicado literalmente era el formato de fecha del backend — la misma cadena de `padLeft` en dos sitios, para un formato que el servidor parsea. Ahora es `MatchPayloadMapper.backendDateTime`. Y el `time_left` del cierre en vivo seguía formateándose a mano, ignorando el `MatchClockFormat` recién creado.
 
-#### ⬜ Lo que queda de la Fase 8
+#### ✅ 8.5 — El dominio deja de sostener la base de datos (la otra mitad de R3)
 
-**La otra mitad de R3:** `match_finalizer` y `open_finished_match_usecase` sostienen `AppDatabase` y hacen consultas drift directas. Eso pide repositorios, no un puerto. Siguen anotados como deuda con dueño en `test/architecture_test.dart`, con un test que impide que crezca.
+Quedaban dos archivos en `domain/` con un `AppDatabase` dentro. **Se resolvieron distinto porque el problema era distinto**, y esa distinción es la parte que conviene no perder:
+
+| Archivo | Diagnóstico | Solución |
+|---|---|---|
+| `match_finalizer.dart` | **Sí es dominio**: decide *cómo* se cierra un partido. Lo que sobraba era la base de datos. | Pide un `MatchClosingRepository` — **dos** métodos, los que usa de verdad, no la base entera (ISP). `DriftMatchClosingRepository` en `data/` lo implementa. |
+| `open_finished_match_usecase.dart` | **No era dominio.** Ni una regla de negocio: solo decidía *de dónde* traer cada dato, y recibía un `Fixture` generado por drift. Estaba mal colocado, y por eso arrastraba drift a `domain/`. | Movido a `data/repositories/finished_match_loader.dart`, con el nombre que describe lo que hace. |
+
+La lección: **no todo lo que vive en `domain/` merece un puerto**. Envolver el segundo archivo en una interfaz de ~8 métodos habría producido ceremonia para tapar un error de ubicación. Antes de escribir una abstracción, verificar que la clase esté en la capa correcta.
+
+**Bug de consistencia arreglado de paso:** las dos escrituras del cierre (partido y calendario) estaban sueltas. Ahora van en `db.transaction()` — un partido en `FINISHED` cuyo fixture siguiera en `SCHEDULED` aparecía como pendiente en el calendario y el árbitro volvía a abrirlo. Cubierto por un test que aborta la escritura del fixture con un trigger y comprueba que el partido **no** queda cerrado.
+
+También sale `flutter/foundation` del finalizador: usaba `Uint8List` y `debugPrint`, que tienen equivalente puro en `dart:typed_data` y `dart:developer`. Se tiraba del framework por costumbre.
+
+**`knownDebt` se borra, no se vacía.** La lista de excepciones de `test/architecture_test.dart` desaparece: una lista vacía invita a volver a llenarla. En su lugar hay un test que prohíbe el síntoma concreto por el que la deuda reaparecería — un `AppDatabase` dentro de `domain/`, que es como alguien la reintroduciría («solo para esta consulta»). El test ignora comentarios: los contratos de `domain/` documentan de qué deuda nacieron, y nombrar `AppDatabase` en un doc no es depender de ella.
+
+> **R3 cerrada.** Ningún archivo de `features/*/domain/` importa `flutter`, `drift` ni `http`.
 
 ---
 
@@ -920,7 +935,7 @@ Se actualiza al cerrar cada fase.
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
-| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 Verde; queda la mitad drift de R3 | **0** | 272 ✔ | 15 commits | 2026-08-10 |
+| 8 | Dividir el controller | `refactor/f8-engines` | ✅ Cerrada (falta smoke en dispositivo) | **0** | 278 ✔ | 16 commits | 2026-08-10 |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
@@ -983,30 +998,37 @@ diff schema/base.json schema/current.json                     # debe ser vacío
 
 Columna **Base** = medido antes de la Fase 0. Se llena una columna al cerrar cada fase marcada.
 
+> **Cómo medir sin engañarse.** Dos cifras de F8 salieron mal a la primera:
+> `Color(0x...)` daba 27 porque el grep contaba las 6 definiciones dentro de
+> `app_colors.dart` — que son precisamente las que deben existir; la métrica es
+> «fuera de `AppColors`». Y `R4` cuenta archivos de `presentation/` que importan
+> la base o un `*_api`, no ocurrencias. Antes de anotar un número que sube,
+> comprobar que no subió el grep.
+
 | Métrica | Base | F0 | F1 | F2 | F3 | F4 | F5 | F8 | Meta |
 |---|---|---|---|---|---|---|---|---|---|
-| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 | 1705 |  | <300 |
-| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | 0 | 0 |  | 0 |
-| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ |  | 30 |
-| Providers duplicados | 2 | 2 | 2 | **0** | 0 | 0 | 0 |  | 0 |
-| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 | 0 |  | 0 |
-| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ | 1 ✔ |  | 1 (solo el composition root) |
-| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 | 3 |  | 0 |
-| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 | 12 |  | 0 |
-| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 | 4 |  | 0 |
-| Imports relativos | 136 | 136 | **0** | 0 | 0 | 0 | 0 |  | 0 |
-| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 | 14 |  | 0 |
-| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 | 17 |  | 0 |
-| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 | 21 |  | 0 |
-| Imports con alias `as catalog`/`as model` | 4 | 4 | 4 | 4 | 4 | **0** | 0 |  | 0 |
-| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** | **152** |  | ≥200 |
-| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** | **17** |  | ≥40 |
-| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 | 0 |  | 0 |
-| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 | 0 |  | 0 |
-| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | 0 | 0 |  | 0 |
-| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | 0 | 0 |  | 0 |
-| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 | 0 |  | 0 |
-| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | 0 | 0 |  | 0 |
+| Líneas de `match_game_controller.dart` | 1697 | 1697 | 1697 | 1697 | 1697 | 1697 | 1705 | **1400** | <300 |
+| Métodos de `ApiService` | 30 | 30 | 30 | 30 | **0 (borrada)** | 0 | 0 | 0 | 0 |
+| Acciones `action=` del backend | 30 | 30 ✔ congeladas | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | 30 ✔ | 30 |
+| Providers duplicados | 2 | 2 | 2 | **0** | 0 | 0 | 0 | 0 | 0 |
+| Providers declarados en widgets | 3 | 3 | 3 | **0** | 0 | 0 | 0 | 0 | 0 |
+| Violaciones R2 (`core`/`shared` → `features`) | — | — | 3 | 3 | **2** | **1** ✔ | 1 ✔ | 1 ✔ | 1 (solo el composition root) |
+| Violaciones R3 (`domain` → flutter/drift/http) | — | — | 3 | 3 | 3 | 3 | 3 | **0** ✔ | 0 |
+| Violaciones R4 (`presentation` → db/api) | 7+7 | 14 | **10** | 10 | 10 | 10 | 12 | 12 | 0 |
+| Bloques de código duplicados | 5 | 5 | 5 | 5 | 5 | 5 | 4 | **0** ✔ | 0 |
+| Imports relativos | 136 | 136 | **0** | 0 | 0 | 0 | 0 | 0 | 0 |
+| Literales `'FINISHED'`/`'IN_PROGRESS'` | 14 | 14 | 14 | 14 | 14 | 14 | 14 | **13** | 0 |
+| `teamSide == 'A'` crudos | 17 | 17 | 17 | 17 | 17 | 17 | 17 | **12** | 0 |
+| `Color(0x...)` fuera de `AppColors` | 21 | 21 | 21 | 21 | 21 | 21 | 21 | 21 | 0 |
+| Imports con alias `as catalog`/`as model` | 4 | 4 | 4 | 4 | 4 | **0** | 0 | 0 | 0 |
+| Tests verdes | 29 (+1 rojo) | **83** | 83 | **93** | **105** | **135** | **152** | **278** ✔ | ≥200 |
+| Archivos de test | 6 (1 roto) | **8** | 8 | **10** | **11** | **14** | **17** | **30** | ≥40 |
+| `flutter analyze` — errores | 0 | **0** | **0** | 0 | 0 | 0 | 0 | 0 | 0 |
+| `flutter analyze` — info | 5 | 153 | **0** | 0 | 0 | 0 | 0 | 0 | 0 |
+| Singletons estáticos (`.instance`) | 3 | 3 | 3 | **0** | 0 | 0 | 0 | 0 | 0 |
+| `http.get`/`http.post` top-level | 30 | 30 | 30 | 30 | **0** | 0 | 0 | 0 | 0 |
+| Copias del chequeo de status HTTP | ~20 | ~20 | ~20 | ~20 | **0** | 0 | 0 | 0 | 0 |
+| Líneas de `ApiService` | 866 | 866 | 866 | 866 | **0** | 0 | 0 | 0 | 0 |
 
 ---
 
