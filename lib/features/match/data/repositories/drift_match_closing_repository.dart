@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:myapp/core/database/app_database.dart';
-import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/core/constants/match_status.dart';
 import 'package:myapp/features/match/domain/repositories/match_closing_repository.dart';
 
 /// Implementación sobre drift de [MatchClosingRepository].
@@ -11,10 +11,9 @@ class DriftMatchClosingRepository implements MatchClosingRepository {
 
   @override
   Future<String> refereeLogoUrl(String tournamentId) async {
-    final tournament =
-        await (_db.select(_db.tournaments)
-              ..where((t) => t.id.equals(tournamentId)))
-            .getSingleOrNull();
+    final tournament = await (_db.select(
+      _db.tournaments,
+    )..where((t) => t.id.equals(tournamentId))).getSingleOrNull();
     return tournament?.refereeLogoUrl ?? '';
   }
 

@@ -4,6 +4,7 @@ import 'package:myapp/core/errors/app_exception.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/json_parsing.dart';
 import 'package:myapp/features/fixture/data/datasources/fixture_api.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 /// Calendario local: descarga desde la nube y consultas derivadas.
 ///
@@ -61,7 +62,9 @@ class FixtureRepository {
                     teamBName: m['team_b'] as String? ?? 'B',
                     logoA: Value(m['logo_a'] as String?),
                     logoB: Value(m['logo_b'] as String?),
-                    status: Value(m['status'] as String? ?? 'SCHEDULED'),
+                    status: Value(
+                      m['status'] as String? ?? MatchStatus.scheduled,
+                    ),
                     // Viene de la nube: ya está sincronizado. Omitirlo lo
                     // dejaba en `false` (el default) y la siguiente subida lo
                     // reenviaba al servidor como si fuera un cambio local.
@@ -97,7 +100,7 @@ class FixtureRepository {
     for (final round in rounds.entries) {
       for (final raw in (round.value as List)) {
         final m = raw as Map<String, dynamic>;
-        if (m['status'] == 'CANCELLED') continue;
+        if (m['status'] == MatchStatus.cancelled) continue;
 
         final teamA = tryParseId(m['team_a_id']) ?? 0;
         final teamB = tryParseId(m['team_b_id']) ?? 0;

@@ -8,6 +8,7 @@ import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/domain/entities/match_restore_snapshot.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/services/outcome_changer.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 /// Lo que necesita la pantalla de "cambiar resultado" para arrancar.
 class PreparedMatch {
@@ -242,7 +243,7 @@ class FinishedMatchLoader {
             id: Value(acta.matchId),
             teamAName: acta.teamAName,
             teamBName: acta.teamBName,
-            status: const Value('FINISHED'),
+            status: const Value(MatchStatus.finished),
             tournamentId: Value(acta.tournamentId),
             venueId: Value(acta.venueId),
             teamAId: Value(acta.teamAId),

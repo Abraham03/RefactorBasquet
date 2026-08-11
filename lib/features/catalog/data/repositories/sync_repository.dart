@@ -12,6 +12,7 @@ import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
 import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/features/teams/data/repositories/player_repository.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///
@@ -357,7 +358,7 @@ class SyncRepository {
       try {
         final int? numericId = int.tryParse(fixture.id);
 
-        if (fixture.status == 'DELETED') {
+        if (fixture.status == MatchStatus.deleted) {
           if (numericId != null) {
             final success = (await _fixtureApi.deleteSingleFixture(
               numericId,
@@ -463,10 +464,7 @@ class SyncRepository {
         containsUnsyncedOfflinePlayers = true;
       }
       final eventsList = mapped.map((e) => e.payload).toList();
-      final playedIds = mapped
-          .map((e) => e.playerId)
-          .whereType<int>()
-          .toSet();
+      final playedIds = mapped.map((e) => e.playerId).whereType<int>().toSet();
 
       Uint8List? savedPdfBytes;
       if (match.matchReportPath != null && match.matchReportPath!.isNotEmpty) {

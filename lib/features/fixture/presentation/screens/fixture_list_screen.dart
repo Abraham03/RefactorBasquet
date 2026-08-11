@@ -22,6 +22,7 @@ import 'package:myapp/features/match/presentation/screens/change_outcome_screen.
 import 'package:myapp/core/errors/app_exception.dart';
 import 'package:myapp/features/fixture/presentation/providers/fixture_providers.dart';
 import 'package:myapp/core/network/result.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 class FixtureListScreen extends ConsumerStatefulWidget {
   final String tournamentId;
@@ -858,12 +859,12 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     int encounterNumber,
   ) {
     final isPlayable =
-        match.status == 'SCHEDULED' ||
+        match.status == MatchStatus.scheduled ||
         match.status == 'PENDING' ||
-        match.status == 'IN_PROGRESS' ||
+        match.status == MatchStatus.inProgress ||
         match.status == 'PLAYING';
 
-    final isFinished = match.status == 'FINISHED';
+    final isFinished = match.status == MatchStatus.finished;
 
     String dateFormatted = "Horario por definir";
     if (match.scheduledDatetime != null) {
@@ -954,7 +955,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                               .getSingleOrNull();
 
                       if (localMatch != null &&
-                          (localMatch.status == 'IN_PROGRESS' ||
+                          (localMatch.status == MatchStatus.inProgress ||
                               localMatch.status == 'PLAYING')) {
                         // --- NUEVO: RECUPERAR LOGOS DESDE LA TABLA TOURNAMENTS ---
                         final tournamentData =
@@ -1221,7 +1222,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    (match.status == 'IN_PROGRESS' ||
+                                    (match.status == MatchStatus.inProgress ||
                                             match.status == 'PLAYING')
                                         ? Icons.restore
                                         : Icons.play_arrow_rounded,
@@ -1271,12 +1272,12 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     String label;
 
     switch (status) {
-      case 'FINISHED':
+      case MatchStatus.finished:
         bgColor = Colors.green.withValues(alpha: 0.2);
         txtColor = Colors.greenAccent;
         label = "FINALIZADO";
         break;
-      case 'IN_PROGRESS':
+      case MatchStatus.inProgress:
       case 'PLAYING':
         bgColor = Colors.orange.withValues(alpha: 0.2);
         txtColor = Colors.orangeAccent;
@@ -1288,7 +1289,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
         txtColor = Colors.redAccent;
         label = "AUSENCIA";
         break;
-      case 'SCHEDULED':
+      case MatchStatus.scheduled:
       case 'PENDING':
       default:
         bgColor = Colors.white.withValues(alpha: 0.1);

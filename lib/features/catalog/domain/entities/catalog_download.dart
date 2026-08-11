@@ -1,4 +1,5 @@
 import 'package:myapp/core/utils/json_parsing.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 /// Un partido del calendario tal como lo devuelve la sincronización de bajada.
 ///
@@ -41,7 +42,7 @@ class CatalogFixture {
     this.scheduledDatetime,
     this.scoreA,
     this.scoreB,
-    this.status = 'SCHEDULED',
+    this.status = MatchStatus.scheduled,
   });
 
   factory CatalogFixture.fromJson(Map<String, dynamic> json) {
@@ -65,7 +66,7 @@ class CatalogFixture {
           : DateTime.tryParse(rawDate),
       scoreA: parseIntOrNull(json['score_a']),
       scoreB: parseIntOrNull(json['score_b']),
-      status: json['status'] as String? ?? 'SCHEDULED',
+      status: json['status'] as String? ?? MatchStatus.scheduled,
     );
   }
 }

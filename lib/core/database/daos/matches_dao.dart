@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:myapp/core/database/app_database.dart'; // Importa tu DB
 import 'package:myapp/core/database/tables/app_tables.dart';
 import 'package:myapp/core/database/daos/roster_with_name.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 part 'matches_dao.g.dart'; // Drift generará esto
 
@@ -92,7 +93,7 @@ class MatchesDao extends DatabaseAccessor<AppDatabase> with _$MatchesDaoMixin {
         markInProgress
             ? FixturesCompanion(
                 matchId: Value(matchId),
-                status: const Value('IN_PROGRESS'),
+                status: const Value(MatchStatus.inProgress),
               )
             : FixturesCompanion(matchId: Value(matchId)),
       );

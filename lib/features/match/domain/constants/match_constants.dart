@@ -12,13 +12,9 @@ abstract final class TeamSide {
   static const String away = 'B';
 }
 
-/// Estado de un partido (tabla matches / fixtures).
-abstract final class MatchStatus {
-  static const String scheduled = 'SCHEDULED';
-  static const String inProgress = 'IN_PROGRESS';
-  static const String finished = 'FINISHED';
-  static const String deleted = 'DELETED';
-}
+// `MatchStatus` vivía aquí y se mudó a `core/constants/match_status.dart`:
+// `MatchesDao` lo escribe, y `core/` no puede importar `features/` (regla 2).
+// Es el vocabulario de una columna, no una regla del negocio.
 
 /// Estado de inasistencia (forfeit) de un partido.
 abstract final class ForfeitStatus {
@@ -62,8 +58,7 @@ abstract final class EventType {
     required String side,
     required String outId,
     required String inId,
-  }) =>
-      'SUB_${side}_OUT_${outId}_IN_$inId';
+  }) => 'SUB_${side}_OUT_${outId}_IN_$inId';
 
   static String timeoutFor(String side) => 'TIMEOUT_$side';
 

@@ -5,6 +5,7 @@ import 'package:myapp/core/network/result.dart';
 import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_download.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 /// Sincronización de **bajada**: descarga el catálogo de la nube y reemplaza
 /// el local.
@@ -78,7 +79,7 @@ class CatalogDownloadRepository {
   Future<void> _deleteGhostMatches() async {
     final ghosts = await (_db.select(
       _db.matches,
-    )..where((m) => m.status.equals('FINISHED').not())).get();
+    )..where((m) => m.status.equals(MatchStatus.finished).not())).get();
     final ids = ghosts.map((m) => m.id).toList();
     if (ids.isEmpty) return;
 

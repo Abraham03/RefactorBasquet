@@ -9,7 +9,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/match/data/repositories/drift_match_closing_repository.dart';
-import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/core/constants/match_status.dart';
 
 void main() {
   late AppDatabase db;

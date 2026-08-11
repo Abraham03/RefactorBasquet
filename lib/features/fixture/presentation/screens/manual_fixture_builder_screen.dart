@@ -11,6 +11,8 @@ import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/fixture/presentation/widgets/tournament_rules_dialog.dart';
 import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/features/match/domain/services/head_to_head_counter.dart';
+import 'package:myapp/core/constants/match_status.dart';
+
 class ManualFixtureBuilderScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   const ManualFixtureBuilderScreen({super.key, required this.tournamentId});
@@ -27,7 +29,7 @@ class _ManualFixtureBuilderScreenState
   bool _isInitialLoad = true;
   List<Map<String, dynamic>> _teamsStatus = [];
   List<Map<String, dynamic>> _createdMatchesForRound = [];
-  
+
   // Contador de dominio: cuántas veces se enfrentó cada par (no un simple sí/no).
   HeadToHeadCounter _h2h = const HeadToHeadCounter.empty();
   bool _isLoading = true;
@@ -42,18 +44,26 @@ class _ManualFixtureBuilderScreenState
   void _showRoundsBottomSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent, // Transparente para aplicar nuestro propio diseño redondeado
-      isScrollControlled: true, // Permite que el modal ocupe más espacio si es necesario
+      backgroundColor: Colors
+          .transparent, // Transparente para aplicar nuestro propio diseño redondeado
+      isScrollControlled:
+          true, // Permite que el modal ocupe más espacio si es necesario
       builder: (BuildContext ctx) {
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: Container(
-              height: MediaQuery.of(context).size.height * 0.5, // Ocupará la mitad de la pantalla
+              height:
+                  MediaQuery.of(context).size.height *
+                  0.5, // Ocupará la mitad de la pantalla
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withValues(alpha: 0.9), // Fondo oscuro esmerilado
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                color: AppColors.surfaceVariant.withValues(
+                  alpha: 0.9,
+                ), // Fondo oscuro esmerilado
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 border: Border.all(color: Colors.white12),
               ),
               child: Column(
@@ -68,17 +78,22 @@ class _ManualFixtureBuilderScreenState
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  
+
                   // --- TÍTULO ---
                   const Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Text(
                       "Seleccionar Jornada",
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                   const Divider(color: Colors.white12, height: 1),
-                  
+
                   // --- LISTA DE JORNADAS ---
                   Expanded(
                     child: ListView.builder(
@@ -87,20 +102,32 @@ class _ManualFixtureBuilderScreenState
                       itemBuilder: (context, index) {
                         final rId = _availableRounds[index];
                         final isSelected = rId == _selectedRoundId;
-                        
+
                         return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
-                          tileColor: isSelected ? Colors.orangeAccent.withValues(alpha: 0.1) : Colors.transparent,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 4,
+                          ),
+                          tileColor: isSelected
+                              ? Colors.orangeAccent.withValues(alpha: 0.1)
+                              : Colors.transparent,
                           title: Text(
                             "Jornada $rId",
                             style: TextStyle(
-                              color: isSelected ? Colors.orangeAccent : Colors.white70,
-                              fontWeight: isSelected ? FontWeight.w900 : FontWeight.normal,
+                              color: isSelected
+                                  ? Colors.orangeAccent
+                                  : Colors.white70,
+                              fontWeight: isSelected
+                                  ? FontWeight.w900
+                                  : FontWeight.normal,
                               fontSize: 18,
                             ),
                           ),
-                          trailing: isSelected 
-                              ? const Icon(Icons.check_circle, color: Colors.orangeAccent) 
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.orangeAccent,
+                                )
                               : null,
                           onTap: () {
                             Navigator.pop(ctx); // Cierra el modal
@@ -125,17 +152,17 @@ class _ManualFixtureBuilderScreenState
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     await _loadAvailableRounds();
-    await _fetchTeamsStatus(); 
+    await _fetchTeamsStatus();
     await _loadCreatedMatchesLocally();
     if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _loadAvailableRounds() async {
     final db = ref.read(databaseProvider);
-    
-    final localFixtures = await (db.select(db.fixtures)
-          ..where((f) => f.tournamentId.equals(widget.tournamentId)))
-        .get();
+
+    final localFixtures = await (db.select(
+      db.fixtures,
+    )..where((f) => f.tournamentId.equals(widget.tournamentId))).get();
 
     // 1. SOLUCIÓN AQUÍ: Agregamos _selectedRoundId al Set inicial.
     // Esto fuerza a que la jornada recién creada se mantenga viva en la UI
@@ -169,9 +196,13 @@ class _ManualFixtureBuilderScreenState
   Future<void> _fetchTeamsStatus() async {
     try {
       final api = ref.read(fixtureApiProvider);
-      
-      final statusData = (await api.fetchTeamsSchedulingStatus(
-          widget.tournamentId, _selectedRoundId)).valueOrNull ?? [];
+
+      final statusData =
+          (await api.fetchTeamsSchedulingStatus(
+            widget.tournamentId,
+            _selectedRoundId,
+          )).valueOrNull ??
+          [];
 
       // Las parejas ya programadas las cuenta el repositorio: aqui se
       // recorria el mapa de jornadas a mano, igual que en otros dos sitios.
@@ -195,17 +226,27 @@ class _ManualFixtureBuilderScreenState
   Future<void> _loadTeamsStatusLocally() async {
     final db = ref.read(databaseProvider);
 
-    final localTeams = await (db.select(db.teams).join([
-      drift.innerJoin(db.tournamentTeams,
-          db.tournamentTeams.teamId.equalsExp(db.teams.id))
-    ])..where(db.tournamentTeams.tournamentId.equals(widget.tournamentId)))
-        .get();
+    final localTeams =
+        await (db.select(db.teams).join([
+              drift.innerJoin(
+                db.tournamentTeams,
+                db.tournamentTeams.teamId.equalsExp(db.teams.id),
+              ),
+            ])..where(
+              db.tournamentTeams.tournamentId.equals(widget.tournamentId),
+            ))
+            .get();
 
-    final localFixtures = await (db.select(db.fixtures)
-          ..where((f) =>
-              f.tournamentId.equals(widget.tournamentId) &
-              f.status.isNotIn(['CANCELLED', 'DELETED']))) 
-        .get();
+    final localFixtures =
+        await (db.select(db.fixtures)..where(
+              (f) =>
+                  f.tournamentId.equals(widget.tournamentId) &
+                  f.status.isNotIn([
+                    MatchStatus.cancelled,
+                    MatchStatus.deleted,
+                  ]),
+            ))
+            .get();
 
     List<Map<String, dynamic>> fallbackStatus = [];
     // Misma clase de dominio para la rama offline; sin duplicar el conteo.
@@ -222,9 +263,11 @@ class _ManualFixtureBuilderScreenState
           .length;
 
       int scheduledThisRound = localFixtures
-          .where((f) =>
-              (f.teamAId == team.id || f.teamBId == team.id) &&
-              f.roundName == "Jornada $_selectedRoundId")
+          .where(
+            (f) =>
+                (f.teamAId == team.id || f.teamBId == team.id) &&
+                f.roundName == "Jornada $_selectedRoundId",
+          )
           .length;
 
       fallbackStatus.add({
@@ -237,8 +280,9 @@ class _ManualFixtureBuilderScreenState
     }
 
     fallbackStatus.sort((a, b) {
-      int roundCmp =
-          (a['total_scheduled'] as int).compareTo(b['total_scheduled'] as int);
+      int roundCmp = (a['total_scheduled'] as int).compareTo(
+        b['total_scheduled'] as int,
+      );
       if (roundCmp != 0) return roundCmp;
       return (a['name'] as String).compareTo(b['name'] as String);
     });
@@ -247,14 +291,16 @@ class _ManualFixtureBuilderScreenState
     _h2h = HeadToHeadCounter.fromPairs(pairs);
   }
 
-Future<void> _loadCreatedMatchesLocally() async {
+  Future<void> _loadCreatedMatchesLocally() async {
     final db = ref.read(databaseProvider);
-    final localFixtures = await (db.select(db.fixtures)
-          ..where((f) =>
-              f.tournamentId.equals(widget.tournamentId) &
-              f.roundName.equals("Jornada $_selectedRoundId") &
-              f.status.isNotIn(['DELETED'])))
-        .get();
+    final localFixtures =
+        await (db.select(db.fixtures)..where(
+              (f) =>
+                  f.tournamentId.equals(widget.tournamentId) &
+                  f.roundName.equals("Jornada $_selectedRoundId") &
+                  f.status.isNotIn([MatchStatus.deleted]),
+            ))
+            .get();
 
     _createdMatchesForRound = localFixtures.map((f) {
       return {
@@ -265,7 +311,7 @@ Future<void> _loadCreatedMatchesLocally() async {
         'teamBName': f.teamBName,
         'logoA': f.logoA,
         'logoB': f.logoB,
-        'status': f.status, 
+        'status': f.status,
       };
     }).toList();
   }
@@ -301,22 +347,26 @@ Future<void> _loadCreatedMatchesLocally() async {
     final etiqueta = veces == 1 ? "vez" : "veces";
     return "⚠️ Cuidado: Estos equipos ya se enfrentaron $veces $etiqueta en este torneo.";
   }
+
   void _addNewRound() {
     setState(() {
-      int newRound =
-          _availableRounds.isNotEmpty ? _availableRounds.last + 1 : 1;
+      int newRound = _availableRounds.isNotEmpty
+          ? _availableRounds.last + 1
+          : 1;
       _availableRounds.add(newRound);
-      _selectedRoundId = newRound; 
+      _selectedRoundId = newRound;
     });
     _loadData();
 
-    context.showSuccess("Jornada $_selectedRoundId lista para nuevos partidos.");
+    context.showSuccess(
+      "Jornada $_selectedRoundId lista para nuevos partidos.",
+    );
   }
 
   Future<void> _showTournamentRulesDialog() async {
     final rules = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => const TournamentRulesDialog(showVueltas: true), 
+      builder: (ctx) => const TournamentRulesDialog(showVueltas: true),
     );
 
     if (rules != null && mounted) {
@@ -336,15 +386,15 @@ Future<void> _loadCreatedMatchesLocally() async {
         if (mounted) {
           setState(() => _isLoading = false);
           if (success) {
-             context.showSuccess("Reglas guardadas con éxito.");   
+            context.showSuccess("Reglas guardadas con éxito.");
           } else {
-             context.showError("Falló al guardar las reglas.");   
+            context.showError("Falló al guardar las reglas.");
           }
         }
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
-          context.showError("Error: $e");    
+          context.showError("Error: $e");
         }
       }
     }
@@ -366,7 +416,7 @@ Future<void> _loadCreatedMatchesLocally() async {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                width: 450, 
+                width: 450,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceVariant.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(24),
@@ -378,7 +428,12 @@ Future<void> _loadCreatedMatchesLocally() async {
                   children: [
                     const Text(
                       "Nuevo Partido",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: 1.2),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _buildTeamSelectorCard(
@@ -388,11 +443,19 @@ Future<void> _loadCreatedMatchesLocally() async {
                       otherSelectedValue: selectedTeamB,
                       originalTeamIdToIgnore: null,
                       otherOriginalTeamId: null,
-                      onChanged: (val) => setModalState(() => selectedTeamA = val),
+                      onChanged: (val) =>
+                          setModalState(() => selectedTeamA = val),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text("VS", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 18)),
+                      child: Text(
+                        "VS",
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
                     ),
                     _buildTeamSelectorCard(
                       title: "Equipo Visitante",
@@ -401,19 +464,27 @@ Future<void> _loadCreatedMatchesLocally() async {
                       otherSelectedValue: selectedTeamA,
                       originalTeamIdToIgnore: null,
                       otherOriginalTeamId: null,
-                      onChanged: (val) => setModalState(() => selectedTeamB = val),
+                      onChanged: (val) =>
+                          setModalState(() => selectedTeamB = val),
                     ),
                     const SizedBox(height: 30),
-                    
+
                     Builder(
                       builder: (_) {
-                        final veces = _h2h.timesFaced(selectedTeamA, selectedTeamB);
+                        final veces = _h2h.timesFaced(
+                          selectedTeamA,
+                          selectedTeamB,
+                        );
                         if (veces == 0) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Text(
                             _matchupWarning(veces),
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         );
@@ -425,23 +496,44 @@ Future<void> _loadCreatedMatchesLocally() async {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text("Cancelar", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                          child: const Text(
+                            "Cancelar",
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         FilledButton(
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.greenAccent,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           // SIEMPRE habilitado mientras haya 2 equipos distintos
-                          onPressed: (selectedTeamA != null && selectedTeamB != null && selectedTeamA != selectedTeamB)
+                          onPressed:
+                              (selectedTeamA != null &&
+                                  selectedTeamB != null &&
+                                  selectedTeamA != selectedTeamB)
                               ? () async {
                                   Navigator.pop(ctx);
-                                  await _saveManualMatch(selectedTeamA!, selectedTeamB!);
+                                  await _saveManualMatch(
+                                    selectedTeamA!,
+                                    selectedTeamB!,
+                                  );
                                 }
                               : null,
-                          child: const Text("Crear Partido", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: const Text(
+                            "Crear Partido",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -459,11 +551,11 @@ Future<void> _loadCreatedMatchesLocally() async {
   void _showEditMatchDialog(Map<String, dynamic> match) {
     int? selectedTeamA = int.tryParse(match['teamAId'].toString());
     int? selectedTeamB = int.tryParse(match['teamBId'].toString());
-    
+
     // Guardamos los originales para la lógica predictiva
     int originalA = selectedTeamA ?? 0;
     int originalB = selectedTeamB ?? 0;
-    
+
     final String fixtureId = match['id'].toString();
 
     showDialog(
@@ -477,7 +569,7 @@ Future<void> _loadCreatedMatchesLocally() async {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                width: 450, 
+                width: 450,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceVariant.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(24),
@@ -489,7 +581,12 @@ Future<void> _loadCreatedMatchesLocally() async {
                   children: [
                     const Text(
                       "Editar Partido",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: 1.2),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _buildTeamSelectorCard(
@@ -497,34 +594,52 @@ Future<void> _loadCreatedMatchesLocally() async {
                       color: Colors.orangeAccent,
                       selectedValue: selectedTeamA,
                       otherSelectedValue: selectedTeamB,
-                      originalTeamIdToIgnore: originalA, 
+                      originalTeamIdToIgnore: originalA,
                       otherOriginalTeamId: originalB,
-                      onChanged: (val) => setModalState(() => selectedTeamA = val),
+                      onChanged: (val) =>
+                          setModalState(() => selectedTeamA = val),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text("VS", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 18)),
+                      child: Text(
+                        "VS",
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
                     ),
                     _buildTeamSelectorCard(
                       title: "Equipo Visitante",
                       color: Colors.lightBlueAccent,
                       selectedValue: selectedTeamB,
                       otherSelectedValue: selectedTeamA,
-                      originalTeamIdToIgnore: originalB, 
-                      otherOriginalTeamId: originalA, 
-                      onChanged: (val) => setModalState(() => selectedTeamB = val),
+                      originalTeamIdToIgnore: originalB,
+                      otherOriginalTeamId: originalA,
+                      onChanged: (val) =>
+                          setModalState(() => selectedTeamB = val),
                     ),
                     const SizedBox(height: 30),
 
                     Builder(
                       builder: (_) {
-                        final veces = _h2h.timesFaced(selectedTeamA, selectedTeamB, excludeA: originalA, excludeB: originalB);
+                        final veces = _h2h.timesFaced(
+                          selectedTeamA,
+                          selectedTeamB,
+                          excludeA: originalA,
+                          excludeB: originalB,
+                        );
                         if (veces == 0) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Text(
                             _matchupWarning(veces),
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         );
@@ -536,23 +651,45 @@ Future<void> _loadCreatedMatchesLocally() async {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text("Cancelar", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                          child: const Text(
+                            "Cancelar",
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         FilledButton(
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           // SIEMPRE habilitado mientras haya 2 equipos distintos
-                          onPressed: (selectedTeamA != null && selectedTeamB != null && selectedTeamA != selectedTeamB)
+                          onPressed:
+                              (selectedTeamA != null &&
+                                  selectedTeamB != null &&
+                                  selectedTeamA != selectedTeamB)
                               ? () async {
                                   Navigator.pop(ctx);
-                                  await _updateManualMatch(fixtureId, selectedTeamA!, selectedTeamB!);
+                                  await _updateManualMatch(
+                                    fixtureId,
+                                    selectedTeamA!,
+                                    selectedTeamB!,
+                                  );
                                 }
                               : null,
-                          child: const Text("Actualizar", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: const Text(
+                            "Actualizar",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -571,22 +708,27 @@ Future<void> _loadCreatedMatchesLocally() async {
     required Color color,
     required int? selectedValue,
     required int? otherSelectedValue,
-    required int? originalTeamIdToIgnore, 
+    required int? originalTeamIdToIgnore,
     int? otherOriginalTeamId,
     required Function(int?) onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3), // Fondo un poco más oscuro para resaltar
+        color: Colors.black.withValues(
+          alpha: 0.3,
+        ), // Fondo un poco más oscuro para resaltar
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5), // Borde más notorio
+        border: Border.all(
+          color: color.withValues(alpha: 0.5),
+          width: 1.5,
+        ), // Borde más notorio
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
-          )
-        ]
+          ),
+        ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -598,30 +740,47 @@ Future<void> _loadCreatedMatchesLocally() async {
               const SizedBox(width: 6),
               Text(
                 title.toUpperCase(),
-                style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
-              dropdownColor: AppColors.surfaceVariant, // Color de fondo del menú desplegado
+              dropdownColor: AppColors
+                  .surfaceVariant, // Color de fondo del menú desplegado
               isExpanded: true,
               iconSize: 28,
-              hint: const Text("Seleccionar equipo...", style: TextStyle(color: Colors.white38, fontSize: 15)),
+              hint: const Text(
+                "Seleccionar equipo...",
+                style: TextStyle(color: Colors.white38, fontSize: 15),
+              ),
               value: selectedValue,
-              icon: Icon(Icons.expand_circle_down, color: color.withValues(alpha: 0.7)),
+              icon: Icon(
+                Icons.expand_circle_down,
+                color: color.withValues(alpha: 0.7),
+              ),
               items: _teamsStatus.map((team) {
                 final teamId = int.parse(team['id'].toString());
-                
+
                 bool isOriginalTeam = teamId == originalTeamIdToIgnore;
-                bool alreadyPlayedRound = int.parse(team['scheduled_this_round'].toString()) > 0;
+                bool alreadyPlayedRound =
+                    int.parse(team['scheduled_this_round'].toString()) > 0;
                 bool isSameTeam = teamId == otherSelectedValue;
-                int timesAgainst = _h2h.timesFaced(otherSelectedValue, teamId,
-                    excludeA: originalTeamIdToIgnore, excludeB: otherOriginalTeamId);
+                int timesAgainst = _h2h.timesFaced(
+                  otherSelectedValue,
+                  teamId,
+                  excludeA: originalTeamIdToIgnore,
+                  excludeB: otherOriginalTeamId,
+                );
                 bool alreadyPlayedAgainst = timesAgainst > 0;
 
-                // Solo deshabilitar si es el mismo equipo o si ya jugó en ESTA jornada. 
+                // Solo deshabilitar si es el mismo equipo o si ya jugó en ESTA jornada.
                 // "alreadyPlayedAgainst" (ya jugaron en el torneo) será solo visual (rojo) pero seleccionable.
                 bool isDisabled = isSameTeam;
 
@@ -638,7 +797,9 @@ Future<void> _loadCreatedMatchesLocally() async {
                   statusIcon = Icons.warning_amber_rounded;
                 } else if (!isOriginalTeam && alreadyPlayedAgainst) {
                   dotColor = Colors.redAccent;
-                  statusText = timesAgainst == 1 ? "1 VEZ" : "$timesAgainst VECES";
+                  statusText = timesAgainst == 1
+                      ? "1 VEZ"
+                      : "$timesAgainst VECES";
                   statusColor = Colors.redAccent;
                   statusIcon = Icons.block;
                 } else if (!isOriginalTeam && alreadyPlayedRound) {
@@ -659,44 +820,59 @@ Future<void> _loadCreatedMatchesLocally() async {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)))
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
+                      ),
                     ),
                     child: Row(
                       children: [
                         // Indicador de color
                         Container(
-                          width: 10, height: 10,
+                          width: 10,
+                          height: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: dotColor,
                             boxShadow: [
-                              BoxShadow(color: dotColor.withValues(alpha: 0.5), blurRadius: 4)
-                            ]
+                              BoxShadow(
+                                color: dotColor.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 12),
-                        
+
                         // Nombre del equipo
                         Expanded(
                           child: Text(
                             team['name'].toString().toUpperCase(),
                             style: TextStyle(
                               color: isDisabled ? Colors.white38 : Colors.white,
-                              fontWeight: isDisabled ? FontWeight.normal : FontWeight.w800,
+                              fontWeight: isDisabled
+                                  ? FontWeight.normal
+                                  : FontWeight.w800,
                               fontSize: 14,
-                              letterSpacing: 0.5
+                              letterSpacing: 0.5,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        
+
                         // Etiqueta de estado
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: statusColor.withValues(alpha: 0.3))
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -704,8 +880,12 @@ Future<void> _loadCreatedMatchesLocally() async {
                               Icon(statusIcon, color: statusColor, size: 12),
                               const SizedBox(width: 4),
                               Text(
-                                statusText, 
-                                style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold)
+                                statusText,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -729,26 +909,32 @@ Future<void> _loadCreatedMatchesLocally() async {
       final db = ref.read(databaseProvider);
       final api = ref.read(fixtureApiProvider);
 
-      final teamAData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == teamA);
-      final teamBData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == teamB);
+      final teamAData = _teamsStatus.firstWhere(
+        (t) => int.parse(t['id'].toString()) == teamA,
+      );
+      final teamBData = _teamsStatus.firstWhere(
+        (t) => int.parse(t['id'].toString()) == teamB,
+      );
 
       final String tempFixtureId = const Uuid().v4();
 
-      await db.into(db.fixtures).insert(
-        FixturesCompanion.insert(
-          id: tempFixtureId,
-          tournamentId: widget.tournamentId,
-          roundName: "Jornada $_selectedRoundId",
-          teamAId: teamA.toString(),
-          teamBId: teamB.toString(),
-          teamAName: teamAData['name'],
-          teamBName: teamBData['name'],
-          logoA: drift.Value(teamAData['logo_url']),
-          logoB: drift.Value(teamBData['logo_url']),
-          status: const drift.Value('SCHEDULED'),
-          isSynced: const drift.Value(false),
-        ),
-      );
+      await db
+          .into(db.fixtures)
+          .insert(
+            FixturesCompanion.insert(
+              id: tempFixtureId,
+              tournamentId: widget.tournamentId,
+              roundName: "Jornada $_selectedRoundId",
+              teamAId: teamA.toString(),
+              teamBId: teamB.toString(),
+              teamAName: teamAData['name'],
+              teamBName: teamBData['name'],
+              logoA: drift.Value(teamAData['logo_url']),
+              logoB: drift.Value(teamBData['logo_url']),
+              status: const drift.Value(MatchStatus.scheduled),
+              isSynced: const drift.Value(false),
+            ),
+          );
 
       try {
         final newFixtureId = (await api.addManualFixture(
@@ -767,7 +953,7 @@ Future<void> _loadCreatedMatchesLocally() async {
         debugPrint("Guardado local exitoso, pero falló subida a nube: $e");
       }
 
-      await _loadData(); 
+      await _loadData();
 
       if (mounted) {
         context.showSuccess("Partido agregado.");
@@ -781,17 +967,27 @@ Future<void> _loadCreatedMatchesLocally() async {
   }
 
   // --- FUNCIÓN PARA ACTUALIZAR PARTIDO ---
-  Future<void> _updateManualMatch(String fixtureId, int newTeamA, int newTeamB) async {
+  Future<void> _updateManualMatch(
+    String fixtureId,
+    int newTeamA,
+    int newTeamB,
+  ) async {
     setState(() => _isLoading = true);
     try {
       final db = ref.read(databaseProvider);
       final api = ref.read(fixtureApiProvider);
 
-      final teamAData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == newTeamA);
-      final teamBData = _teamsStatus.firstWhere((t) => int.parse(t['id'].toString()) == newTeamB);
+      final teamAData = _teamsStatus.firstWhere(
+        (t) => int.parse(t['id'].toString()) == newTeamA,
+      );
+      final teamBData = _teamsStatus.firstWhere(
+        (t) => int.parse(t['id'].toString()) == newTeamB,
+      );
 
       // 1. Actualizamos localmente (Drift) siempre
-      await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
+      await (db.update(
+        db.fixtures,
+      )..where((f) => f.id.equals(fixtureId))).write(
         FixturesCompanion(
           teamAId: drift.Value(newTeamA.toString()),
           teamBId: drift.Value(newTeamB.toString()),
@@ -799,14 +995,16 @@ Future<void> _loadCreatedMatchesLocally() async {
           teamBName: drift.Value(teamBData['name']),
           logoA: drift.Value(teamAData['logo_url']),
           logoB: drift.Value(teamBData['logo_url']),
-          isSynced: const drift.Value(false), // Marcamos como no sincronizado por defecto
-        )
+          isSynced: const drift.Value(
+            false,
+          ), // Marcamos como no sincronizado por defecto
+        ),
       );
 
       // 2. Intentamos subir a la nube SOLO si el partido ya existía en el servidor (ID numérico)
       // Si es un UUID (creado offline), dejamos que HomeMenuScreen lo suba después como "nuevo".
       int? numericId = int.tryParse(fixtureId);
-      
+
       if (numericId != null) {
         try {
           final success = (await api.updateFixtureTeams(
@@ -817,16 +1015,15 @@ Future<void> _loadCreatedMatchesLocally() async {
 
           if (success) {
             // Si se subió con éxito, lo marcamos como sincronizado
-            await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
-              const FixturesCompanion(isSynced: drift.Value(true))
-            );
+            await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId)))
+                .write(const FixturesCompanion(isSynced: drift.Value(true)));
           }
         } catch (e) {
           debugPrint("Actualización local exitosa, pero falló nube: $e");
         }
       }
 
-      await _loadData(); 
+      await _loadData();
 
       if (mounted) {
         context.showSuccess("Partido actualizado.");
@@ -839,7 +1036,6 @@ Future<void> _loadCreatedMatchesLocally() async {
     }
   }
 
-
   // --- FUNCIONES PARA ELIMINAR PARTIDO ---
   void _confirmDeleteMatch(Map<String, dynamic> match) {
     showDialog(
@@ -851,17 +1047,23 @@ Future<void> _loadCreatedMatchesLocally() async {
           children: [
             Icon(Icons.delete_forever, color: Colors.redAccent),
             SizedBox(width: 10),
-            Text("Eliminar Partido", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(
+              "Eliminar Partido",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         content: Text(
-          "¿Estás seguro de que deseas eliminar el partido entre\n\n${match['teamAName']} vs ${match['teamBName']}?", 
-          style: const TextStyle(color: Colors.white70)
+          "¿Estás seguro de que deseas eliminar el partido entre\n\n${match['teamAName']} vs ${match['teamBName']}?",
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx), 
-            child: const Text("Cancelar", style: TextStyle(color: Colors.grey))
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
@@ -869,7 +1071,13 @@ Future<void> _loadCreatedMatchesLocally() async {
               Navigator.pop(ctx);
               _deleteManualMatch(match['id'].toString());
             },
-            child: const Text("Eliminar", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Eliminar",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -883,32 +1091,46 @@ Future<void> _loadCreatedMatchesLocally() async {
       final api = ref.read(fixtureApiProvider);
 
       int? numericId = int.tryParse(fixtureId);
-      
+
       if (numericId != null) {
         // El partido ya existía en la nube. Intentamos borrarlo.
         try {
           final success = (await api.deleteSingleFixture(numericId)).isOk;
           if (success) {
             // Se borró en la nube, lo borramos localmente por completo
-            await (db.delete(db.fixtures)..where((f) => f.id.equals(fixtureId))).go();
+            await (db.delete(
+              db.fixtures,
+            )..where((f) => f.id.equals(fixtureId))).go();
           } else {
             // Falló en la nube, hacemos borrado lógico (Soft Delete)
-            await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
-              const FixturesCompanion(status: drift.Value('DELETED'), isSynced: drift.Value(false))
+            await (db.update(
+              db.fixtures,
+            )..where((f) => f.id.equals(fixtureId))).write(
+              const FixturesCompanion(
+                status: drift.Value(MatchStatus.deleted),
+                isSynced: drift.Value(false),
+              ),
             );
           }
         } catch (e) {
           // No hay internet, hacemos borrado lógico para sincronizarlo después
-          await (db.update(db.fixtures)..where((f) => f.id.equals(fixtureId))).write(
-            const FixturesCompanion(status: drift.Value('DELETED'), isSynced: drift.Value(false))
+          await (db.update(
+            db.fixtures,
+          )..where((f) => f.id.equals(fixtureId))).write(
+            const FixturesCompanion(
+              status: drift.Value(MatchStatus.deleted),
+              isSynced: drift.Value(false),
+            ),
           );
         }
       } else {
         // Si no tiene ID numérico, significa que nunca subió a la nube (se creó offline). Se puede borrar de raíz.
-        await (db.delete(db.fixtures)..where((f) => f.id.equals(fixtureId))).go();
+        await (db.delete(
+          db.fixtures,
+        )..where((f) => f.id.equals(fixtureId))).go();
       }
 
-      await _loadData(); 
+      await _loadData();
 
       if (mounted) {
         context.showSuccess("Partido eliminado exitosamente.");
@@ -929,7 +1151,11 @@ Future<void> _loadCreatedMatchesLocally() async {
       appBar: AppBar(
         title: const Text(
           "Constructor Manual",
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.0),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 1.0,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.black.withValues(alpha: 0.6),
@@ -945,13 +1171,16 @@ Future<void> _loadCreatedMatchesLocally() async {
             tooltip: "Crear Nueva Jornada",
             icon: const Icon(Icons.add_to_photos, color: Colors.greenAccent),
             onPressed: _addNewRound,
-          )
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddMatchDialog,
         icon: const Icon(Icons.add),
-        label: const Text("Partido", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        label: const Text(
+          "Partido",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         backgroundColor: Colors.greenAccent,
         foregroundColor: Colors.black,
         elevation: 8,
@@ -961,17 +1190,21 @@ Future<void> _loadCreatedMatchesLocally() async {
         child: SafeArea(
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: Colors.orangeAccent))
+                  child: CircularProgressIndicator(color: Colors.orangeAccent),
+                )
               : LayoutBuilder(
                   builder: (context, constraints) {
                     return Center(
                       child: Container(
-                        constraints: const BoxConstraints(maxWidth: 1000), 
+                        constraints: const BoxConstraints(maxWidth: 1000),
                         child: Column(
                           children: [
                             Container(
                               margin: const EdgeInsets.all(16),
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [Colors.black54, Colors.black87],
@@ -985,40 +1218,70 @@ Future<void> _loadCreatedMatchesLocally() async {
                                     color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: 10,
                                     offset: const Offset(0, 5),
-                                  )
-                                ]
+                                  ),
+                                ],
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text("PROGRAMACIÓN", style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+                                      Text(
+                                        "PROGRAMACIÓN",
+                                        style: TextStyle(
+                                          color: Colors.orangeAccent,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2.0,
+                                        ),
+                                      ),
                                       SizedBox(height: 4),
-                                      Text("Jornada Actual", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        "Jornada Actual",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  
+
                                   // --- BOTÓN QUE ABRE EL BOTTOM SHEET ---
                                   Material(
                                     color: Colors.transparent,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(16),
-                                      onTap: _showRoundsBottomSheet, // <- Llama al modal
+                                      onTap:
+                                          _showRoundsBottomSheet, // <- Llama al modal
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 10,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.3), 
-                                          borderRadius: BorderRadius.circular(16), 
-                                          border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5), width: 1.5), 
+                                          color: Colors.black.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.orangeAccent
+                                                .withValues(alpha: 0.5),
+                                            width: 1.5,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.orangeAccent.withValues(alpha: 0.1),
+                                              color: Colors.orangeAccent
+                                                  .withValues(alpha: 0.1),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
-                                            )
-                                          ]
+                                            ),
+                                          ],
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -1026,14 +1289,18 @@ Future<void> _loadCreatedMatchesLocally() async {
                                             Text(
                                               "Jornada $_selectedRoundId",
                                               style: const TextStyle(
-                                                color: Colors.orangeAccent, 
-                                                fontSize: 18, 
+                                                color: Colors.orangeAccent,
+                                                fontSize: 18,
                                                 fontWeight: FontWeight.w900,
-                                                letterSpacing: 1.0
+                                                letterSpacing: 1.0,
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            const Icon(Icons.expand_circle_down, color: Colors.orangeAccent, size: 22),
+                                            const Icon(
+                                              Icons.expand_circle_down,
+                                              color: Colors.orangeAccent,
+                                              size: 22,
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -1042,95 +1309,185 @@ Future<void> _loadCreatedMatchesLocally() async {
                                 ],
                               ),
                             ),
-                            
+
                             Expanded(
                               child: _createdMatchesForRound.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.calendar_today_outlined, size: 80, color: Colors.white.withValues(alpha: 0.1)),
-                                        const SizedBox(height: 20),
-                                        Text("No hay partidos en la Jornada $_selectedRoundId", style: const TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 10),
-                                        const Text("Presiona 'Agregar Partido' para comenzar.", style: TextStyle(color: Colors.white38, fontSize: 14)),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), 
-                                    physics: const BouncingScrollPhysics(),
-                                    itemCount: _createdMatchesForRound.length,
-                                    itemBuilder: (context, index) {
-                                      final match = _createdMatchesForRound[index];
-                                      return Card(
-                                        color: Colors.white.withValues(alpha: 0.05),
-                                        elevation: 0,
-                                        margin: const EdgeInsets.only(bottom: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
-                                          side: BorderSide(color: Colors.white.withValues(alpha: 0.1))
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                             if (match['status'] == 'SCHEDULED')
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(Icons.edit_calendar, color: Colors.white54),
-                                                      onPressed: () => _showEditMatchDialog(match),
-                                                      tooltip: "Editar Equipos",
-                                                    ),
-                                                    IconButton(
-                                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                                      onPressed: () => _confirmDeleteMatch(match),
-                                                      tooltip: "Eliminar Partido",
-                                                    ),
-                                                  ],
-                                                )
-                                              else
-                                                // Si ya se jugó o está en curso, mostramos un candado
-                                                const Padding(
-                                                  padding: EdgeInsets.all(12.0),
-                                                  child: Icon(Icons.lock, color: Colors.redAccent, size: 20),
-                                                ),
-                                              Expanded(
-                                                child: Text(
-                                                  match['teamAName'],
-                                                  textAlign: TextAlign.right,
-                                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                                ),
-                                              ),
-                                              Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.orangeAccent.withValues(alpha: 0.2),
-                                                    shape: BoxShape.circle
-                                                  ),
-                                                  child: const Text("VS", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900, fontSize: 12)),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Text(
-                                                  match['teamBName'],
-                                                  textAlign: TextAlign.left,
-                                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                                ),
-                                              ),
-                                              // Espacio vacío para equilibrar el botón de edición izquierdo
-                                              const SizedBox(width: 48), 
-                                            ],
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today_outlined,
+                                            size: 80,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.1,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                          const SizedBox(height: 20),
+                                          Text(
+                                            "No hay partidos en la Jornada $_selectedRoundId",
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          const Text(
+                                            "Presiona 'Agregar Partido' para comenzar.",
+                                            style: TextStyle(
+                                              color: Colors.white38,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        100,
+                                      ),
+                                      physics: const BouncingScrollPhysics(),
+                                      itemCount: _createdMatchesForRound.length,
+                                      itemBuilder: (context, index) {
+                                        final match =
+                                            _createdMatchesForRound[index];
+                                        return Card(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.05,
+                                          ),
+                                          elevation: 0,
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            side: BorderSide(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 20,
+                                              horizontal: 16,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                if (match['status'] ==
+                                                    MatchStatus.scheduled)
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.edit_calendar,
+                                                          color: Colors.white54,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _showEditMatchDialog(
+                                                              match,
+                                                            ),
+                                                        tooltip:
+                                                            "Editar Equipos",
+                                                      ),
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.delete_outline,
+                                                          color:
+                                                              Colors.redAccent,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _confirmDeleteMatch(
+                                                              match,
+                                                            ),
+                                                        tooltip:
+                                                            "Eliminar Partido",
+                                                      ),
+                                                    ],
+                                                  )
+                                                else
+                                                  // Si ya se jugó o está en curso, mostramos un candado
+                                                  const Padding(
+                                                    padding: EdgeInsets.all(
+                                                      12.0,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.lock,
+                                                      color: Colors.redAccent,
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                Expanded(
+                                                  child: Text(
+                                                    match['teamAName'],
+                                                    textAlign: TextAlign.right,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 20,
+                                                      ),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orangeAccent
+                                                          .withValues(
+                                                            alpha: 0.2,
+                                                          ),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Text(
+                                                      "VS",
+                                                      style: TextStyle(
+                                                        color:
+                                                            Colors.orangeAccent,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: Text(
+                                                    match['teamBName'],
+                                                    textAlign: TextAlign.left,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Espacio vacío para equilibrar el botón de edición izquierdo
+                                                const SizedBox(width: 48),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                           ],
                         ),
