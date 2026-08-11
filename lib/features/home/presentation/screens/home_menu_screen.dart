@@ -360,12 +360,12 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                               ),
                             ...cloudTournaments.map((t) => ListTile(
                                   leading: const Icon(Icons.emoji_events, color: Colors.white70),
-                                  title: Text(t['name'], style: const TextStyle(color: Colors.white)),
-                                  subtitle: Text(t['category'] ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                                  title: Text(t['name'] as String, style: const TextStyle(color: Colors.white)),
+                                  subtitle: Text(t['category'] as String? ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
                                   trailing: const Icon(Icons.download, color: Colors.white38),
                                   onTap: () {
                                     Navigator.pop(ctx);
-                                    _confirmSyncData(t['id'].toString(), t['name']);
+                                    _confirmSyncData(t['id'].toString(), t['name'] as String);
                                   },
                                 )),
                           ],
@@ -781,7 +781,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                           color: isSelected ? Colors.orange : Colors.grey,
                         ),
                         title: Text(
-                          item["name"],
+                          item["name"] as String,
                           style: TextStyle(
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected ? Colors.orange : (isAllOption ? Colors.black : Colors.black87),
@@ -789,7 +789,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                         ),
                         // AQUÍ AGREGAMOS EL SUBTITLE PARA MOSTRAR LA CATEGORÍA
                         subtitle: Text(
-                          item["category"],
+                          item["category"] as String,
                           style: TextStyle(
                             color: isAllOption ? Colors.black45 : Colors.grey.shade600,
                             fontSize: 12,
@@ -797,7 +797,7 @@ class _HomeMenuScreenState extends ConsumerState<HomeMenuScreen> {
                         ),
                         trailing: isSelected ? const Icon(Icons.check, color: Colors.orange) : null,
                         onTap: () {
-                          ref.read(selectedTournamentIdProvider.notifier).state = item["id"];
+                          ref.read(selectedTournamentIdProvider.notifier).state = item["id"] as String?;
                           Navigator.pop(context);
                         },
                       );

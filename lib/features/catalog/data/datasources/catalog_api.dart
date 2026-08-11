@@ -71,16 +71,19 @@ class CatalogApi {
         return CatalogData(
           tournaments: [],
           venues: (data['venues'] as List)
-              .map((e) => CatalogVenue.fromJson(e))
+              .map((e) => CatalogVenue.fromJson(e as Map<String, dynamic>))
               .toList(),
           teams: (data['teams'] as List)
-              .map((e) => CatalogTeam.fromJson(e))
+              .map((e) => CatalogTeam.fromJson(e as Map<String, dynamic>))
               .toList(),
           players: (data['players'] as List)
-              .map((e) => CatalogPlayer.fromJson(e))
+              .map((e) => CatalogPlayer.fromJson(e as Map<String, dynamic>))
               .toList(),
           relationships: (data['tournament_teams'] as List)
-              .map((e) => TournamentTeamRelation.fromJson(e))
+              .map(
+                (e) =>
+                    TournamentTeamRelation.fromJson(e as Map<String, dynamic>),
+              )
               .toList(),
           officials: [],
         );
@@ -97,26 +100,32 @@ class CatalogApi {
         final data = raw! as Map;
         return CatalogData(
           tournaments: (data['tournaments'] as List)
-              .map((e) => CatalogTournament.fromJson(e))
+              .map((e) => CatalogTournament.fromJson(e as Map<String, dynamic>))
               .toList(),
           venues: (data['venues'] as List)
-              .map((e) => CatalogVenue.fromJson(e))
+              .map((e) => CatalogVenue.fromJson(e as Map<String, dynamic>))
               .toList(),
           teams: (data['teams'] as List)
-              .map((e) => CatalogTeam.fromJson(e))
+              .map((e) => CatalogTeam.fromJson(e as Map<String, dynamic>))
               .toList(),
           players: (data['players'] as List)
-              .map((e) => CatalogPlayer.fromJson(e))
+              .map((e) => CatalogPlayer.fromJson(e as Map<String, dynamic>))
               .toList(),
           relationships: (data['tournament_teams'] as List)
-              .map((e) => TournamentTeamRelation.fromJson(e))
+              .map(
+                (e) =>
+                    TournamentTeamRelation.fromJson(e as Map<String, dynamic>),
+              )
               .toList(),
           fixtures: ((data['fixtures'] ?? []) as List)
               .map((e) => CatalogFixture.fromJson(e as Map<String, dynamic>))
               .toList(),
           officials: data['officials'] != null
               ? (data['officials'] as List)
-                    .map((e) => CatalogOfficial.fromJson(e))
+                    .map(
+                      (e) =>
+                          CatalogOfficial.fromJson(e as Map<String, dynamic>),
+                    )
                     .toList()
               : [],
           finishedRosters: ((data['finished_rosters'] ?? []) as List)

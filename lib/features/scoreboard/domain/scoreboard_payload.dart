@@ -51,12 +51,24 @@ extension ScoreboardWire on MatchState {
       isRunning: json['isRunning'] as bool? ?? false,
       currentPeriod: json['currentPeriod'] as int? ?? 1,
       possession: json['possession'] as String? ?? '',
-      teamATimeouts1: List<String>.from(json['teamATimeouts1'] ?? const []),
-      teamATimeouts2: List<String>.from(json['teamATimeouts2'] ?? const []),
-      teamAOTTimeouts: List<String>.from(json['teamAOTTimeouts'] ?? const []),
-      teamBTimeouts1: List<String>.from(json['teamBTimeouts1'] ?? const []),
-      teamBTimeouts2: List<String>.from(json['teamBTimeouts2'] ?? const []),
-      teamBOTTimeouts: List<String>.from(json['teamBOTTimeouts'] ?? const []),
+      teamATimeouts1: List<String>.from(
+        json['teamATimeouts1'] as List? ?? const [],
+      ),
+      teamATimeouts2: List<String>.from(
+        json['teamATimeouts2'] as List? ?? const [],
+      ),
+      teamAOTTimeouts: List<String>.from(
+        json['teamAOTTimeouts'] as List? ?? const [],
+      ),
+      teamBTimeouts1: List<String>.from(
+        json['teamBTimeouts1'] as List? ?? const [],
+      ),
+      teamBTimeouts2: List<String>.from(
+        json['teamBTimeouts2'] as List? ?? const [],
+      ),
+      teamBOTTimeouts: List<String>.from(
+        json['teamBOTTimeouts'] as List? ?? const [],
+      ),
       forfeitStatus: json['forfeitStatus'] as String? ?? 'NONE',
       observaciones: json['observaciones'] as String? ?? '',
     );

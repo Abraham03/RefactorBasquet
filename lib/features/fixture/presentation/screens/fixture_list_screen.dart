@@ -291,12 +291,12 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
       // 1. Guardar reglas
       final rulesSaved = (await catalogApi.saveTournamentRules(
         tournamentId: widget.tournamentId,
-        vueltas: rules['vueltas'],
-        ptsVictoria: rules['win'],
-        ptsDerrota: rules['loss'],
-        ptsEmpate: rules['draw'],
-        ptsForfeitWin: rules['forfeitWin'],
-        ptsForfeitLoss: rules['forfeitLoss'],
+        vueltas: rules['vueltas'] as int,
+        ptsVictoria: rules['win'] as int,
+        ptsDerrota: rules['loss'] as int,
+        ptsEmpate: rules['draw'] as int,
+        ptsForfeitWin: rules['forfeitWin'] as int,
+        ptsForfeitLoss: rules['forfeitLoss'] as int,
       )).isOk;
       if (!rulesSaved) throw Exception("Error guardando las reglas del torneo");
 
@@ -400,7 +400,7 @@ class _FixtureListScreenState extends ConsumerState<FixtureListScreen> {
     );
   }
 
-  void _showFinishedMatchOptions(BuildContext context, dynamic match) {
+  void _showFinishedMatchOptions(BuildContext context, Fixture match) {
     final matchId = match.matchId ?? match.id;
     showModalBottomSheet(
       context: context,

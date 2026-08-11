@@ -375,12 +375,12 @@ class _ManualFixtureBuilderScreenState
         final api = ref.read(catalogApiProvider);
         final success = (await api.saveTournamentRules(
           tournamentId: widget.tournamentId,
-          vueltas: rules['vueltas'] ?? 1,
-          ptsVictoria: rules['win'],
-          ptsDerrota: rules['loss'],
-          ptsEmpate: rules['draw'],
-          ptsForfeitWin: rules['forfeitWin'],
-          ptsForfeitLoss: rules['forfeitLoss'],
+          vueltas: rules['vueltas'] as int? ?? 1,
+          ptsVictoria: rules['win'] as int,
+          ptsDerrota: rules['loss'] as int,
+          ptsEmpate: rules['draw'] as int,
+          ptsForfeitWin: rules['forfeitWin'] as int,
+          ptsForfeitLoss: rules['forfeitLoss'] as int,
         )).isOk;
 
         if (mounted) {
@@ -927,10 +927,10 @@ class _ManualFixtureBuilderScreenState
               roundName: "Jornada $_selectedRoundId",
               teamAId: teamA.toString(),
               teamBId: teamB.toString(),
-              teamAName: teamAData['name'],
-              teamBName: teamBData['name'],
-              logoA: drift.Value(teamAData['logo_url']),
-              logoB: drift.Value(teamBData['logo_url']),
+              teamAName: teamAData['name'] as String,
+              teamBName: teamBData['name'] as String,
+              logoA: drift.Value(teamAData['logo_url'] as String?),
+              logoB: drift.Value(teamBData['logo_url'] as String?),
               status: const drift.Value(MatchStatus.scheduled),
               isSynced: const drift.Value(false),
             ),
@@ -991,10 +991,10 @@ class _ManualFixtureBuilderScreenState
         FixturesCompanion(
           teamAId: drift.Value(newTeamA.toString()),
           teamBId: drift.Value(newTeamB.toString()),
-          teamAName: drift.Value(teamAData['name']),
-          teamBName: drift.Value(teamBData['name']),
-          logoA: drift.Value(teamAData['logo_url']),
-          logoB: drift.Value(teamBData['logo_url']),
+          teamAName: drift.Value(teamAData['name'] as String),
+          teamBName: drift.Value(teamBData['name'] as String),
+          logoA: drift.Value(teamAData['logo_url'] as String?),
+          logoB: drift.Value(teamBData['logo_url'] as String?),
           isSynced: const drift.Value(
             false,
           ), // Marcamos como no sincronizado por defecto
@@ -1431,7 +1431,7 @@ class _ManualFixtureBuilderScreenState
                                                   ),
                                                 Expanded(
                                                   child: Text(
-                                                    match['teamAName'],
+                                                    match['teamAName'] as String,
                                                     textAlign: TextAlign.right,
                                                     style: const TextStyle(
                                                       color: Colors.white,
@@ -1470,7 +1470,7 @@ class _ManualFixtureBuilderScreenState
                                                 ),
                                                 Expanded(
                                                   child: Text(
-                                                    match['teamBName'],
+                                                    match['teamBName'] as String,
                                                     textAlign: TextAlign.left,
                                                     style: const TextStyle(
                                                       color: Colors.white,

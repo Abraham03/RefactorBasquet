@@ -7,21 +7,33 @@
 # ruido que oculta las regresiones reales. Por eso aquí solo entran reglas
 # que están en 0 hoy, o que son la lista de trabajo explícita de una fase.
 #
-# DIFERIDO A LA FASE 9 (medido el 2026-08-09, no re-discutir sin volver a medir):
-#   strict-casts: true      -> 119 ERRORES. El `List<dynamic> fixturesRaw` de
-#                              catalog_models se propaga por toda la app. Entra
-#                              cuando la Fase 4 tipe los modelos.
-#   strict-raw-types        -> mismo origen.
-#   avoid_dynamic_calls     -> mismo origen.
-#   prefer_final_locals     -> 155 issues cosméticos. Arreglarlos en la Fase 1
-#                              contaminaría el diff de "solo mover archivos".
-#   directives_ordering     -> 49 issues; se reordenan solos en la Fase 1.A.
+# DIFERIDO A LA FASE 9 (medido el 2026-08-09) — RESUELTO, ver `analyzer:`:
+#   strict-casts     -> era 119; se activo en la Fase 9 con 59 arreglados a mano.
+#   strict-raw-types -> se activo en la Fase 9 (1 issue).
+#
+# SIGUE DIFERIDO (medido el 2026-08-10, no re-discutir sin volver a medir):
+#   strict-inference    -> 52 issues, todos `inference_failure_on_*` (llamadas
+#                          tipo showDialog sin parametrizar). Son anotaciones,
+#                          no bugs. 45 de los 52 estan en 5 pantallas grandes
+#                          —match_control 13, match_setup 12, home_menu 10,
+#                          manual_fixture 5, fixture_list 5— que hoy no estan
+#                          formateadas: tocarlas dispara el problema del diff
+#                          descrito en la Fase 9.2. Entra al trocearlas.
+#   avoid_dynamic_calls -> mismo origen.
+#   prefer_final_locals -> 155 issues cosméticos. Arreglarlos en la Fase 1
+#                          contaminaría el diff de "solo mover archivos".
+#   directives_ordering -> 49 issues; se reordenan solos en la Fase 1.A.
 
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
   language:
-    # Medido en la Fase 9: 1 issue. Practicamente gratis.
+    # Activadas en la Fase 9, midiendo antes cada una por separado:
+    #   strict-casts     -> 119 issues en la Fase 0. Bajo SOLO a 59 con el
+    #                       tipado de la Fase 4; los 59 se arreglaron a mano.
+    #   strict-raw-types -> 1 issue. Practicamente gratis.
+    #   strict-inference -> 52 issues. Sigue diferida, ver abajo.
+    strict-casts: true
     strict-raw-types: true
   exclude:
     - "**/*.g.dart"

@@ -201,7 +201,7 @@ class TvScoreboardWidget extends StatelessWidget {
 
   /// COLUMNA DE SCORE Y STATS
   /// Organiza los puntos y los indicadores inferiores.
-  Widget _buildScoreColumn(int score, int fouls, List<String> t1, List<String> t2, List<String> tOT, Color color, int period, double h, Function style) {
+  Widget _buildScoreColumn(int score, int fouls, List<String> t1, List<String> t2, List<String> tOT, Color color, int period, double h, TextStyle Function(double, Color) style) {
     return Expanded(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,

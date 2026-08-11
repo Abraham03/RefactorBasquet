@@ -2,6 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -358,7 +359,7 @@ class TeamManagementScreen extends ConsumerWidget {
 }
 
 class _TeamCard extends ConsumerWidget {
-  final dynamic team;
+  final CatalogTeam team;
   final String tournamentId;
   const _TeamCard({required this.team, required this.tournamentId});
 
@@ -381,12 +382,10 @@ class _TeamCard extends ConsumerWidget {
     final String initial = team.name.isNotEmpty
         ? team.name.substring(0, 1).toUpperCase()
         : '?';
-    String shortName = '';
-    try {
-      shortName = team.shortName?.isNotEmpty == true ? team.shortName : '';
-    } catch (_) {
-      shortName = '';
-    }
+    // El try/catch que envolvia esto era defensa contra el `dynamic team`:
+    // `shortName` es un `String` no nulo en `CatalogTeam` y su `fromJson`
+    // ya cae a '' cuando el backend no lo manda.
+    final String shortName = team.shortName;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -525,7 +524,7 @@ class _TeamCard extends ConsumerWidget {
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    team.coachName?.isNotEmpty == true
+                                    team.coachName.isNotEmpty
                                         ? team.coachName
                                         : 'Sin entrenador',
                                     style: TextStyle(
@@ -602,7 +601,7 @@ class _TeamCard extends ConsumerWidget {
 void _showEditTeamLocalDialog(
   BuildContext context,
   WidgetRef ref,
-  dynamic team,
+  CatalogTeam team,
   String tournamentId,
 ) {
   final nameCtrl = TextEditingController(text: team.name);
