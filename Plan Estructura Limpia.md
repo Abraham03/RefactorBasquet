@@ -933,13 +933,43 @@ El proyecto tenía los dos casos y mezclados: `home_menu` usaba `context.mounted
 
 > Intenté automatizarlo dos veces y las dos salieron mal: la primera versión solo entendía firmas de método y dejó 18 sitios; la segunda quiso deducir el ámbito contando llaves y paréntesis juntos, se equivocó de dirección y **subió** la cuenta a 19. Los 3 archivos que tocó se revirtieron y se hicieron a mano. Cuando el criterio depende del ámbito léxico, el `grep` no sustituye a leer el código.
 
+#### ✅ 9.6 — Colores y tema
+
+Los 21 `Color(0x…)` **no eran la misma paleta**, y por eso no van todos a `AppColors`: 14 son colores de la app ya definidos ahí; los otros 7 son del **marcador de TV** —negro más profundo, acentos más saturados, pensados para leerse desde la grada en un televisor mal calibrado—. Meterlos en `AppColors` invita a usarlos en pantallas normales, donde chirrían. Van a `ScoreboardColors`, en la propia feature, con nombres que describen la **función** (`teamAScore`, `clockRunning`) y no el color.
+
+El `ThemeData` estaba inline en el `build` de `MyApp`, reconstruyéndose en cada rebuild del widget raíz. Ahora es `AppTheme.light`, `static final`.
+
+> Queda anotado en el doc de `AppTheme` que su `ColorScheme` es **claro** mientras la mayoría de pantallas pintan a mano sobre fondo oscuro. No se arregla cambiando `brightness`: hay que migrar las pantallas primero o quedan textos blancos sobre blanco. Fuera del alcance de esta fase.
+
+#### ✅ 9.7 — La sincronización deja de mentir
+
+Cada bucle de subida atrapa el error de un elemento y sigue con el siguiente. **Eso está bien**: un torneo roto no debe impedir subir los otros seis. Lo que estaba mal es que el error solo iba a `debugPrint`.
+
+El recuento de `SyncResult` contaba únicamente los éxitos, así que la pantalla anunciaba «Sincronización exitosa» con un número correcto mientras los fallos desaparecían sin dejar rastro visible. **El árbitro se iba creyendo que su acta estaba en la nube.**
+
+`SyncResult.failures` recoge qué falló y por qué —descripción tipada desde `AppException`, no un `toString()` opaco— y la pantalla dice «Sincronización parcial» cuando la hay. Un test cubre que `copyWith` arrastre los fallos: el repositorio acumula entidad por entidad, y si ese campo se perdiera por el camino volverían a desaparecer.
+
+#### ✅ 9.8 — Lints diferidos: `strict-casts` y `strict-raw-types`
+
+Medidas **por separado antes de activar**, como exige la Fase 0:
+
+| Regla | Fase 0 | Hoy | Resultado |
+|---|---|---|---|
+| `strict-casts` | 119 | **59** | Activada; los 59 arreglados a mano |
+| `strict-raw-types` | — | **1** | Activada |
+| `strict-inference` | — | 52 | **Sigue diferida**, con motivo medido |
+
+`strict-casts` bajó de 119 a 59 **solo**, cuando la Fase 4 tipó los modelos — que era exactamente la apuesta escrita entonces. Los 59 restantes no eran el mismo problema: **3 raíces `dynamic` arrastraban 15 errores entre las tres** (un parámetro `dynamic match`, un campo `final dynamic team`, un `Function style` sin firma). Tiparlas los mató de golpe.
+
+Tipar `CatalogTeam` dejó al descubierto dos `try/catch` que solo existían como defensa contra el `dynamic`.
+
+`strict-inference` queda fuera con la razón medida: **45 de sus 52 issues están en 5 pantallas grandes sin formatear**, y tocarlas dispara el problema de diff descrito en 9.2. Entra cuando se troceen esas pantallas, no antes.
+
 #### ⬜ Lo que queda de la Fase 9
 
 **Tareas:**
-- 21 `Color(0x...)` crudos → `AppColors`. `ThemeData` inline de `main.dart` → `app/theme/app_theme.dart`.
 - `pdf_generator.dart` (1.537 líneas, ~140 coordenadas `static const double`): extraer coordenadas a `ScoresheetLayout` y dividir en constructores de sección (`HeaderSection`, `PeriodTable`, `RosterTable`, `SignatureBlock`). Patrón **Builder/Composite**. Habilita un golden test de PDF (nº de páginas + extracción de texto).
-- Eliminar los 3 `catch (_) {}` silenciosos y los `debugPrint`-y-continúa de `sync_repository.dart` (hoy `SyncResult` sub-reporta los conteos).
-- Activar las reglas diferidas de la Fase 0, en este orden (cada una en su propio commit, midiendo antes): `strict-casts` (119 errores hoy; debería caer solo tras la Fase 4), luego `strict-raw-types`, `strict-inference`, `avoid_dynamic_calls`, `prefer_final_locals`, `directives_ordering`, y `public_member_api_docs` solo en `domain/`.
+- Activar `strict-inference` y `avoid_dynamic_calls` **al trocear las 5 pantallas grandes**, no antes (motivo medido arriba). `prefer_final_locals` (155) y `directives_ordering` (49) siguen siendo cosméticos.
 
 **Contrato externo:** intacto. `SoftDelete.prefix` debe seguir siendo exactamente `'[DEL]-'` — es un dato que ya existe en las bases instaladas y en el backend (I2/I3).
 
@@ -978,7 +1008,7 @@ Se actualiza al cerrar cada fase.
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
 | 8 | Dividir el controller | `refactor/f8-engines` | ✅ Cerrada (falta smoke en dispositivo) | **0** | 278 ✔ | 16 commits | 2026-08-10 |
-| 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
+| 9 | Constantes y calidad | `refactor/f9-quality` | 🟡 8 de 9 bloques cerrados; queda `pdf_generator` | **0** | 292 ✔ | 9 commits | 2026-08-10 |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
 Estados: ⬜ Pendiente · 🟡 En curso · ✅ Cerrada · 🔴 Revertida
