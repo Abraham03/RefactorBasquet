@@ -13,6 +13,7 @@ import 'package:myapp/features/catalog/domain/entities/sync_result.dart';
 import 'package:myapp/features/match/domain/mappers/match_payload_mapper.dart';
 import 'package:myapp/features/teams/data/repositories/player_repository.dart';
 import 'package:myapp/core/constants/match_status.dart';
+import 'package:myapp/core/constants/soft_delete.dart';
 
 /// Orquesta la subida de datos pendientes a la nube.
 ///
@@ -173,7 +174,7 @@ class SyncRepository {
         final bool isExisting = numericId != null && numericId > 0;
 
         // 1. Borrado lógico
-        if (venue.name.startsWith('[DEL]-')) {
+        if (SoftDelete.isDeleted(venue.name)) {
           if (isExisting) {
             final success = (await _officialVenueApi.deleteVenue(
               numericId,
@@ -563,7 +564,7 @@ class SyncRepository {
         final int? numericId = int.tryParse(official.id.toString());
         final bool isExisting = numericId != null && numericId > 0;
 
-        if (official.name.startsWith('[DEL]-')) {
+        if (SoftDelete.isDeleted(official.name)) {
           if (isExisting) {
             final success = (await _officialVenueApi.deleteOfficial(
               numericId,

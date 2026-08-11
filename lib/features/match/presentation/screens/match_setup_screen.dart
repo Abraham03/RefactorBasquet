@@ -19,6 +19,7 @@ import 'package:myapp/shared/widgets/app_feedback.dart';
 import 'package:myapp/core/di/providers.dart';
 import 'package:myapp/core/network/result.dart';
 import 'package:myapp/core/utils/id_generator.dart';
+import 'package:myapp/core/constants/soft_delete.dart';
 /// Desenvuelve un [Result] o relanza su error tipado.
 ///
 /// Estas pantallas ya envolvian las llamadas en `try/catch`; relanzar preserva
@@ -120,8 +121,8 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             final bool isLocked = widget.preSelectedFixture != null;
 
             // --- FILTRAR ELEMENTOS EN BORRADO LÓGICO ---
-            final activeVenues = catalogData.venues.where((v) => !v.name.startsWith('[DEL]-')).toList();
-            final activeOfficials = catalogData.officials.where((o) => !o.name.startsWith('[DEL]-')).toList();
+            final activeVenues = catalogData.venues.where((v) => !SoftDelete.isDeleted(v.name)).toList();
+            final activeOfficials = catalogData.officials.where((o) => !SoftDelete.isDeleted(o.name)).toList();
 
             final mainReferees = activeOfficials.where((o) => o.role == 'ARBITRO_PRINCIPAL').toList();
             final auxReferees = activeOfficials.where((o) => o.role == 'ARBITRO_AUXILIAR').toList();
@@ -961,12 +962,12 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             await (database.delete(database.venues)..where((v) => v.id.equals(venue.id.toString()))).go();
           } else {
             await (database.update(database.venues)..where((v) => v.id.equals(venue.id.toString()))).write(
-              db.VenuesCompanion(name: drift.Value('[DEL]-${venue.name}'), isSynced: const drift.Value(false))
+              db.VenuesCompanion(name: drift.Value(SoftDelete.mark(venue.name)), isSynced: const drift.Value(false))
             );
           }
         } catch (e) {
           await (database.update(database.venues)..where((v) => v.id.equals(venue.id.toString()))).write(
-             db.VenuesCompanion(name: drift.Value('[DEL]-${venue.name}'), isSynced: const drift.Value(false))
+             db.VenuesCompanion(name: drift.Value(SoftDelete.mark(venue.name)), isSynced: const drift.Value(false))
           );
         }
       } else {
@@ -1378,12 +1379,12 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             await (database.delete(database.officials)..where((o) => o.id.equals(official.id.toString()))).go();
           } else {
             await (database.update(database.officials)..where((o) => o.id.equals(official.id.toString()))).write(
-              db.OfficialsCompanion(name: drift.Value('[DEL]-${official.name}'), isSynced: const drift.Value(false))
+              db.OfficialsCompanion(name: drift.Value(SoftDelete.mark(official.name)), isSynced: const drift.Value(false))
             );
           }
         } catch (e) {
           await (database.update(database.officials)..where((o) => o.id.equals(official.id.toString()))).write(
-            db.OfficialsCompanion(name: drift.Value('[DEL]-${official.name}'), isSynced: const drift.Value(false))
+            db.OfficialsCompanion(name: drift.Value(SoftDelete.mark(official.name)), isSynced: const drift.Value(false))
           );
         }
       } else {
