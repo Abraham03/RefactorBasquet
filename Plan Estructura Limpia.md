@@ -814,34 +814,41 @@ El plan describía las reglas de dependencia como «verificables por `grep`». U
 
 **Rollback:** por engine. Si un engine falla en campo se revierte ese commit y el controller vuelve a su implementación previa.
 
-#### 🟡 En curso — 5 de 7 engines
+#### 🟡 En curso — 6 motores extraídos
 
 | Métrica | Base | Ahora |
 |---|---|---|
 | `flutter analyze` | 0 | **0** |
-| `flutter test` | 183 verdes | **250 verdes** |
+| `flutter test` | 183 verdes | **259 verdes** |
 | `flutter build apk --release` | ✔ | ✔ 69.2 MB |
 | Esquema drift (I3) | — | `diff` vacío |
-| Líneas de `match_game_controller.dart` | 1705 | **1399** |
-| Engines extraídos | 0 | **5** |
+| Líneas de `match_game_controller.dart` | 1705 | **1398** |
+| Motores en `domain/engines/` | 0 | **6** |
 
-| Engine | Qué era antes | Qué destapó |
+| Motor | Qué era antes | Qué destapó |
 |---|---|---|
 | `ScoreEngine` | 96 líneas mezcladas con persistencia | Los rechazos eran `return` mudos **después** de guardar en la pila de deshacer: una acción rechazada la ensuciaba |
-| `GameClock` | `Timer?` suelto; probar reglas exigía esperar segundos reales | Estrena `fake_async`. Cubre que arrancar dos veces no deje **dos** temporizadores (reloj al doble de velocidad) |
+| `GameClock` | `Timer?` suelto; probar reglas exigía esperar segundos reales | Estrena `fake_async`. Arrancar dos veces dejaba **dos** temporizadores (reloj al doble de velocidad) |
 | `MatchHistory` | Lista suelta; deshacer sin tests pese a usarse en vivo | `TimeoutUndo` quita **ese** evento del log, no el último: entre medias puede haber canastas |
-| `TimeoutEngine` | 3 métodos con un `if` de período cada uno | Lo que escribe acaba **impreso en el acta**. El minuto anotado no es un redondeo normal y es deliberado |
+| `TimeoutEngine` | 3 métodos con un `if` de período cada uno | Lo que escribe acaba **impreso en el acta**; el minuto anotado no es un redondeo normal y es deliberado |
 | `SubstitutionEngine` | 79 líneas con las ramas A y B duplicadas | Se aplicaba **a ciegas**: si el que salía no estaba en cancha, el entrante se añadía igual → **seis jugadores en cancha** |
+| `MatchClockFormat` | Formato y parseo escritos a mano en sitios distintos | Nada garantizaba que encajaran: si se desincronizan, un partido a medias **se reanuda con el reloj equivocado** |
 
-**Un cambio de comportamiento deliberado**, en `SubstitutionEngine`: ahora valida y rechaza cambios ilegales. Se verificaron los dos llamadores antes de añadirlo — el diálogo de la UI elige de las listas de cancha/banca y `undoLastSub` invierte los papeles, así que ambos pasan cambios válidos; el restore usa otro método (`_applyRestoreSub`) y no pasa por aquí.
+**Patrón común a los seis:** cuando la operación no cambia nada devuelven `null` o `Rejected` en vez de un estado idéntico. Eso evita meter pasos vacíos en la pila de deshacer, que obligarían al anotador a pulsar deshacer dos veces para ver un efecto.
 
-**Patrón común a los cinco:** cuando la operación no cambia nada devuelven `null` o `Rejected` en vez de un estado idéntico. Eso evita meter en la pila de deshacer pasos vacíos, que obligarían al anotador a pulsar deshacer dos veces.
+**Un cambio de comportamiento deliberado**, en `SubstitutionEngine`: ahora valida y rechaza cambios ilegales. Se verificaron los dos llamadores antes de añadirlo — el diálogo de la UI elige de las listas de cancha/banca y `undoLastSub` invierte los papeles; el restore usa otro método y no pasa por aquí.
 
-**Corrección al plan:** el engine 4 se llamaba «`FoulEngine` (faltas de equipo y bonus)». Al abrir el código, el conjunto de reglas denso no son las faltas de equipo —que son casi triviales— sino los **tiempos muertos**. Se extrajo lo que de verdad tiene reglas.
+**Dos correcciones al plan:**
+- El motor 4 se llamaba «`FoulEngine` (faltas de equipo y bonus)». Al abrir el código, el conjunto de reglas denso no son las faltas de equipo —casi triviales— sino los **tiempos muertos**. Se extrajo lo que de verdad tiene reglas.
+- `MatchPersistence` se materializó como `MatchClockFormat`: lo único con lógica propia en la persistencia era el formato del reloj. Envolver dos llamadas al DAO en una clase habría sido ceremonia.
 
-#### ⬜ Faltan 2 engines y dos cambios estructurales
+#### ⬜ Lo que falta, y por qué es otra cosa
 
-`MatchPersistence` y `MatchSyncCoordinator`. Y los dos de más riesgo, que tocan el ciclo de vida del partido: el paso a `matchGameProvider.family` + `autoDispose`, y romper la dependencia de `MatchFinalizer` sobre el controller — que es lo que cerraría las 2 violaciones R3 restantes.
+**`MatchSyncCoordinator`** (`finalizeAndSync`, 159 líneas) no es un motor de reglas puras: es orquestación de efectos —generar el PDF, escribirlo a disco, subirlo, marcar el partido—. Extraerlo es una decisión de diseño distinta a las seis anteriores, no un corte mecánico.
+
+**Los dos cambios estructurales**, que son los de mayor riesgo de toda la fase porque tocan el ciclo de vida del partido y no reglas aisladas:
+- `matchGameProvider` → `.family` + `autoDispose`. Hoy es un provider global único: el estado de un partido sobrevive al siguiente y las pantallas lo resetean con `ref.invalidate`.
+- Romper la dependencia de `MatchFinalizer` sobre el controller. Es lo que cerraría las **2 violaciones R3 restantes** (`match_finalizer` y `open_finished_match_usecase`, ambas anotadas como deuda con dueño en `test/architecture_test.dart`).
 
 ---
 
@@ -895,7 +902,7 @@ Se actualiza al cerrar cada fase.
 | 5 | Sacar negocio de la UI | `refactor/f5-usecases` | 🟡 Verde, falta smoke en dispositivo | **0** | 152 ✔ | 3 commits | 2026-08-10 |
 | 6 | Deduplicación | `refactor/f6-dry` + `f6c-fixture-refresh` | 🟡 Verde, falta smoke en dispositivo | **0** | 170 ✔ | 7 commits | 2026-08-10 |
 | 7 | `MatchState` al dominio | `refactor/f7-match-state` | 🟡 Verde, falta smoke en dispositivo | **0** | 183 ✔ | 2 commits | 2026-08-10 |
-| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 5 de 7 engines | **0** | 250 ✔ | 7 commits | 2026-08-10 |
+| 8 | Dividir el controller | `refactor/f8-engines` | 🟡 6 motores; falta lo estructural | **0** | 259 ✔ | 9 commits | 2026-08-10 |
 | 9 | Constantes y calidad | `refactor/f9-quality` | ⬜ Pendiente | — | — | — | — |
 | 10 | Opcional | — | ⬜ No justificada | — | — | — | — |
 
