@@ -12,6 +12,7 @@ import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
 import 'package:myapp/features/match/domain/engines/match_history.dart';
 import 'package:myapp/features/match/domain/engines/score_engine.dart';
+import 'package:myapp/features/match/domain/engines/timeout_engine.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
@@ -710,22 +711,18 @@ void _applyRestoreSub({
     return state; // ← el orquestador usa este retorno, no accede a state directo
   }
 
+  /// Concede un tiempo muerto al equipo si le queda cupo.
+  ///
+  /// Las REGLAS (cuantos por tramo, la quema del clutch time, el minuto que
+  /// se anota en el acta) viven en TimeoutEngine, que es puro y esta cubierto
+  /// por tests.
   void addTimeout(String teamId) {
+    final granted = TimeoutEngine.grant(state, teamId);
+    // Cupo agotado: no se registra ni se mete en el historial de deshacer.
+    if (granted == null) return;
+
     _saveToHistory();
-
-    int minutesLeft = (state.timeLeft.inSeconds / 60).floor();
-    if (state.timeLeft.inSeconds % 60 > 0 && minutesLeft == 10) minutesLeft = 9;
-    if (minutesLeft == 0 && state.timeLeft.inSeconds > 0) {
-      minutesLeft = 1;
-    } else if (state.timeLeft.inSeconds == 0) {
-      minutesLeft = 0;
-    }
-
-    String minStr = minutesLeft.toString();
-    bool isClutchTime =
-        state.currentPeriod == 4 && state.timeLeft.inSeconds <= 120;
-
-    _processTimeoutWithRules(teamId, minStr, state.currentPeriod, isClutchTime);
+    state = granted;
     _logEventToDb(null, 0, 0, EventType.timeoutFor(teamId));
   }
 
@@ -752,64 +749,9 @@ void _applyRestoreSub({
     _logEventToDb(null, 0, 1, '${type}_$teamId');
   }
 
-  void _processTimeoutWithRules(
-    String teamId,
-    String minStr,
-    int period,
-    bool isClutchTime,
-  ) {
-    List<String> currentList;
 
-    if (period <= 2) {
-      currentList = List.from(
-        teamId == 'A' ? state.teamATimeouts1 : state.teamBTimeouts1,
-      );
-      if (currentList.length < 2) {
-        currentList.add(minStr);
-        _updateTimeoutList(teamId, 1, currentList);
-      }
-    } else if (period == 3 || period == 4) {
-      currentList = List.from(
-        teamId == 'A' ? state.teamATimeouts2 : state.teamBTimeouts2,
-      );
-      if (isClutchTime && currentList.isEmpty) currentList.add("X");
 
-      if (currentList.length < 3) {
-        currentList.add(minStr);
-        _updateTimeoutList(teamId, 2, currentList);
-      }
-    } else {
-      currentList = List.from(
-        teamId == 'A' ? state.teamAOTTimeouts : state.teamBOTTimeouts,
-      );
-      int currentOtCount = period - 4;
-      if (currentList.length < currentOtCount && currentList.length < 3) {
-        currentList.add(minStr);
-        _updateTimeoutList(teamId, 3, currentList);
-      }
-    }
-  }
 
-  void _updateTimeoutList(String teamId, int section, List<String> newList) {
-    if (teamId == 'A') {
-      if (section == 1) {
-        state = state.copyWith(teamATimeouts1: newList);
-      } else if (section == 2) {
-        state = state.copyWith(teamATimeouts2: newList);
-      } else {
-        state = state.copyWith(teamAOTTimeouts: newList);
-      }
-    } else {
-      if (section == 1) {
-        state = state.copyWith(teamBTimeouts1: newList);
-      } else if (section == 2) {
-        state = state.copyWith(teamBTimeouts2: newList);
-      } else {
-        state = state.copyWith(teamBOTTimeouts: newList);
-      }
-    }
-    _saveToDatabase();
-  }
 
   void _start() {
     state = state.copyWith(isRunning: true);
