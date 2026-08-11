@@ -905,6 +905,10 @@ El valor por defecto de la columna (`Constant('SCHEDULED')`) **se queda como lit
 
 De paso salió a la luz que `forfeitStatus` guarda **dos codificaciones** (`'A'`/`'B'` y `'TEAM_A'`/`'TEAM_B'`) y que `ef == 'BOTH' || ef == ForfeitStatus.both` compara lo mismo dos veces. Anotado, sin tocar.
 
+> **TERCERA reincidencia (2026-08-11).** Volvió a pasar con `dart format lib/features/match/`, en un commit de arreglo: `match_control_screen.dart` salió con **+1999/−726** y `match_setup_screen.dart` con **+965/−533**, para ~140 líneas de cambio real. Se rehízo el commit dejándolo en 250.
+>
+> Que haya pasado tres veces significa que la regla escrita no basta. **Lo que funciona es no pasar `dart format` a un directorio, nunca: solo a la lista explícita de archivos que se han editado, y solo si ya estaban formateados.** Comprobación barata antes de commitear: `git diff --numstat` y mirar si algún archivo tiene un volumen desproporcionado al cambio.
+
 > **Reincidencia de proceso.** Volví a ejecutar `dart format lib/` global — el mismo error de la Fase 3.3, con el mismo resultado: `match_control_screen.dart` con **+2003/−729 para 9 sustituciones reales**. La causa es que 5 archivos nunca se formatearon con la versión actual del formateador, así que tocarlos explota el diff. Reconstruido desde limpio. **Regla reforzada: formatear solo archivos que ya estaban formateados; en los demás, sustituir sin formatear.**
 
 #### ✅ 9.3 — El solapamiento de `EventType` (y un crash que tapaba)
