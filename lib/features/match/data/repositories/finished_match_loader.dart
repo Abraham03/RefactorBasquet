@@ -64,8 +64,17 @@ class _ActaHeader {
 ///
 /// El caso de uso hace el trabajo; la pantalla se queda con el `switch` sobre
 /// el `Result`, el mensaje y el `Navigator`.
-class OpenFinishedMatchUseCase {
-  OpenFinishedMatchUseCase(this._db, this._api, this._officials);
+/// Reune todo lo necesario para reabrir un partido ya finalizado y corregir
+/// su resultado: la cabecera del acta, los rosters y los eventos, tirando de
+/// la nube cuando el partido se jugo en otro dispositivo.
+///
+/// **Vivia en `domain/usecases/`, y no era su sitio.** No tiene ninguna regla
+/// de negocio: solo decide DE DONDE sacar cada dato y lo deja hidratado en
+/// local. Ademas recibe un `Fixture` generado por drift. Eso es la capa de
+/// datos, no el dominio, y por estar mal colocado obligaba a `domain/` a
+/// importar drift (regla 3 del plan).
+class FinishedMatchLoader {
+  FinishedMatchLoader(this._db, this._api, this._officials);
 
   final AppDatabase _db;
   final MatchApi _api;

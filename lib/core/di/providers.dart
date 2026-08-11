@@ -24,10 +24,12 @@ import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/data/repositories/catalog_download_repository.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
+import 'package:myapp/features/match/data/repositories/drift_match_closing_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
+import 'package:myapp/features/match/domain/repositories/match_closing_repository.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/services/match_finalizer.dart';
-import 'package:myapp/features/match/domain/usecases/open_finished_match_usecase.dart';
+import 'package:myapp/features/match/data/repositories/finished_match_loader.dart';
 import 'package:myapp/features/match/data/repositories/attendance_repository.dart';
 
 /// Base de datos local. Su ciclo de vida cuelga del contenedor: al desecharse
@@ -110,9 +112,13 @@ final officialRepositoryProvider = Provider<OfficialRepositoryContract>((ref) {
   return OfficialRepository(ref.watch(databaseProvider));
 });
 
+final matchClosingRepositoryProvider = Provider<MatchClosingRepository>(
+  (ref) => DriftMatchClosingRepository(ref.watch(databaseProvider)),
+);
+
 final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
   return MatchFinalizer(
-    ref.watch(databaseProvider),
+    ref.watch(matchClosingRepositoryProvider),
     ref.watch(matchApiProvider),
     ref.watch(teamApiProvider),
     ref.watch(officialRepositoryProvider),
@@ -121,10 +127,8 @@ final matchFinalizerProvider = Provider<MatchFinalizer>((ref) {
 });
 
 /// Prepara un partido finalizado para corregir su resultado.
-final openFinishedMatchUseCaseProvider = Provider<OpenFinishedMatchUseCase>((
-  ref,
-) {
-  return OpenFinishedMatchUseCase(
+final finishedMatchLoaderProvider = Provider<FinishedMatchLoader>((ref) {
+  return FinishedMatchLoader(
     ref.watch(databaseProvider),
     ref.watch(matchApiProvider),
     ref.watch(officialRepositoryProvider),

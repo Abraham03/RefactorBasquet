@@ -1,4 +1,4 @@
-// OpenFinishedMatchUseCase: preparar un partido finalizado para corregirlo.
+// FinishedMatchLoader: preparar un partido finalizado para corregirlo.
 //
 // Era un `onTap` de 263 líneas dentro de un `ListTile`. Su rama más delicada
 // —el partido se jugó en OTRO dispositivo, así que no hay acta ni roster ni
@@ -18,7 +18,7 @@ import 'package:myapp/core/errors/app_exception.dart';
 import 'package:myapp/core/network/api_client.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
-import 'package:myapp/features/match/domain/usecases/open_finished_match_usecase.dart';
+import 'package:myapp/features/match/data/repositories/finished_match_loader.dart';
 
 /// Backend que responde por acción, para poder fallar una sola.
 class _Backend {
@@ -49,12 +49,12 @@ class _Backend {
 void main() {
   late AppDatabase db;
   late _Backend backend;
-  late OpenFinishedMatchUseCase useCase;
+  late FinishedMatchLoader useCase;
 
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     backend = _Backend();
-    useCase = OpenFinishedMatchUseCase(db, backend.api, OfficialRepository(db));
+    useCase = FinishedMatchLoader(db, backend.api, OfficialRepository(db));
 
     await db
         .into(db.tournaments)

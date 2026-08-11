@@ -1,12 +1,15 @@
-import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
+// `Uint8List` es de `dart:typed_data` y `log` de `dart:developer`: ninguno
+// necesita Flutter. Antes se tiraba de `flutter/foundation` por costumbre, y
+// eso ataba el dominio al framework (regla 3 del plan).
+import 'dart:developer';
+import 'dart:typed_data';
 
-import 'package:myapp/core/database/app_database.dart';
 import 'package:myapp/features/match/data/datasources/match_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/reports/data/pdf_generator.dart';
 import 'package:myapp/features/match/domain/repositories/official_repository_contract.dart';
 import 'package:myapp/features/match/domain/entities/match_finalize_params.dart';
+import 'package:myapp/features/match/domain/repositories/match_closing_repository.dart';
 import 'package:myapp/features/match/domain/repositories/match_finalization_port.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 
@@ -18,14 +21,14 @@ import 'package:myapp/features/match/domain/entities/match_state.dart';
 /// [FinalizeResult] y la pantalla decide cómo presentarlo. Esto lo hace
 /// testeable y evita duplicar la orquestación en cada punto de finalización.
 class MatchFinalizer {
-  final AppDatabase _db;
+  final MatchClosingRepository _closing;
   final MatchApi _matchApi;
   final TeamApi _teamApi;
   final OfficialRepositoryContract _officialRepo;
   final MatchFinalizationPort _controller;
 
   MatchFinalizer(
-    this._db,
+    this._closing,
     this._matchApi,
     this._teamApi,
     this._officialRepo,
@@ -42,15 +45,17 @@ class MatchFinalizer {
     try {
       await _controller.reconcileOfflinePlayers(_teamApi);
     } catch (e) {
-      debugPrint("Modo Offline Activo: Se sincronizará después.");
+      log(
+        'Modo offline: los jugadores locales se sincronizarán después.',
+        name: 'MatchFinalizer',
+        error: e,
+      );
     }
 
     // 2. Logo del árbitro (vive en el torneo).
-    final tournamentObj =
-        await (_db.select(_db.tournaments)
-              ..where((t) => t.id.equals(params.tournamentId.toString())))
-            .getSingleOrNull();
-    final String refereeLogoUrl = tournamentObj?.refereeLogoUrl ?? "";
+    final refereeLogoUrl = await _closing.refereeLogoUrl(
+      params.tournamentId.toString(),
+    );
 
     // 3. Firmas de árbitros (recuperadas y decodificadas por el repositorio).
     final signatures = await _officialRepo.getRefereeSignatures(
@@ -91,21 +96,12 @@ class MatchFinalizer {
     );
 
     // 6. Marcar partido y fixture como FINISHED localmente.
-    await (_db.update(_db.matches)
-          ..where((tbl) => tbl.id.equals(state.matchId)))
-        .write(const MatchesCompanion(status: Value('FINISHED')));
-
-    if (state.fixtureId != null) {
-      await (_db.update(
-        _db.fixtures,
-      )..where((tbl) => tbl.id.equals(state.fixtureId!))).write(
-        FixturesCompanion(
-          status: const Value('FINISHED'),
-          scoreA: Value(state.scoreA),
-          scoreB: Value(state.scoreB),
-        ),
-      );
-    }
+    await _closing.markFinished(
+      matchId: state.matchId,
+      fixtureId: state.fixtureId,
+      scoreA: state.scoreA,
+      scoreB: state.scoreB,
+    );
 
     return FinalizeResult(synced: synced, pdfBytes: pdfBytes);
   }
