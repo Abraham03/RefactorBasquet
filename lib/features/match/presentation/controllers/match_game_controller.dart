@@ -9,6 +9,7 @@ import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/engines/score_engine.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
@@ -1066,102 +1067,39 @@ void _applyRestoreSub({
     _saveToDatabase();
   }
 
+  /// Registra puntos o una falta de un jugador.
+  ///
+  /// Las REGLAS (pertenencia al equipo, limite de 5 faltas, marcador por
+  /// periodo, log de eventos) viven en `ScoreEngine`, que es una funcion pura
+  /// y esta cubierta por tests. Aqui solo queda lo que el motor no puede
+  /// hacer: guardar el historial de deshacer y persistir.
   void updateStats(
-  String teamId,
-  String playerId, {
-  int points = 0,
-  int fouls = 0,
-  String? foulType,
-}) {
-  // 1. Obtener las estadísticas actuales del jugador usando su ID único
-  final currentStats = state.playerStats[playerId];
-  if (currentStats == null) return;
+    String teamId,
+    String playerId, {
+    int points = 0,
+    int fouls = 0,
+    String? foulType,
+  }) {
+    final outcome = ScoreEngine.applyPlayerAction(
+      state,
+      teamId: teamId,
+      playerId: playerId,
+      points: points,
+      fouls: fouls,
+      foulType: foulType,
+    );
 
-  // 2. VALIDACIÓN DE PERTENENCIA: 
-  // Verificamos que el jugador pertenezca al equipo solicitado, ya sea que esté en cancha o en banca.
-  final bool isLocal = state.teamAOnCourt.contains(playerId) || state.teamABench.contains(playerId);
-  final bool isVisit = state.teamBOnCourt.contains(playerId) || state.teamBBench.contains(playerId);
+    // Una accion rechazada no debe ensuciar el historial ni la base de datos.
+    if (outcome is! ScoreApplied) return;
 
-  if (teamId == 'A' && !isLocal) return;
-  if (teamId == 'B' && !isVisit) return;
+    _saveToHistory();
+    state = outcome.state;
 
-  // 3. REGLA DE DESCALIFICACIÓN:
-  // Si el jugador ya tiene 5 o más faltas, no permitimos sumar más puntos o faltas.
-  if (currentStats.fouls >= 5 && (points > 0 || fouls > 0)) return;
-
-  // Guardamos el estado actual en el historial para permitir "Undo"
-  _saveToHistory();
-
-  // 4. CÁLCULO DE NUEVOS MARCADORES GLOBALES
-  int newScoreA = state.scoreA + (teamId == 'A' ? points : 0);
-  int newScoreB = state.scoreB + (teamId == 'B' ? points : 0);
-
-  // Determinar el puntaje acumulado del equipo correspondiente después de esta acción
-  int scoreAfter = (teamId == 'A' ? newScoreA : newScoreB);
-
-  // 5. ACTUALIZACIÓN DE PUNTUACIÓN POR PERIODO
-  final newPeriodScores = Map<int, List<int>>.from(state.periodScores);
-  List<int> currentPeriodScore = List.from(newPeriodScores[state.currentPeriod] ?? [0, 0]);
-  
-  if (points > 0) {
-    if (teamId == 'A') {
-      currentPeriodScore[0] += points;
-    } else {
-      currentPeriodScore[1] += points;
+    _saveToDatabase();
+    if (outcome.event != null) {
+      _logEventToDb(outcome.event!.dbPlayerId.toString(), points, fouls, foulType);
     }
   }
-  newPeriodScores[state.currentPeriod] = currentPeriodScore;
-
-  // 6. ACTUALIZACIÓN DE ESTADÍSTICAS DEL JUGADOR (Cancha o Banca)
-  List<String> newFoulDetails = List.from(currentStats.foulDetails);
-  if (fouls > 0) {
-    newFoulDetails.add(foulType ?? "P");
-  }
-
-  final newPlayerStatsMap = Map<String, PlayerStats>.from(state.playerStats);
-  newPlayerStatsMap[playerId] = currentStats.copyWith(
-    points: currentStats.points + points,
-    fouls: currentStats.fouls + fouls,
-    foulDetails: newFoulDetails,
-    hasPlayed: true, // Si se le registra una acción, se marca que participó en el juego
-  );
-
-  // 7. REGISTRO EN EL LOG DE EVENTOS (Indispensable para el Acta PDF y el Undo selectivo)
-  final newScoreLog = List<ScoreEvent>.from(state.scoreLog);
-  if (points > 0 || fouls > 0) {
-    String dorsal = currentStats.playerNumber;
-    String eventType = "UNKNOWN";
-    
-    if (points > 0) eventType = "POINT_$points"; // O simplemente "POINT"
-    if (fouls > 0) eventType = foulType ?? "FOUL";
-
-    newScoreLog.add(
-      ScoreEvent(
-        period: state.currentPeriod,
-        teamId: teamId,
-        playerId: playerId,
-        dbPlayerId: currentStats.dbId,
-        playerNumber: dorsal,
-        points: points,
-        scoreAfter: scoreAfter,
-        type: eventType,
-      ),
-    );
-  }
-
-  // 8. EMISIÓN DEL NUEVO ESTADO
-  state = state.copyWith(
-    scoreA: newScoreA,
-    scoreB: newScoreB,
-    periodScores: newPeriodScores,
-    playerStats: newPlayerStatsMap,
-    scoreLog: newScoreLog,
-  );
-
-  // Persistencia y logs externos
-  _saveToDatabase();
-  _logEventToDb(currentStats.dbId.toString(), points, fouls, foulType);
-}
 
   void substitutePlayer(String teamId, String playerOutId, String playerInId) {
     _saveToHistory();
