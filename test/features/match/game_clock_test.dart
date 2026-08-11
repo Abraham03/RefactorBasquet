@@ -64,7 +64,7 @@ void main() {
     });
   });
 
-  group('Quema automática de tiempos muertos (clutch time)', () {
+  group('Quema automática de tiempos fuera (clutch time)', () {
     test('salta al cruzar 2:00 del último período', () {
       final tick = GameClockRules.advance(
         stateAt(const Duration(seconds: 121), period: 4),
@@ -84,7 +84,7 @@ void main() {
 
     test('salta UNA sola vez, no en cada segundo por debajo de 2:00', () {
       // Se compara por igualdad y no por "menor que": si no, cada tick del
-      // último minuto volvería a quemar tiempos muertos.
+      // último minuto volvería a quemar tiempos fuera.
       final burns = <int>[];
       for (var s = 125; s > 110; s--) {
         final tick = GameClockRules.advance(

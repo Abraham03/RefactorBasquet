@@ -53,14 +53,14 @@ class MatchFinalizer {
       );
     }
 
-    // 2. El partido se cierra: quien no gastó su tiempo muerto de la segunda
+    // 2. El partido se cierra: quien no gastó su tiempo fuera de la segunda
     //    mitad lo pierde, porque ya no hay ocasión de pedirlo. Se aplica
     //    sobre el estado que va al acta.
     //
     //    En vivo esto ya lo hace el reloj al cruzar los dos minutos, pero
     //    solo si el reloj llega a cruzarlos: un partido cerrado tras ajustar
     //    el tiempo a mano se quedaba sin la marca. No afecta al payload del
-    //    backend, que no lleva los tiempos muertos —los deriva de los
+    //    backend, que no lleva los tiempos fuera —los deriva de los
     //    eventos— así que el contrato queda intacto.
     final actaState = state.currentPeriod >= GameClockRules.lastPeriod
         ? _controller.burnUnusedTimeouts()

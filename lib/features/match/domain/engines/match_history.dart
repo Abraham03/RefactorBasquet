@@ -1,5 +1,6 @@
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
+import 'package:myapp/features/match/domain/engines/game_clock.dart';
 
 /// La pila de deshacer del partido.
 ///
@@ -51,18 +52,24 @@ class MatchHistory {
   void clear() => _stack.clear();
 }
 
-/// Deshacer un tiempo muerto.
+/// Deshacer un tiempo fuera.
 ///
 /// No entra en la pila general porque el anotador lo pide de forma explícita
 /// («me equivoqué de equipo»), no como un paso atrás cualquiera: hay que
-/// quitar ese tiempo muerto concreto y su evento del log.
+/// quitar ese tiempo fuera concreto y su evento del log.
 abstract final class TimeoutUndo {
-  /// Deshace el último tiempo muerto registrado.
+  /// Deshace el último tiempo fuera registrado.
   ///
   /// Devuelve `null` si no había ninguno.
   static MatchState? undoLast(MatchState state) {
+    // La quema automática queda fuera: no es una acción del anotador, es la
+    // regla de los dos últimos minutos. Deshacerla falsearía el acta, y
+    // además volvería sola al reconstruir el partido, porque está persistida.
     final last = state.scoreLog
-        .where((e) => e.type.contains('TIMEOUT'))
+        .where(
+          (e) =>
+              EventType.isTimeout(e.type) && !EventType.isAutoTimeout(e.type),
+        )
         .lastOrNull;
     if (last == null) return null;
 
@@ -83,7 +90,7 @@ abstract final class TimeoutUndo {
   }
 }
 
-/// Las seis listas de tiempos muertos, agrupadas para no repetir el `if` de
+/// Las seis listas de tiempos fuera, agrupadas para no repetir el `if` de
 /// período en cada rama.
 class _TimeoutLists {
   _TimeoutLists(this.a1, this.a2, this.aOt, this.b1, this.b2, this.bOt);
@@ -100,7 +107,7 @@ class _TimeoutLists {
   final List<String> a1, a2, aOt, b1, b2, bOt;
 
   /// Los períodos 1-2 son la primera mitad, 3-4 la segunda, y de 5 en adelante
-  /// prórroga: cada tramo tiene su cupo propio de tiempos muertos.
+  /// prórroga: cada tramo tiene su cupo propio de tiempos fuera.
   void removeLastFor({required String teamId, required int period}) {
     final isTeamA = teamId == TeamSide.home;
     final list = switch (period) {
@@ -108,6 +115,11 @@ class _TimeoutLists {
       <= 4 => isTeamA ? a2 : b2,
       _ => isTeamA ? aOt : bOt,
     };
-    if (list.isNotEmpty) list.removeLast();
+    // Se quita la última marca que NO sea la de quema. Hoy la quema siempre
+    // va delante, así que `removeLast` bastaría; se comprueba igualmente para
+    // que un cambio de orden futuro no borre en silencio una marca que el
+    // reglamento impone.
+    final i = list.lastIndexWhere((m) => m != GameClockRules.burnMark);
+    if (i >= 0) list.removeAt(i);
   }
 }

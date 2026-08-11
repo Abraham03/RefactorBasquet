@@ -1,4 +1,4 @@
-// Deshacer: la pila general y el deshacer de tiempo muerto.
+// Deshacer: la pila general y el deshacer de tiempo fuera.
 //
 // El anotador usa deshacer en medio de un partido en vivo, y hasta ahora no
 // tenía ni un test: `_history` era una lista suelta dentro del controller.
@@ -74,7 +74,7 @@ void main() {
     });
   });
 
-  group('Deshacer un tiempo muerto', () {
+  group('Deshacer un tiempo fuera', () {
     test('lo quita de la lista del período correcto', () {
       // Períodos 1-2 primera mitad, 3-4 segunda, 5+ prórroga: cada tramo
       // tiene su cupo, así que hay que devolverlo al que corresponde.
@@ -90,7 +90,7 @@ void main() {
       expect(undone.teamATimeouts1, ['5'], reason: 'el de la 1ª no se toca');
     });
 
-    test('un tiempo muerto de prórroga sale de la lista de prórroga', () {
+    test('un tiempo fuera de prórroga sale de la lista de prórroga', () {
       final state = stateWith(
         aOt: const ['1'],
         log: [timeout(teamId: 'A', period: 5)],
@@ -133,7 +133,7 @@ void main() {
       expect(undone.scoreLog, [basket], reason: 'la canasta se conserva');
     });
 
-    test('sin tiempos muertos en el log devuelve null', () {
+    test('sin tiempos fuera en el log devuelve null', () {
       // `null` evita que el controller guarde en el historial un paso que no
       // cambió nada: si no, deshacer haría falta dos veces.
       expect(TimeoutUndo.undoLast(stateWith()), isNull);

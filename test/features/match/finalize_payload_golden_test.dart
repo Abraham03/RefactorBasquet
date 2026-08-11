@@ -178,7 +178,7 @@ void main() {
   test(
     'los eventos salen de gameEvents, no solo del scoreLog en memoria',
     () async {
-      // gameEvents incluye posesión, tiempos muertos y cambios; el scoreLog en
+      // gameEvents incluye posesión, tiempos fuera y cambios; el scoreLog en
       // memoria solo trae anotación y faltas.
       final payload = await finalize();
       final events = (payload['events'] as List).cast<Map<String, dynamic>>();

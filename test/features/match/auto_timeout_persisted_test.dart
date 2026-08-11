@@ -119,4 +119,63 @@ void main() {
       1,
     );
   });
+
+  group('deshacer el último tiempo fuera', () {
+    test('quita el pedido y borra su fila', () async {
+      controller.addTimeout(TeamSide.home);
+      await pumpEventQueue();
+      expect(controller.state.teamATimeouts2, hasLength(1));
+
+      controller.undoLastTimeout();
+      await pumpEventQueue();
+
+      expect(controller.state.teamATimeouts2, isEmpty);
+      expect(await eventTypes(), isEmpty);
+    });
+
+    test('NO deshace la quema automática', () async {
+      // Es el reglamento, no una acción del anotador. Y aunque se quitara de
+      // la pantalla, volvería sola al reconstruir: está persistida.
+      controller.burnUnusedTimeouts();
+      await pumpEventQueue();
+      expect(controller.state.teamATimeouts2, ['X']);
+
+      controller.undoLastTimeout();
+      await pumpEventQueue();
+
+      expect(controller.state.teamATimeouts2, ['X']);
+      expect(
+        await eventTypes(),
+        containsAll([
+          EventType.autoTimeoutFor(TeamSide.home),
+          EventType.autoTimeoutFor(TeamSide.away),
+        ]),
+      );
+    });
+
+    test('con quema y pedido, se lleva el pedido y deja la X', () async {
+      // El caso real: la lista queda ['X', '1'] y deshacer debe dejar ['X'].
+      controller.burnUnusedTimeouts();
+      await pumpEventQueue();
+      controller.addTimeout(TeamSide.home);
+      await pumpEventQueue();
+      expect(controller.state.teamATimeouts2, hasLength(2));
+
+      controller.undoLastTimeout();
+      await pumpEventQueue();
+
+      expect(controller.state.teamATimeouts2, ['X']);
+      expect(
+        await eventTypes(),
+        isNot(contains(EventType.timeoutFor(TeamSide.home))),
+      );
+    });
+
+    test('sin tiempos fuera pedidos no hace nada', () async {
+      controller.undoLastTimeout();
+      await pumpEventQueue();
+
+      expect(controller.state.teamATimeouts2, isEmpty);
+    });
+  });
 }

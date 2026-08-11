@@ -1,4 +1,4 @@
-// Las reglas de tiempos muertos.
+// Las reglas de tiempos fuera.
 //
 // Vivían repartidas entre tres métodos del controller, con un `if` de período
 // en cada uno, y no tenían ni un test — pese a que lo que escriben acaba
@@ -142,7 +142,7 @@ void main() {
     });
 
     test('por debajo del minuto se anota 1, no 0', () {
-      // Un tiempo muerto pedido a falta de 20 segundos no puede figurar como
+      // Un tiempo fuera pedido a falta de 20 segundos no puede figurar como
       // "minuto 0": eso es el final del período.
       expect(TimeoutEngine.minuteMark(const Duration(seconds: 20)), '1');
       expect(TimeoutEngine.minuteMark(const Duration(seconds: 59)), '1');

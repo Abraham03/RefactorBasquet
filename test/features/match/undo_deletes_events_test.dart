@@ -71,7 +71,7 @@ void main() {
     return rows.map((e) => e.type).toList();
   }
 
-  test('deshacer un tiempo muerto lo borra de la base', () async {
+  test('deshacer un tiempo fuera lo borra de la base', () async {
     controller.addTimeout(TeamSide.home);
     await pumpEventQueue();
     expect(await eventTypes(), [EventType.timeoutFor(TeamSide.home)]);
@@ -87,7 +87,7 @@ void main() {
   });
 
   test('deshacer tres veces los borra los tres', () async {
-    // El caso reportado: se registraron varios tiempos muertos de prueba y se
+    // El caso reportado: se registraron varios tiempos fuera de prueba y se
     // revirtieron; los tres siguieron en la base y viajaron a la nube.
     controller
       ..addTimeout(TeamSide.home)

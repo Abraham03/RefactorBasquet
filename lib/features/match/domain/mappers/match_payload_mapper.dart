@@ -8,7 +8,7 @@ class MappedEvent {
   final Map<String, dynamic> payload;
 
   /// Id del jugador **ya normalizado**: `null` si la jugada no es de nadie
-  /// (falta de banca, tiempo muerto).
+  /// (falta de banca, tiempo fuera).
   final int? playerId;
 
   /// El jugador tiene id temporal negativo: aún no existe en la nube.

@@ -58,7 +58,7 @@ void main() {
       });
 
       // El subconjunto que viaja dentro de `state` es deliberado: la TV pinta
-      // marcador, reloj, período, posesión y tiempos muertos. Las faltas van
+      // marcador, reloj, período, posesión y tiempos fuera. Las faltas van
       // YA CALCULADAS fuera (`teamAFouls`), así que el receptor no necesita
       // `scoreLog` ni `playerStats`.
       expect((json['state']! as Map).keys.toSet(), {

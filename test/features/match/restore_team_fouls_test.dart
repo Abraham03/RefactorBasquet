@@ -1,12 +1,12 @@
 // Regresión de campo: al cambiar el resultado de un partido, el acta
 // regenerada salía SIN las faltas del entrenador ni las de banca, y sin el
-// tiempo muerto que los equipos pierden automáticamente.
+// tiempo fuera que los equipos pierden automáticamente.
 //
 // Las dos causas son de restauración, no de dibujo:
 //
 //   1. La falta de banquillo se guarda como 'C_A' y en vivo es 'C'. El acta
 //      filtra por la forma en vivo, así que con la larga no dibujaba nada.
-//   2. La quema automática de tiempos muertos no deja evento en `gameEvents`
+//   2. La quema automática de tiempos fuera no deja evento en `gameEvents`
 //      —solo toca el estado en memoria—, así que al reabrir se perdía.
 
 import 'package:drift/drift.dart' show Value;
@@ -156,7 +156,7 @@ void main() {
     });
   });
 
-  group('quema automática de tiempos muertos', () {
+  group('quema automática de tiempos fuera', () {
     test('se reconstruye al reabrir un partido que llegó al clutch', () async {
       // Período 4 a 1:30: ya se pasó el umbral de 2:00.
       await restore();
@@ -299,7 +299,7 @@ void main() {
       expect(controller.state.teamBTimeouts2, [GameClockRules.burnMark]);
     });
 
-    test('respeta el tiempo muerto que el equipo sí pidió', () async {
+    test('respeta el tiempo fuera que el equipo sí pidió', () async {
       await logEvent(EventType.timeoutFor(TeamSide.home));
       await restore();
 

@@ -222,7 +222,7 @@ class MatchGameController extends StateNotifier<MatchState>
         final toTeam = event.type.endsWith('_${TeamSide.away}')
             ? TeamSide.away
             : TeamSide.home;
-        // Si el tiempo muerto de la segunda mitad se pidio ANTES de cruzar los
+        // Si el tiempo fuera de la segunda mitad se pidio ANTES de cruzar los
         // dos minutos, el equipo no pierde ninguno. La lista sola no lo dice:
         // ['1'] puede ser el minuto 1 del cuarto periodo (despues de la quema)
         // o el minuto 1 del tercero (antes).
@@ -374,7 +374,7 @@ class MatchGameController extends StateNotifier<MatchState>
       }
     }
 
-    // La quema automática de tiempos muertos no deja evento en `gameEvents`
+    // La quema automática de tiempos fuera no deja evento en `gameEvents`
     // —solo toca el estado en memoria—, así que hay que recalcularla. Va aquí
     // al final, y no dentro del bucle, porque necesita el período y el reloj
     // ya restaurados.
@@ -405,7 +405,7 @@ class MatchGameController extends StateNotifier<MatchState>
     }
   }
 
-  // Reconstruye un tiempo muerto durante el restore, respetando los topes por
+  // Reconstruye un tiempo fuera durante el restore, respetando los topes por
   // sección (2 en cuartos 1-2, 3 en cuartos 3-4, 3 en extras). El marcador del
   // minuto se deriva del reloj guardado del evento (clockTime, ej. "04:59" -> "4").
   // La quema automatica en clutch SI se reconstruye, pero no aqui: no depende
@@ -922,7 +922,7 @@ class MatchGameController extends StateNotifier<MatchState>
     return state; // ← el orquestador usa este retorno, no accede a state directo
   }
 
-  /// Concede un tiempo muerto al equipo si le queda cupo.
+  /// Concede un tiempo fuera al equipo si le queda cupo.
   ///
   /// Las REGLAS (cuantos por tramo, la quema del clutch time, el minuto que
   /// se anota en el acta) viven en TimeoutEngine, que es puro y esta cubierto
@@ -965,7 +965,7 @@ class MatchGameController extends StateNotifier<MatchState>
     _clock.start(_onTick);
   }
 
-  /// Un segundo de reloj. Las REGLAS (cuando quemar tiempos muertos, cada
+  /// Un segundo de reloj. Las REGLAS (cuando quemar tiempos fuera, cada
   /// cuanto persistir, cuando se acabo) viven en GameClockRules, que es puro
   /// y esta cubierto por tests; aqui solo quedan los efectos.
   void _onTick() {
@@ -997,7 +997,7 @@ class MatchGameController extends StateNotifier<MatchState>
     return played || _manualAttendance.contains(playerDbId);
   }
 
-  /// Quema los tiempos muertos de la segunda mitad que no se hayan usado al
+  /// Quema los tiempos fuera de la segunda mitad que no se hayan usado al
   /// llegar al "clutch time".
   void _applyAutoBurn() => burnUnusedTimeouts();
 
@@ -1329,13 +1329,24 @@ class MatchGameController extends StateNotifier<MatchState>
 
   // --- LÓGICA DE UNDO SELECTIVO ---
 
-  // Añade el undo de Tiempo Fuera (Opcional pero recomendado)
+  /// Deshace el último tiempo fuera PEDIDO.
+  ///
+  /// La quema automática de los dos últimos minutos queda fuera: no es una
+  /// acción del anotador sino el reglamento, está persistida y volvería sola
+  /// al reconstruir el partido.
   void undoLastTimeout() {
+    final last = state.scoreLog
+        .where(
+          (e) =>
+              EventType.isTimeout(e.type) && !EventType.isAutoTimeout(e.type),
+        )
+        .lastOrNull;
     final undone = TimeoutUndo.undoLast(state);
-    if (undone == null) return;
+    if (undone == null || last == null) return;
 
     _saveToHistory();
     state = undone;
+    _forgetPersistedEvent(type: last.type, period: last.period);
     _saveToDatabase();
   }
 

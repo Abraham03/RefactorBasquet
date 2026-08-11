@@ -70,7 +70,7 @@ void main() {
     markFinished: true,
   );
 
-  /// Los tiempos muertos del partido, sin el que el anotador revirtió.
+  /// Los tiempos fuera del partido, sin el que el anotador revirtió.
   Future<void> seedTimeouts() async {
     await log(EventType.timeoutFor(TeamSide.away), 1, '8:33');
     await log(EventType.timeoutFor(TeamSide.away), 2, '1:49');
@@ -114,7 +114,7 @@ void main() {
   });
 
   test(
-    'un tiempo muerto NO revertido sí sale, y no desplaza la quema',
+    'un tiempo fuera NO revertido sí sale, y no desplaza la quema',
     () async {
       // El mismo partido si el anotador no hubiera deshecho el de 9:33: ese es
       // de la PRIMERA mitad, así que no afecta a la quema de la segunda.

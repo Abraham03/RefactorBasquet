@@ -83,10 +83,10 @@ abstract final class GameClockRules {
       state.currentPeriod > lastPeriod ||
       (state.currentPeriod == lastPeriod && state.timeLeft <= autoBurnAt);
 
-  /// Marca con la que se anota en el acta un tiempo muerto perdido.
+  /// Marca con la que se anota en el acta un tiempo fuera perdido.
   static const String burnMark = 'X';
 
-  /// ¿Ese tiempo muerto se pidió **antes** del momento de la quema?
+  /// ¿Ese tiempo fuera se pidió **antes** del momento de la quema?
   ///
   /// Los del tercer período, y los del cuarto por encima del umbral, van
   /// antes. Los del cuarto por debajo son de «clutch time»: llegan después
@@ -97,12 +97,12 @@ abstract final class GameClockRules {
   /// Coloca la marca de quema en la lista de la segunda mitad.
   ///
   /// **Va al principio**, y eso es lo que hace falta acertar: la quema ocurre
-  /// al cruzar los dos minutos, así que precede a cualquier tiempo muerto
+  /// al cruzar los dos minutos, así que precede a cualquier tiempo fuera
   /// pedido después. Un equipo que solo pidió en el clutch acaba con
   /// `['X', '1']`, no con `['1']` ni con `['1', 'X']`.
   ///
   /// [usedBeforeBurn] no se puede deducir de la lista: al reconstruir un
-  /// partido, `['1']` puede ser un tiempo muerto pedido en el minuto 1 del
+  /// partido, `['1']` puede ser un tiempo fuera pedido en el minuto 1 del
   /// cuarto período —después de la quema, luego toca X— o en el minuto 1 del
   /// tercero —antes, luego no—. Lo sabe quien reproduce los eventos.
   static List<String> withBurnMark(
@@ -113,12 +113,12 @@ abstract final class GameClockRules {
     return [burnMark, ...secondHalf];
   }
 
-  /// Quema los tiempos muertos sin usar de un partido que **se acaba de
+  /// Quema los tiempos fuera sin usar de un partido que **se acaba de
   /// cerrar**, o `null` si no había nada que quemar.
   ///
   /// **No mira el reloj, y es a propósito.** [autoBurnAlreadyHappened] sirve
   /// para un partido en curso: ahí el umbral de los dos minutos es la regla.
-  /// Pero al cerrar, el equipo que no gastó su tiempo muerto de la segunda
+  /// Pero al cerrar, el equipo que no gastó su tiempo fuera de la segunda
   /// mitad lo ha perdido igual, porque ya no queda ocasión de pedirlo.
   ///
   /// La diferencia importa porque el reloj guardado **no siempre llega a
@@ -128,7 +128,7 @@ abstract final class GameClockRules {
   static MatchState? burnUnusedAtEnd(MatchState state) =>
       state.currentPeriod >= lastPeriod ? applyAutoBurn(state) : null;
 
-  /// Quema un tiempo muerto de la segunda mitad a cada equipo que no haya
+  /// Quema un tiempo fuera de la segunda mitad a cada equipo que no haya
   /// gastado ninguno.
   ///
   /// Devuelve `null` si no había nada que quemar, para que el llamador no

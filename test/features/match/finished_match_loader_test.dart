@@ -372,7 +372,7 @@ void main() {
     });
 
     test('un player_id "0" se guarda como nulo', () async {
-      // "0" significa "sin jugador" (falta de banca, tiempo muerto). Guardarlo
+      // "0" significa "sin jugador" (falta de banca, tiempo fuera). Guardarlo
       // tal cual violaría la FK contra `players`.
       await seedLocalActa('M1');
       backend.events = [

@@ -294,6 +294,10 @@ void initState() {
           PopupMenuButton<String>(
             icon: const Icon(Icons.undo, color: Colors.white),
             tooltip: "Deshacer acciones",
+            // Los tiempos fuera tambien cuentan: hasta los arreglos de
+            // agosto no entraban en `scoreLog`, asi que un partido en el
+            // que solo se hubieran pedido tiempos fuera mostraba este
+            // boton en gris.
             enabled: !_isFinished && gameState.scoreLog.isNotEmpty,
             color: AppColors.surfaceVariant,
             shape: RoundedRectangleBorder(
@@ -310,6 +314,9 @@ void initState() {
                   break;
                 case 'SUB':
                   controller.undoLastSubstitution();
+                  break;
+                case 'TIMEOUT':
+                  controller.undoLastTimeout();
                   break;
                 case 'STATE':
                   controller.undo(); // Undo general (historial)
@@ -335,6 +342,12 @@ void initState() {
                 icon: Icons.swap_horiz,
                 text: "Último Cambio",
                 color: Colors.blueAccent,
+              ),
+              _buildUndoMenuItem(
+                value: 'TIMEOUT',
+                icon: Icons.timer_off_outlined,
+                text: "Último Tiempo Fuera",
+                color: Colors.cyanAccent,
               ),
               const PopupMenuDivider(height: 1),
               _buildUndoMenuItem(

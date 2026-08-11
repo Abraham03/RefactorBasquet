@@ -2,7 +2,7 @@ import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 
-/// Los tres cupos de tiempos muertos de un partido.
+/// Los tres cupos de tiempos fuera de un partido.
 ///
 /// No son intercambiables: lo que no se gasta en la primera mitad **no se
 /// arrastra** a la segunda, y cada prórroga trae el suyo.
@@ -23,7 +23,7 @@ enum TimeoutSlot {
   }
 }
 
-/// Las reglas de tiempos muertos.
+/// Las reglas de tiempos fuera.
 ///
 /// Vivían repartidas entre `addTimeout`, `_processTimeoutWithRules` y
 /// `_updateTimeoutList` —tres métodos con un `if` de período cada uno— y no
@@ -32,10 +32,10 @@ abstract final class TimeoutEngine {
   static const int firstHalfLimit = 2;
   static const int secondHalfLimit = 3;
 
-  /// Tope absoluto de tiempos muertos de prórroga, por muchas que se jueguen.
+  /// Tope absoluto de tiempos fuera de prórroga, por muchas que se jueguen.
   static const int overtimeHardLimit = 3;
 
-  /// Concede un tiempo muerto al equipo, si le queda alguno en su cupo.
+  /// Concede un tiempo fuera al equipo, si le queda alguno en su cupo.
   ///
   /// Devuelve `null` si el cupo está agotado: el equipo lo pidió pero no
   /// puede tenerlo, así que el estado no cambia y el llamador no debe
@@ -81,12 +81,12 @@ abstract final class TimeoutEngine {
     );
   }
 
-  /// El minuto que se anota en el acta junto al tiempo muerto.
+  /// El minuto que se anota en el acta junto al tiempo fuera.
   ///
   /// No es un redondeo normal, y es deliberado:
   ///   - `10:00` se anota como 10, pero `9:59` ya es 9;
   ///   - cualquier resto por debajo del minuto cuenta como 1, para que un
-  ///     tiempo muerto pedido a falta de 20 segundos no figure como «minuto 0»;
+  ///     tiempo fuera pedido a falta de 20 segundos no figure como «minuto 0»;
   ///   - solo el reloj exactamente a cero anota 0.
   static String minuteMark(Duration timeLeft) {
     final seconds = timeLeft.inSeconds;
