@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/features/match/domain/engines/game_clock.dart';
+import 'package:myapp/features/match/domain/engines/match_clock_format.dart';
 import 'package:myapp/features/match/domain/engines/match_history.dart';
 import 'package:myapp/features/match/domain/engines/score_engine.dart';
 import 'package:myapp/features/match/domain/engines/substitution_engine.dart';
@@ -255,10 +256,10 @@ Future<void> restoreFromDatabase(
 
     // 5. RESTAURAR RELOJ Y PERIODO desde el último evento registrado.
   final matchRow = await _dao.getMatchById(matchId);
-  if (matchRow != null && matchRow.clockTime.contains(':')) {
-      final parts = matchRow.clockTime.split(':');
-      final mm = int.tryParse(parts[0].trim()) ?? 10;
-      final ss = int.tryParse(parts[1].trim()) ?? 0;
+  if (matchRow != null) {
+      final restored = MatchClockFormat.parse(matchRow.clockTime);
+      final mm = restored.inMinutes;
+      final ss = restored.inSeconds % 60;
       state = state.copyWith(
         timeLeft: Duration(minutes: mm, seconds: ss),
         currentPeriod: matchRow.currentPeriod,
@@ -1144,8 +1145,7 @@ void undoLastSubstitution() {
     // Si el partido ya finalizó, no seguimos escribiendo IN_PROGRESS:
     // eso revertiría el estado FINISHED que dejó el finalizador.
     if (_isFinished) return;
-    final timeStr =
-        "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}";
+    final timeStr = MatchClockFormat.format(state.timeLeft);
     await _dao.updateMatchStatus(
       state.matchId,
       state.scoreA,
@@ -1178,8 +1178,7 @@ void undoLastSubstitution() {
       type = "FOUL";
     }
 
-    final timeStr =
-        "${state.timeLeft.inMinutes}:${(state.timeLeft.inSeconds % 60).toString().padLeft(2, '0')}";
+    final timeStr = MatchClockFormat.format(state.timeLeft);
 
     await _dao.insertEvent(
       GameEventsCompanion.insert(
