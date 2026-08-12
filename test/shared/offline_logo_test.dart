@@ -15,11 +15,11 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:myapp/shared/services/image_loader_service.dart';
-import 'package:myapp/shared/services/logo_store.dart';
+import 'package:myapp/shared/services/image_store.dart';
 
 void main() {
   late Directory root;
-  late FileLogoStore store;
+  late FileImageStore store;
   late HttpServer server;
   late String logoUrl;
   var hits = 0;
@@ -34,7 +34,7 @@ void main() {
   setUp(() async {
     hits = 0;
     root = await Directory.systemTemp.createTemp('offline_logo_test');
-    store = FileLogoStore(root: () async => root);
+    store = FileImageStore(root: () async => root);
 
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {

@@ -6,7 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'package:myapp/core/utils/image_format.dart';
 import 'package:myapp/core/utils/image_url_resolver.dart';
-import 'package:myapp/shared/services/logo_store.dart';
+import 'package:myapp/shared/services/image_store.dart';
 
 /// Fallo al obtener o decodificar una imagen remota destinada al PDF.
 /// Lleva siempre la URL para que el log sea accionable.
@@ -43,7 +43,7 @@ class PdfImageLoader {
     String? rawUrl, {
     int targetWidth = 160,
     Duration timeout = const Duration(seconds: 8),
-    LogoStore? cache,
+    ImageStore? cache,
   }) async {
     final url = ImageUrlResolver.resolve(rawUrl);
     if (url == null) return null;
@@ -75,7 +75,7 @@ class PdfImageLoader {
   /// catálogo es el momento de resolverlo: es explícita y tiene red.
   static Future<bool> warmCache(
     String? rawUrl,
-    LogoStore cache, {
+    ImageStore cache, {
     bool refresh = false,
     int targetWidth = 160,
     Duration timeout = const Duration(seconds: 8),

@@ -6,7 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/shared/services/image_loader_service.dart';
-import 'package:myapp/shared/services/logo_store.dart';
+import 'package:myapp/shared/services/image_store.dart';
 import 'package:myapp/features/reports/domain/scoresheet_data.dart';
 import 'package:myapp/features/reports/domain/name_abbreviator.dart';
 
@@ -217,7 +217,7 @@ class PdfGenerator {
   /// Es un campo estático porque [PdfGenerator] lo es entero y no recibe
   /// dependencias; sustituirlo es el único modo de aislar un test del disco.
   /// No guarda estado de dominio: solo la carpeta donde viven los bytes.
-  static LogoStore logoCache = FileLogoStore();
+  static ImageStore logoCache = AppImageStores.logos;
 
   /// Carga un logo sin tumbar la generación del acta si falla.
   ///

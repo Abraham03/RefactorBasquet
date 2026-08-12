@@ -7,7 +7,7 @@ import 'package:myapp/features/catalog/domain/entities/catalog_download.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/constants/match_status.dart';
 import 'package:myapp/shared/services/image_loader_service.dart';
-import 'package:myapp/shared/services/logo_store.dart';
+import 'package:myapp/shared/services/image_store.dart';
 
 /// Sincronización de **bajada**: descarga el catálogo de la nube y reemplaza
 /// el local.
@@ -22,12 +22,12 @@ import 'package:myapp/shared/services/logo_store.dart';
 class CatalogDownloadRepository {
   /// [logoCache] es opcional: sin él la descarga funciona igual, solo que los
   /// logos del acta se bajarán la primera vez que se genere una con red.
-  CatalogDownloadRepository(this._db, this._api, {LogoStore? logoCache})
+  CatalogDownloadRepository(this._db, this._api, {ImageStore? logoCache})
     : _logoCache = logoCache;
 
   final AppDatabase _db;
   final CatalogApi _api;
-  final LogoStore? _logoCache;
+  final ImageStore? _logoCache;
 
   /// Partidos que aún no se han subido.
   ///

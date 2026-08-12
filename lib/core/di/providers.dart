@@ -24,7 +24,7 @@ import 'package:myapp/features/match/data/datasources/official_venue_api.dart';
 import 'package:myapp/features/teams/data/datasources/team_api.dart';
 import 'package:myapp/features/catalog/data/repositories/catalog_download_repository.dart';
 import 'package:myapp/features/catalog/data/repositories/sync_repository.dart';
-import 'package:myapp/features/reports/data/pdf_generator.dart';
+import 'package:myapp/shared/services/image_store.dart';
 import 'package:myapp/features/match/data/repositories/drift_match_closing_repository.dart';
 import 'package:myapp/features/match/data/repositories/official_repository.dart';
 import 'package:myapp/features/match/domain/repositories/match_closing_repository.dart';
@@ -92,7 +92,7 @@ final catalogDownloadRepositoryProvider = Provider<CatalogDownloadRepository>((
     ref.watch(catalogApiProvider),
     // Aprovecha la descarga —que siempre es con red— para dejar los logos del
     // acta en disco. Es el mismo almacén que consulta el generador de PDF.
-    logoCache: PdfGenerator.logoCache,
+    logoCache: AppImageStores.logos,
   );
 });
 
