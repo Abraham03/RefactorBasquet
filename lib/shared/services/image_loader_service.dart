@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'package:myapp/core/utils/image_format.dart';
 import 'package:myapp/core/utils/image_url_resolver.dart';
+import 'package:myapp/shared/services/logo_store.dart';
 
 /// Fallo al obtener o decodificar una imagen remota destinada al PDF.
 /// Lleva siempre la URL para que el log sea accionable.
@@ -32,14 +33,77 @@ class PdfImageLoader {
   ///
   /// [targetWidth] es el ancho máximo en píxeles del ráster embebido; los logos
   /// se dibujan a 53-60 pt, así que 160 px cubre densidades altas de sobra.
+  ///
+  /// Con [cache] la red deja de ser obligatoria: si la URL ya se bajó alguna
+  /// vez, el acta sale con logos **sin cobertura**. Lo que se guarda son los
+  /// bytes ya preparados, no la respuesta cruda, así que el reescalado se paga
+  /// una sola vez. La clave es la URL resuelta, y por eso [targetWidth] no
+  /// debería variar entre llamadas para una misma URL.
   static Future<pw.ImageProvider?> fromNetwork(
     String? rawUrl, {
     int targetWidth = 160,
     Duration timeout = const Duration(seconds: 8),
+    LogoStore? cache,
   }) async {
     final url = ImageUrlResolver.resolve(rawUrl);
     if (url == null) return null;
 
+    if (cache != null) {
+      final hit = await cache.read(url);
+      if (hit != null) return pw.MemoryImage(hit);
+    }
+
+    final prepared = await _fetchPrepared(
+      url,
+      targetWidth: targetWidth,
+      timeout: timeout,
+    );
+    if (cache != null) await cache.write(url, prepared);
+    return pw.MemoryImage(prepared);
+  }
+
+  /// Baja [rawUrl] y la deja en [cache] sin construir la imagen del PDF.
+  ///
+  /// La usa la descarga del catálogo —que por definición ocurre con red— para
+  /// dejar los logos listos antes de que haga falta generar un acta offline.
+  /// Devuelve si quedó cacheada; nunca lanza, porque calentar la caché es un
+  /// extra y no puede hacer fallar una sincronización que sí funcionó.
+  ///
+  /// Con [refresh] se vuelve a bajar aunque ya esté guardada. Hace falta
+  /// porque el backend puede sustituir el escudo **sin cambiar la URL**, y
+  /// entonces la caché serviría el viejo para siempre. La descarga del
+  /// catálogo es el momento de resolverlo: es explícita y tiene red.
+  static Future<bool> warmCache(
+    String? rawUrl,
+    LogoStore cache, {
+    bool refresh = false,
+    int targetWidth = 160,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    final url = ImageUrlResolver.resolve(rawUrl);
+    if (url == null) return false;
+    if (!refresh && await cache.read(url) != null) return true;
+
+    try {
+      final prepared = await _fetchPrepared(
+        url,
+        targetWidth: targetWidth,
+        timeout: timeout,
+      );
+      await cache.write(url, prepared);
+      return true;
+    } catch (e) {
+      debugPrint('[PdfImageLoader] no se pudo precargar $url -> $e');
+      return false;
+    }
+  }
+
+  /// Los bytes listos para embeber: descargados, validados y reescalados.
+  static Future<Uint8List> _fetchPrepared(
+    String url, {
+    required int targetWidth,
+    required Duration timeout,
+  }) async {
     final client = http.Client();
     final http.Response response;
     try {
@@ -60,7 +124,7 @@ class PdfImageLoader {
     switch (sniffImageFormat(bytes)) {
       // JPEG pasa tal cual: el PDF lo embebe como DCTDecode, sin re-encodear.
       case ImageFormatKind.jpeg:
-        return pw.MemoryImage(bytes);
+        return bytes;
 
       // WebP/PNG/GIF/BMP: normalizamos a PNG en un isolate de fondo.
       case ImageFormatKind.webp:
@@ -72,7 +136,7 @@ class PdfImageLoader {
             _decodeAndResizeToPng,
             (bytes: bytes, targetWidth: targetWidth),
           );
-          return pw.MemoryImage(pngBytes);
+          return pngBytes;
         } catch (e) {
           throw ImageLoadException(url, 'no se pudo decodificar: $e');
         }

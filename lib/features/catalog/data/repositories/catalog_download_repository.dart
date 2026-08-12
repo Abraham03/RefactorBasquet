@@ -6,6 +6,8 @@ import 'package:myapp/features/catalog/data/datasources/catalog_api.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_download.dart';
 import 'package:myapp/features/catalog/domain/entities/catalog_models.dart';
 import 'package:myapp/core/constants/match_status.dart';
+import 'package:myapp/shared/services/image_loader_service.dart';
+import 'package:myapp/shared/services/logo_store.dart';
 
 /// Sincronización de **bajada**: descarga el catálogo de la nube y reemplaza
 /// el local.
@@ -18,10 +20,14 @@ import 'package:myapp/core/constants/match_status.dart';
 /// La pantalla conserva lo que le corresponde: preguntar al usuario y mostrar
 /// el resultado. Aquí solo queda el QUÉ se descarga y en qué orden.
 class CatalogDownloadRepository {
-  CatalogDownloadRepository(this._db, this._api);
+  /// [logoCache] es opcional: sin él la descarga funciona igual, solo que los
+  /// logos del acta se bajarán la primera vez que se genere una con red.
+  CatalogDownloadRepository(this._db, this._api, {LogoStore? logoCache})
+    : _logoCache = logoCache;
 
   final AppDatabase _db;
   final CatalogApi _api;
+  final LogoStore? _logoCache;
 
   /// Partidos que aún no se han subido.
   ///
@@ -59,6 +65,8 @@ class CatalogDownloadRepository {
       return Err(StorageException(cause: e));
     }
 
+    await _warmLogos(data.tournaments);
+
     return Ok(
       CatalogDownloadSummary(
         tournaments: data.tournaments.length,
@@ -70,6 +78,24 @@ class CatalogDownloadRepository {
         finishedRosters: data.finishedRosters.length,
       ),
     );
+  }
+
+  /// Deja los logos del acta en disco aprovechando que aquí **sí** hay red.
+  ///
+  /// Va fuera de la transacción a propósito: son descargas, y mantenerlas
+  /// dentro tendría la base bloqueada durante toda la espera de red. Tampoco
+  /// afecta al resultado — un logo que no se pudo precargar solo significa
+  /// que se intentará de nuevo al generar el acta.
+  Future<void> _warmLogos(List<CatalogTournament> tournaments) async {
+    final cache = _logoCache;
+    if (cache == null) return;
+
+    for (final t in tournaments) {
+      // `refresh` porque el backend puede cambiar el escudo dejando la misma
+      // URL; sin esto el acta seguiría imprimiendo el anterior para siempre.
+      await PdfImageLoader.warmCache(t.logoUrl, cache, refresh: true);
+      await PdfImageLoader.warmCache(t.refereeLogoUrl, cache, refresh: true);
+    }
   }
 
   /// Borra los partidos a medio jugar y todo lo que cuelga de ellos.
