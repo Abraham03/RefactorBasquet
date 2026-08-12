@@ -227,6 +227,46 @@ void main() {
       );
     },
   );
+
+  test('nombres kilométricos no rompen el acta ni el anexo', () async {
+    // Los nombres se abrevian para que no invadan la casilla de al lado; qué
+    // se recorta y en qué orden lo fija `name_abbreviator_test`. Aquí lo que
+    // se comprueba es que la medida y el recorte no revientan sobre el
+    // documento real, que es donde muerden: el recorte trabaja con índices.
+    const largo =
+        'CLUB DEPORTIVO DE LA ASOCIACION NACIONAL DE BALONCESTO AMATEUR';
+
+    await expectValidPdf(
+      PdfGenerator.generateBytes(
+        const MatchState(
+          scoreA: 88,
+          scoreB: 12,
+          currentPeriod: 4,
+          observaciones: 'Con anexo, que también lleva los nombres.',
+        ),
+        largo,
+        '$largo DE LA ZONA METROPOLITANA',
+        tournamentName: largo,
+        categoryName: largo,
+        venueName: largo,
+        matchDate: DateTime(2026, 3, 1, 18, 30),
+      ),
+    );
+  });
+
+  test('un nombre de una sola letra tampoco rompe', () async {
+    // El otro extremo del recorte: no debe quedarse sin caracteres que cortar.
+    await expectValidPdf(
+      PdfGenerator.generateBytes(
+        _matchWith(scoreA: 1, scoreB: 0),
+        'A',
+        'B',
+        tournamentName: 'X',
+        categoryName: '',
+        venueName: '',
+      ),
+    );
+  });
 }
 
 /// PNG 1x1 transparente, lo mínimo que `pw.MemoryImage` acepta.

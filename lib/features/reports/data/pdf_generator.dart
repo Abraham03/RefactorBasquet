@@ -6,7 +6,9 @@ import 'package:printing/printing.dart';
 import 'package:myapp/features/match/domain/entities/match_state.dart';
 import 'package:myapp/features/match/domain/constants/match_constants.dart';
 import 'package:myapp/shared/services/image_loader_service.dart';
+import 'package:myapp/shared/services/logo_store.dart';
 import 'package:myapp/features/reports/domain/scoresheet_data.dart';
+import 'package:myapp/features/reports/domain/name_abbreviator.dart';
 
 class PdfCoords {
 
@@ -140,23 +142,113 @@ class PdfCoords {
 
   static const double protestSignatureX = 175.0;
   static const double protestSignatureY = 17.0;
+
+  // --- Anchos de casilla ---
+  //
+  // El acta se dibuja en coordenadas absolutas sobre una plantilla, y
+  // `_drawText` no impone ancho: un nombre largo no se recorta, **invade la
+  // casilla de al lado**. En un acta de campo salió `PRUEBA ACTUALIZACIONFecha
+  // 11/08/2026`, con el torneo comiéndose el campo de la fecha.
+  //
+  // Donde hay otro campo a la derecha en la misma fila, el ancho se DERIVA de
+  // su X en vez de ser un número suelto que se olvidaría al mover la casilla.
+
+  /// Ancho de la hoja A4 en puntos, para los campos que llegan al margen.
+  static const double pageWidth = 595.0;
+
+  /// Aire que se deja antes del campo siguiente.
+  static const double fieldGap = 6.0;
+
+  /// Margen derecho de los campos que no tienen vecino.
+  static const double rightMargin = 30.0;
+
+  /// Competencia: hasta donde empieza la fecha.
+  static const double competitionWidth = dateX - competitionX - fieldGap;
+
+  /// Categoría: hasta el margen derecho.
+  static const double categoryWidth = pageWidth - categoryX - rightMargin;
+
+  /// Cancha: hasta donde empieza el árbitro principal.
+  static const double placeWidth = referee1X - placeX - fieldGap;
+
+  /// Equipo ganador, al pie: hasta el margen derecho.
+  static const double winningTeamWidth = pageWidth - winningTeamX - rightMargin;
+
+  /// Nombre de equipo en su bloque de anotación. No tiene vecino en esa fila;
+  /// el límite es donde arranca la columna del marcador corrido.
+  static const double teamNameWidth = runScoreCol1X - teamANameX - 20.0;
+
+  /// Cabecera: el equipo A llega hasta donde empieza el B.
+  static const double teamAName2Width = teamBName2X - teamAName2X - fieldGap;
+  static const double teamBName2Width = pageWidth - teamBName2X - rightMargin;
+
+  // --- Segunda hoja (reporte arbitral) ---
+  //
+  // Esta no va en coordenadas absolutas sino en `Row`/`Column`, pero se
+  // desbordaba igual: un `Row` con `spaceBetween` y textos sin restringir
+  // recortaba la columna derecha. En un acta de campo salió `Fecha: 11/` y
+  // `Marcador: COBRAS 7 - 6 CLIPPERS NUEVA GENE`.
+
+  /// Margen de página de la segunda hoja.
+  static const double reportMargin = 40.0;
+
+  /// Ancho útil de la hoja una vez descontados los márgenes.
+  static const double reportContentWidth = pageWidth - reportMargin * 2;
+
+  /// Cada columna del recuadro de datos: el ancho útil menos el `padding` del
+  /// recuadro (10 por lado) y su borde (1,5 por lado), a repartir entre dos.
+  static const double reportColumnWidth = (reportContentWidth - 20 - 3) / 2;
+
+  /// Lo que le queda a un nombre de equipo en ese recuadro: la columna menos
+  /// el texto fijo más largo que lo acompaña (`Marcador: ` y el tanteo),
+  /// repartido entre los dos equipos que caben en la misma línea.
+  static const double reportTeamNameWidth = (reportColumnWidth - 95) / 2;
+
+  /// Un valor suelto del recuadro (categoría, cancha) menos su etiqueta.
+  static const double reportFieldWidth = reportColumnWidth - 60;
+
+  /// El nombre del torneo en la cabecera, entre los dos escudos de 60 pt.
+  static const double reportTournamentWidth = reportContentWidth - 130;
 }
 
 class PdfGenerator {
-  /// Carga un logo remoto sin tumbar la generación del acta si falla.
+  /// Caché de logos del acta.
+  ///
+  /// Es un campo estático porque [PdfGenerator] lo es entero y no recibe
+  /// dependencias; sustituirlo es el único modo de aislar un test del disco.
+  /// No guarda estado de dominio: solo la carpeta donde viven los bytes.
+  static LogoStore logoCache = FileLogoStore();
+
+  /// Carga un logo sin tumbar la generación del acta si falla.
   ///
   /// El acta debe salir igual (sin logo) ante un 404 o un timeout, pero el
   /// fallo se registra con URL y causa concreta — antes se perdía el motivo
   /// porque nunca se validaba el `statusCode`.
+  ///
+  /// Mira primero la caché, y por eso un partido jugado **sin cobertura** sale
+  /// con logos: basta con que se hayan bajado alguna vez. Antes iba siempre a
+  /// la red, el acta offline salía pelada y ese PDF era justo el que se subía
+  /// después, así que el hueco quedaba para siempre.
   static Future<pw.ImageProvider?> _loadLogo(String url, String label) async {
     if (url.isEmpty) return null;
     try {
-      return await PdfImageLoader.fromNetwork(url);
+      return await PdfImageLoader.fromNetwork(url, cache: logoCache);
     } catch (e) {
       debugPrint('[PDF] Logo de $label no cargó -> $e');
       return null;
     }
   }
+
+  /// Abrevia con la tipografía REAL del documento.
+  ///
+  /// Medir de verdad, y no a golpe de "caracteres que caben", importa porque
+  /// el acta va en Roboto: `IIIIIIIIII` y `WWWWWWWWWW` ocupan lo mismo en un
+  /// presupuesto de caracteres y el triple de diferencia en la hoja.
+  static _TextFitter _fitterFor(
+    pw.Context context,
+    pw.Font base,
+    pw.Font bold,
+  ) => _TextFitter(base.getFont(context), bold.getFont(context));
 
   static String _createFileName(String teamA, String teamB) {
     final sanitizedA = teamA.replaceAll(" ", "_");
@@ -385,6 +477,11 @@ class PdfGenerator {
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (pw.Context context) {
+            // Los nombres se ajustan aquí y no antes porque medir exige las
+            // fuentes ya registradas en el documento, y eso solo ocurre
+            // dentro del `build`.
+            final fitter = _fitterFor(context, baseFont, boldFont);
+
             return pw.Stack(
               children: [
                 pw.Positioned.fill(child: pw.Image(image, fit: pw.BoxFit.fill)),
@@ -415,15 +512,23 @@ class PdfGenerator {
                     ),
 
                 _drawText(
-                  tournamentName,
+                  fitter.fit(
+                    tournamentName,
+                    maxWidth: PdfCoords.competitionWidth,
+                    fontSize: 9,
+                  ),
                   x: PdfCoords.competitionX,
                   y: PdfCoords.headerY,
                   fontSize: 9,
                   color: PdfColors.blue900,
                 ),
                 _drawText(
-                  categoryName,
-                  x: PdfCoords.categoryX, 
+                  fitter.fit(
+                    categoryName,
+                    maxWidth: PdfCoords.categoryWidth,
+                    fontSize: 9,
+                  ),
+                  x: PdfCoords.categoryX,
                   y: PdfCoords.headerY,
                   fontSize: 9,
                   color: PdfColors.blue900,
@@ -443,7 +548,11 @@ class PdfGenerator {
                   color: PdfColors.blue900,
                 ),
                 _drawText(
-                  venueName,
+                  fitter.fit(
+                    venueName,
+                    maxWidth: PdfCoords.placeWidth,
+                    fontSize: 9,
+                  ),
                   x: PdfCoords.placeX,
                   y: PdfCoords.placeY,
                   fontSize: 9,
@@ -483,7 +592,12 @@ class PdfGenerator {
                   ),
 
                 _drawText(
-                  winningTeam,
+                  fitter.fit(
+                    winningTeam,
+                    maxWidth: PdfCoords.winningTeamWidth,
+                    fontSize: 10,
+                    isBold: true,
+                  ),
                   x: PdfCoords.winningTeamX,
                   y: PdfCoords.winningTeamY,
                   fontSize: 10,
@@ -492,21 +606,34 @@ class PdfGenerator {
                 ),
 
                 _drawText(
-                  teamAName.toUpperCase(),
+                  fitter.fit(
+                    teamAName.toUpperCase(),
+                    maxWidth: PdfCoords.teamNameWidth,
+                    isBold: true,
+                  ),
                   x: PdfCoords.teamANameX,
                   y: PdfCoords.teamANameY,
                   isBold: true,
                   color: PdfColors.blue900,
                 ),
                 _drawText(
-                  teamBName.toUpperCase(),
+                  fitter.fit(
+                    teamBName.toUpperCase(),
+                    maxWidth: PdfCoords.teamNameWidth,
+                    isBold: true,
+                  ),
                   x: PdfCoords.teamBNameX,
                   y: PdfCoords.teamBNameY,
                   isBold: true,
                   color: PdfColors.blue900,
                 ),
                 _drawText(
-                  teamAName.toUpperCase(),
+                  fitter.fit(
+                    teamAName.toUpperCase(),
+                    maxWidth: PdfCoords.teamAName2Width,
+                    fontSize: 10,
+                    isBold: true,
+                  ),
                   x: PdfCoords.teamAName2X,
                   y: PdfCoords.teamAName2Y,
                   isBold: true,
@@ -514,7 +641,12 @@ class PdfGenerator {
                   color: PdfColors.blue900,
                 ),
                 _drawText(
-                  teamBName.toUpperCase(),
+                  fitter.fit(
+                    teamBName.toUpperCase(),
+                    maxWidth: PdfCoords.teamBName2Width,
+                    fontSize: 10,
+                    isBold: true,
+                  ),
                   x: PdfCoords.teamBName2X,
                   y: PdfCoords.teamBName2Y,
                   isBold: true,
@@ -644,6 +776,8 @@ class PdfGenerator {
           data,
           tournLogoProvider,
           refereeLogoProvider,
+          baseFont: baseFont,
+          boldFont: boldFont,
         );
       }
     } catch (e) {
@@ -661,8 +795,10 @@ class PdfGenerator {
     pw.Document pdf,
     ScoresheetData data,
     pw.ImageProvider? tournLogoProvider,
-    pw.ImageProvider? refereeLogoProvider,
-  ) {
+    pw.ImageProvider? refereeLogoProvider, {
+    required pw.Font baseFont,
+    required pw.Font boldFont,
+  }) {
     final state = data.state;
     final teamAName = data.teamAName;
     final teamBName = data.teamBName;
@@ -679,8 +815,25 @@ class PdfGenerator {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40), // Márgenes formales
+        margin: const pw.EdgeInsets.all(
+          PdfCoords.reportMargin,
+        ), // Márgenes formales
         build: (pw.Context context) {
+          final fitter = _fitterFor(context, baseFont, boldFont);
+          // Los nombres se abrevian una vez y se reutilizan en las dos líneas
+          // que los mencionan, para que el acta no diga `CLIPPERS N. G.` en
+          // una y `CLIPPERS NUEVA G.` en la de al lado.
+          final teamAShort = fitter.fit(
+            teamAName,
+            maxWidth: PdfCoords.reportTeamNameWidth,
+            isBold: true,
+          );
+          final teamBShort = fitter.fit(
+            teamBName,
+            maxWidth: PdfCoords.reportTeamNameWidth,
+            isBold: true,
+          );
+
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -694,15 +847,24 @@ class PdfGenerator {
                   else
                     pw.SizedBox(width: 60, height: 60),
                   
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      pw.Text("REPORTE ARBITRAL / ANEXO DE NOVEDADES", 
-                        style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                      pw.SizedBox(height: 4),
-                      pw.Text(tournamentName.toUpperCase(), 
-                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                    ]
+                  // `Expanded` para que un torneo de nombre largo no empuje
+                  // el escudo de la asociación fuera de la hoja.
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text("REPORTE ARBITRAL / ANEXO DE NOVEDADES",
+                          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          fitter.fit(
+                            tournamentName.toUpperCase(),
+                            maxWidth: PdfCoords.reportTournamentWidth,
+                            isBold: true,
+                          ),
+                          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      ]
+                    ),
                   ),
 
                   if (refereeLogoProvider != null)
@@ -720,24 +882,31 @@ class PdfGenerator {
                   border: pw.Border.all(color: PdfColors.blue900, width: 1.5),
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                 ),
+                // Cada columna acotada a su mitad: antes competían por el
+                // ancho y la de la derecha salía recortada («Fecha: 11/»).
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text("Partido: $teamAName vs $teamBName", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                        pw.Text("Categoría: $categoryName"),
-                        pw.Text("Cancha: $venueName"),
-                      ]
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text("Partido: $teamAShort vs $teamBShort", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          pw.Text("Categoría: ${fitter.fit(categoryName, maxWidth: PdfCoords.reportFieldWidth)}"),
+                          pw.Text("Cancha: ${fitter.fit(venueName, maxWidth: PdfCoords.reportFieldWidth)}"),
+                        ]
+                      ),
                     ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text("Fecha: $dateStr", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                        pw.Text("Hora: $timeStr"),
-                        pw.Text("Marcador: $teamAName ${state.scoreA} - ${state.scoreB} $teamBName"),
-                      ]
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text("Fecha: $dateStr", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          pw.Text("Hora: $timeStr"),
+                          pw.Text("Marcador: $teamAShort ${state.scoreA} - ${state.scoreB} $teamBShort"),
+                        ]
+                      ),
                     ),
                   ]
                 )
@@ -1684,6 +1853,32 @@ class PdfGenerator {
           color: color,
         ),
       ),
+    );
+  }
+}
+
+/// Ajusta un nombre al ancho de su casilla midiendo con las fuentes del PDF.
+///
+/// Separa el QUÉ del CÓMO: [NameAbbreviator] decide qué se recorta y en qué
+/// orden sin saber nada de tipografías; esto solo sabe medir.
+class _TextFitter {
+  const _TextFitter(this._base, this._bold);
+
+  final PdfFont _base;
+  final PdfFont _bold;
+
+  /// [text] tal cual si cabe en [maxWidth]; si no, la versión más larga que sí.
+  String fit(
+    String text, {
+    required double maxWidth,
+    double fontSize = 12,
+    bool isBold = false,
+  }) {
+    final font = isBold ? _bold : _base;
+    return NameAbbreviator.fit(
+      text,
+      fits: (candidate) =>
+          font.stringMetrics(candidate).width * fontSize <= maxWidth,
     );
   }
 }
